@@ -4,18 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"node server.js\" \"vite\"",
-    "dev:ui": "vite",
+    "api": "node server.js",
+    "dev": "concurrently \"npm run api\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@notionhq/client": "^5.21.0",
+    "@notionhq/client": "^2.3.0",
     "concurrently": "^9.2.1",
     "cors": "^2.8.6",
     "date-fns": "^3.3.1",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1",
+    "express": "^4.22.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
     "lucide-react": "^0.344.0",

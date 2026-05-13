@@ -1,4 +1,5 @@
-// Local development API server — mirrors the Vercel serverless functions
+// Local development API server (Express v4)
+// In production on Vercel, the api/ folder handles these routes automatically.
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
@@ -8,7 +9,7 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-app.get('/api/orders', async (req, res) => {
+app.get('/api/orders', async (_req, res) => {
   try { res.json(await notion.getAllOrders()) }
   catch (err) { res.status(500).json({ error: err.message }) }
 })
@@ -33,5 +34,7 @@ app.delete('/api/orders/:id', async (req, res) => {
   catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-const PORT = 3001
-app.listen(PORT, () => console.log(`[koko-api] running on http://localhost:${PORT}`))
+const PORT = process.env.API_PORT || 3002
+app.listen(PORT, () => {
+  console.log(`[koko-api] running on http://localhost:${PORT}`)
+})

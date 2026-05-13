@@ -1,5 +1,5 @@
-// All data operations go through the /api routes (Vercel functions in prod,
-// Express server on port 3001 in dev via Vite proxy).
+// Reads/writes through the local Express server (dev) or Vercel functions (prod).
+// The Notion token never touches the browser — all API calls go server-side.
 
 export const STATUS_OPTIONS = [
   { value: 'New',              label: 'New',              color: 'bg-blue-100 text-blue-800',    dot: 'bg-blue-500' },
@@ -26,8 +26,7 @@ export const groupByStatus = (orders) => {
   return grouped
 }
 
-// ── API helpers ─────────────────────────────────────────────────────
-async function apiFetch(path, options = {}) {
+async function api(path, options = {}) {
   const res = await fetch(`/api${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
@@ -38,16 +37,8 @@ async function apiFetch(path, options = {}) {
   return data
 }
 
-// ── CRUD ─────────────────────────────────────────────────────────────
-export const getOrders = () => apiFetch('/orders')
-
-export const getOrderById = (id) => apiFetch(`/orders/${id}`)
-
-export const addOrder = (order) =>
-  apiFetch('/orders', { method: 'POST', body: JSON.stringify(order) })
-
-export const updateOrder = (id, updates) =>
-  apiFetch(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify(updates) })
-
-export const deleteOrder = (id) =>
-  apiFetch(`/orders/${id}`, { method: 'DELETE' })
+export const getOrders    = ()         => api('/orders')
+export const getOrderById = (id)       => api(`/orders/${id}`)
+export const addOrder     = (order)    => api('/orders',      { method: 'POST',  body: JSON.stringify(order) })
+export const updateOrder  = (id, upd)  => api(`/orders/${id}`,{ method: 'PATCH', body: JSON.stringify(upd) })
+export const deleteOrder  = (id)       => api(`/orders/${id}`,{ method: 'DELETE' })
