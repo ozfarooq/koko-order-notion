@@ -36,7 +36,12 @@ function OrderCard({ order }) {
       <p className="text-sm font-semibold text-gray-900 leading-tight mb-1">{order.customer}</p>
 
       {order.product && (
-        <p className="text-xs text-gray-500 leading-snug mb-3 line-clamp-2">{order.product}</p>
+        <p className="text-xs text-gray-500 leading-snug mb-1 line-clamp-2">{order.product}</p>
+      )}
+      {order.size && (
+        <span className="inline-block rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600 mb-2">
+          {order.size}
+        </span>
       )}
 
       <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">

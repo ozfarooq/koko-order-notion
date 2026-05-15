@@ -49,6 +49,7 @@ function OrderRow({ order, onClick, selected, onToggle }) {
       </td>
       <td className="px-2 py-3 text-sm text-gray-800 cursor-pointer" onClick={() => onClick(order.id)}>{order.customer}</td>
       <td className="px-2 py-3 text-sm text-gray-600 max-w-xs truncate cursor-pointer" onClick={() => onClick(order.id)}>{order.product}</td>
+      <td className="px-2 py-3 text-sm text-gray-600 cursor-pointer" onClick={() => onClick(order.id)}>{order.size || '—'}</td>
       <td className="px-2 py-3 text-sm text-gray-600 cursor-pointer" onClick={() => onClick(order.id)}>
         {order.deliveryDate
           ? new Date(order.deliveryDate).toLocaleDateString('en-PK', {
@@ -102,6 +103,7 @@ function StatusGroup({ statusMeta, orders, onRowClick, selectedIds, onToggle }) 
                 <th className="py-2 pl-2 pr-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Order</th>
                 <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Customer</th>
                 <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Product</th>
+                <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Size</th>
                 <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Delivery</th>
                 <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Amount</th>
                 <th className="py-2 pl-2 pr-4 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Status</th>
