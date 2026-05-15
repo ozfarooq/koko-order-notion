@@ -3,12 +3,25 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import OrderForm from './pages/OrderForm'
 import OrderDetail from './pages/OrderDetail'
+import Login from './pages/Login'
+import { isLoggedIn } from './utils/auth'
+
+function ProtectedRoute({ children }) {
+  return isLoggedIn() ? children : <Navigate to="/login" replace />
+}
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<Layout />}>
+        <Route path="/login" element={<Login />} />
+        <Route
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<Dashboard />} />
           <Route path="/orders/new" element={<OrderForm />} />
           <Route path="/orders/:id" element={<OrderDetail />} />

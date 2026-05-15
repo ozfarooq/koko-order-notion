@@ -1,7 +1,15 @@
-import { Outlet, NavLink } from 'react-router-dom'
-import { LayoutDashboard, PlusCircle } from 'lucide-react'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { LayoutDashboard, PlusCircle, LogOut } from 'lucide-react'
+import { logout } from '../utils/auth'
 
 export default function Layout() {
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login', { replace: true })
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
@@ -54,7 +62,14 @@ export default function Layout() {
           </NavLink>
         </nav>
 
-        <div className="border-t border-white/10 px-4 py-3">
+        <div className="border-t border-white/10 px-3 py-3 space-y-2">
+          <button
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
+          >
+            <LogOut size={16} />
+            Logout
+          </button>
           <p className="text-[10px] text-white/30 text-center">Koko Atelier &copy; 2026</p>
         </div>
       </aside>

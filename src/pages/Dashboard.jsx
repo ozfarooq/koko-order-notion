@@ -189,11 +189,9 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4">
         <StatCard icon={Package}    label="Total Orders"  value={orders.length} color="bg-brand-600" />
         <StatCard icon={TrendingUp} label="Active Orders" value={activeOrders}  color="bg-amber-500" />
-        <StatCard icon={Clock}      label="In Tailoring"  value={grouped['In Tailoring']?.length || 0} color="bg-purple-500" />
-        <StatCard icon={Users}      label="Pending Payment" value={grouped['Payment Pending']?.length || 0} color="bg-orange-500" />
       </div>
       <div className="grid grid-cols-4 gap-3 lg:grid-cols-8">
         {STATUS_OPTIONS.map((s) => (
