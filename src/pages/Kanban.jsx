@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RefreshCw, PlusCircle, Calendar } from 'lucide-react'
+import { RefreshCw, PlusCircle, Calendar, Link } from 'lucide-react'
 import { getOrders, updateOrder } from '../data/storage'
 
 const KANBAN_COLUMNS = [
@@ -135,7 +135,16 @@ export default function Kanban() {
   const [draggingId, setDraggingId] = useState(null)
   const [dragOverCol,setDragOverCol]= useState(null)
   const [saving,     setSaving]     = useState(null)  // col value currently saving
+  const [copied,     setCopied]     = useState(false)
   const dragOrder = useRef(null)
+
+  const handleShare = () => {
+    const url = `${window.location.origin}/board`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -211,6 +220,10 @@ export default function Kanban() {
           <p className="text-sm text-gray-500">{orders.length} orders · drag cards to change status</p>
         </div>
         <div className="flex items-center gap-2">
+          <button className="btn-secondary" onClick={handleShare}>
+            <Link size={14} />
+            {copied ? 'Copied!' : 'Share Board'}
+          </button>
           <button className="btn-secondary" onClick={load} disabled={loading}>
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             Refresh

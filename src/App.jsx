@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import OrderForm from './pages/OrderForm'
 import OrderDetail from './pages/OrderDetail'
 import Kanban from './pages/Kanban'
+import BoardReadOnly from './pages/BoardReadOnly'
 import Login from './pages/Login'
 import { isLoggedIn } from './utils/auth'
 
@@ -16,6 +17,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/board" element={<BoardReadOnly />} />
         <Route
           element={
             <ProtectedRoute>
