@@ -19,6 +19,18 @@ function StatCard({ icon: Icon, label, value, color }) {
   )
 }
 
+function StatusStatCard({ label, value, dot }) {
+  return (
+    <div className="card p-4">
+      <div className="flex items-center gap-1.5 mb-1">
+        <div className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${dot}`} />
+        <p className="text-xs text-gray-500 leading-tight">{label}</p>
+      </div>
+      <p className="text-2xl font-bold text-gray-900">{value}</p>
+    </div>
+  )
+}
+
 function OrderRow({ order, onClick, selected, onToggle }) {
   return (
     <tr
@@ -155,8 +167,6 @@ export default function Dashboard() {
 
   const grouped = groupByStatus(orders)
   const activeOrders = orders.filter((o) => !['Cancelled', 'Returned', 'Paid'].includes(o.status)).length
-  const pendingPayment = orders.filter((o) => ['Payment Pending', 'New'].includes(o.status)).length
-  const inTailoring = orders.filter((o) => o.status === 'In Tailoring').length
 
   return (
     <div className="p-6 space-y-6">
@@ -180,10 +190,15 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard icon={Package}    label="Total Orders"     value={orders.length} color="bg-brand-600" />
-        <StatCard icon={TrendingUp} label="Active Orders"    value={activeOrders}  color="bg-amber-500" />
-        <StatCard icon={Clock}      label="In Tailoring"     value={inTailoring}   color="bg-purple-500" />
-        <StatCard icon={Users}      label="Pending Payment"  value={pendingPayment} color="bg-orange-500" />
+        <StatCard icon={Package}    label="Total Orders"  value={orders.length} color="bg-brand-600" />
+        <StatCard icon={TrendingUp} label="Active Orders" value={activeOrders}  color="bg-amber-500" />
+        <StatCard icon={Clock}      label="In Tailoring"  value={grouped['In Tailoring']?.length || 0} color="bg-purple-500" />
+        <StatCard icon={Users}      label="Pending Payment" value={grouped['Payment Pending']?.length || 0} color="bg-orange-500" />
+      </div>
+      <div className="grid grid-cols-4 gap-3 lg:grid-cols-8">
+        {STATUS_OPTIONS.map((s) => (
+          <StatusStatCard key={s.value} label={s.label} value={grouped[s.value]?.length || 0} dot={s.dot} />
+        ))}
       </div>
 
       {/* Error */}
