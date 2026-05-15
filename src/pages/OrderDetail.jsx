@@ -143,7 +143,7 @@ export default function OrderDetail() {
   const measurementNotes = order.measurements?.additionalNotes || ''
 
   return (
-    <div className="p-6">
+    <div className="h-full overflow-y-auto p-6">
       {/* ── Header ── */}
       <div className="mb-6 flex items-start gap-4">
         <button

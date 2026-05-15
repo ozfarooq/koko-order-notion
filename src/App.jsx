@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import OrderForm from './pages/OrderForm'
 import OrderDetail from './pages/OrderDetail'
+import Kanban from './pages/Kanban'
 import Login from './pages/Login'
 import { isLoggedIn } from './utils/auth'
 
@@ -23,6 +24,7 @@ export default function App() {
           }
         >
           <Route index element={<Dashboard />} />
+          <Route path="/kanban" element={<Kanban />} />
           <Route path="/orders/new" element={<OrderForm />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/orders/:id/edit" element={<OrderForm />} />

@@ -158,7 +158,7 @@ export default function OrderForm() {
   }
 
   return (
-    <div className="p-6">
+    <div className="h-full overflow-y-auto p-6">
       <div className="mb-6 flex items-center gap-4">
         <button
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
