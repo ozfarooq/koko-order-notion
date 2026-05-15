@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PlusCircle, ChevronDown, ChevronRight, Package, Users, TrendingUp, Clock, RefreshCw } from 'lucide-react'
+import { PlusCircle, ChevronDown, ChevronRight, Package, Users, TrendingUp, Clock, RefreshCw, FileDown, X } from 'lucide-react'
 import { getOrders, groupByStatus, STATUS_OPTIONS } from '../data/storage'
 import StatusBadge from '../components/StatusBadge'
+import { generateSummaryPDF } from '../utils/generatePDF'
 
 function StatCard({ icon: Icon, label, value, color }) {
   return (
@@ -18,39 +19,49 @@ function StatCard({ icon: Icon, label, value, color }) {
   )
 }
 
-function OrderRow({ order, onClick }) {
+function OrderRow({ order, onClick, selected, onToggle }) {
   return (
     <tr
-      className="cursor-pointer border-b border-gray-50 transition hover:bg-brand-50/50"
-      onClick={() => onClick(order.id)}
+      className={`border-b border-gray-50 transition hover:bg-brand-50/50 ${selected ? 'bg-brand-50/70' : ''}`}
     >
-      <td className="py-3 pl-4 pr-2">
+      <td className="py-3 pl-3 pr-1" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggle(order.id)}
+          className="h-4 w-4 rounded border-gray-300 accent-brand-600 cursor-pointer"
+        />
+      </td>
+      <td className="py-3 pl-2 pr-2 cursor-pointer" onClick={() => onClick(order.id)}>
         <span className="font-mono text-sm font-semibold text-brand-700">{order.orderNumber}</span>
       </td>
-      <td className="px-2 py-3 text-sm text-gray-800">{order.customer}</td>
-      <td className="px-2 py-3 text-sm text-gray-600 max-w-xs truncate">{order.product}</td>
-      <td className="px-2 py-3 text-sm text-gray-600">
+      <td className="px-2 py-3 text-sm text-gray-800 cursor-pointer" onClick={() => onClick(order.id)}>{order.customer}</td>
+      <td className="px-2 py-3 text-sm text-gray-600 max-w-xs truncate cursor-pointer" onClick={() => onClick(order.id)}>{order.product}</td>
+      <td className="px-2 py-3 text-sm text-gray-600 cursor-pointer" onClick={() => onClick(order.id)}>
         {order.deliveryDate
           ? new Date(order.deliveryDate).toLocaleDateString('en-PK', {
               day: 'numeric', month: 'short', year: 'numeric',
             })
           : '—'}
       </td>
-      <td className="px-2 py-3 text-sm font-medium text-gray-900">
+      <td className="px-2 py-3 text-sm font-medium text-gray-900 cursor-pointer" onClick={() => onClick(order.id)}>
         {order.amount != null ? `PKR ${Number(order.amount).toLocaleString()}` : '—'}
       </td>
-      <td className="py-3 pl-2 pr-4">
+      <td className="py-3 pl-2 pr-4 cursor-pointer" onClick={() => onClick(order.id)}>
         <StatusBadge status={order.status} />
       </td>
     </tr>
   )
 }
 
-function StatusGroup({ statusMeta, orders, onRowClick }) {
+function StatusGroup({ statusMeta, orders, onRowClick, selectedIds, onToggle }) {
   const [open, setOpen] = useState(
     statusMeta.value === 'New' || statusMeta.value === 'In Tailoring'
   )
   if (orders.length === 0) return null
+
+  const allChecked = orders.every((o) => selectedIds.has(o.id))
+  const toggleAll = () => orders.forEach((o) => onToggle(o.id, !allChecked))
 
   return (
     <div className="card overflow-hidden">
@@ -68,7 +79,15 @@ function StatusGroup({ statusMeta, orders, onRowClick }) {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50/80">
-                <th className="py-2 pl-4 pr-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Order</th>
+                <th className="py-2 pl-3 pr-1">
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    onChange={toggleAll}
+                    className="h-4 w-4 rounded border-gray-300 accent-brand-600 cursor-pointer"
+                  />
+                </th>
+                <th className="py-2 pl-2 pr-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Order</th>
                 <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Customer</th>
                 <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Product</th>
                 <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Delivery</th>
@@ -78,7 +97,13 @@ function StatusGroup({ statusMeta, orders, onRowClick }) {
             </thead>
             <tbody>
               {orders.map((order) => (
-                <OrderRow key={order.id} order={order} onClick={onRowClick} />
+                <OrderRow
+                  key={order.id}
+                  order={order}
+                  onClick={onRowClick}
+                  selected={selectedIds.has(order.id)}
+                  onToggle={(id) => onToggle(id, !selectedIds.has(id))}
+                />
               ))}
             </tbody>
           </table>
@@ -93,6 +118,25 @@ export default function Dashboard() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [printingPDF, setPrintingPDF] = useState(false)
+
+  const toggleSelect = (id, forceValue) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      const shouldAdd = forceValue !== undefined ? forceValue : !next.has(id)
+      shouldAdd ? next.add(id) : next.delete(id)
+      return next
+    })
+  }
+
+  const handlePrintSummary = async () => {
+    const selected = orders.filter((o) => selectedIds.has(o.id))
+    if (!selected.length) return
+    setPrintingPDF(true)
+    try { await generateSummaryPDF(selected) }
+    finally { setPrintingPDF(false) }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -167,6 +211,8 @@ export default function Dashboard() {
               statusMeta={statusMeta}
               orders={grouped[statusMeta.value] || []}
               onRowClick={(id) => navigate(`/orders/${id}`)}
+              selectedIds={selectedIds}
+              onToggle={toggleSelect}
             />
           ))}
 
@@ -185,6 +231,27 @@ export default function Dashboard() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Floating selection bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-3 shadow-2xl">
+          <span className="text-sm font-semibold text-white">{selectedIds.size} order{selectedIds.size !== 1 ? 's' : ''} selected</span>
+          <button
+            className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+            onClick={handlePrintSummary}
+            disabled={printingPDF}
+          >
+            <FileDown size={15} />
+            {printingPDF ? 'Generating...' : 'Print Summary'}
+          </button>
+          <button
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            <X size={15} />
+          </button>
         </div>
       )}
     </div>

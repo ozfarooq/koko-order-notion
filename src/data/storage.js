@@ -19,9 +19,10 @@ export const groupByStatus = (orders) => {
   const grouped = {}
   STATUS_OPTIONS.forEach((s) => { grouped[s.value] = [] })
   orders.forEach((o) => {
-    const key = o.status || 'New'
-    if (!grouped[key]) grouped[key] = []
-    grouped[key].push(o)
+    // Only include orders whose status exactly matches a known status value
+    if (o.status && grouped[o.status] !== undefined) {
+      grouped[o.status].push(o)
+    }
   })
   return grouped
 }

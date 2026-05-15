@@ -1,15 +1,32 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, User, Package, Ruler, CreditCard } from 'lucide-react'
+import { ArrowLeft, Save, User, Package, Tag, CreditCard, Plus, Trash2 } from 'lucide-react'
 import { addOrder, updateOrder, getOrderById, STATUS_OPTIONS } from '../data/storage'
+
+const SIZE_OPTIONS = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
+const EMPTY_LINE   = () => ({ name: '', size: 'Small', qty: 1 })
+
+// Serialize product lines to a human-readable string for Notion
+const formatProductLines = (lines) =>
+  lines.filter((l) => l.name.trim()).map((l) => `${l.name.trim()} (${l.size}) × ${l.qty}`).join('\n')
+
+// Parse a product string back into line objects (for editing existing orders)
+const parseProductLines = (str) => {
+  if (!str) return [EMPTY_LINE()]
+  const lines = str.split('\n').map((line) => {
+    const m = line.match(/^(.+?)\s*\(([^)]+)\)\s*[×x]\s*(\d+)$/)
+    if (m) return { name: m[1].trim(), size: m[2].trim(), qty: parseInt(m[3], 10) }
+    return { name: line.trim(), size: 'Small', qty: 1 }
+  }).filter((l) => l.name)
+  return lines.length ? lines : [EMPTY_LINE()]
+}
 
 const EMPTY_FORM = {
   customer: '',
   email: '',
   phone: '',
   address: '',
-  place: '',
-  product: '',
+  productLines: [EMPTY_LINE()],
   orderDate: new Date().toISOString().split('T')[0],
   deliveryDate: '',
   amount: '',
@@ -17,21 +34,7 @@ const EMPTY_FORM = {
   paymentNotes: '',
   specialInstructions: '',
   status: 'New',
-  measurements: {
-    bodyLength: '',
-    shoulder: '',
-    upperBust: '',
-    bust: '',
-    highWaist: '',
-    armhole: '',
-    muscle: '',
-    wrist: '',
-    sleevesLength: '',
-    dressFullLength: '',
-    lehangaWaist: '',
-    lehangaLength: '',
-    additionalNotes: '',
-  },
+  measurements: { additionalNotes: '' },
 }
 
 function Section({ icon: Icon, title, children }) {
@@ -57,26 +60,6 @@ function Field({ label, children }) {
   )
 }
 
-function MeasurementField({ label, value, onChange, unit = '"' }) {
-  return (
-    <div>
-      <label className="label">{label}</label>
-      <div className="relative">
-        <input
-          type="number"
-          step="0.25"
-          value={value}
-          onChange={onChange}
-          placeholder="—"
-          className="input pr-8"
-        />
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-          {unit}
-        </span>
-      </div>
-    </div>
-  )
-}
 
 export default function OrderForm() {
   const navigate = useNavigate()
@@ -97,7 +80,8 @@ export default function OrderForm() {
           setForm({
             ...EMPTY_FORM,
             ...order,
-            measurements: { ...EMPTY_FORM.measurements, ...(order.measurements || {}) },
+            productLines: parseProductLines(order.product),
+            measurements: { additionalNotes: order.measurements?.additionalNotes || '' },
             orderDate: order.orderDate || new Date().toISOString().split('T')[0],
             deliveryDate: order.deliveryDate || '',
             amount: order.amount ?? '',
@@ -110,15 +94,27 @@ export default function OrderForm() {
   }, [id, isEdit])
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
-  const setMeasurement = (field) => (e) =>
-    setForm((f) => ({ ...f, measurements: { ...f.measurements, [field]: e.target.value } }))
+  const setMeasurementNotes = (e) =>
+    setForm((f) => ({ ...f, measurements: { additionalNotes: e.target.value } }))
+
+  const setLine = (idx, field) => (e) =>
+    setForm((f) => {
+      const lines = f.productLines.map((l, i) => i === idx ? { ...l, [field]: e.target.value } : l)
+      return { ...f, productLines: lines }
+    })
+
+  const addLine = () =>
+    setForm((f) => ({ ...f, productLines: [...f.productLines, EMPTY_LINE()] }))
+
+  const removeLine = (idx) =>
+    setForm((f) => ({ ...f, productLines: f.productLines.filter((_, i) => i !== idx) }))
 
   const balanceDue = (Number(form.amount) || 0) - (Number(form.advancePaid) || 0)
 
   const validate = () => {
     const e = {}
     if (!form.customer.trim()) e.customer = 'Required'
-    if (!form.product.trim()) e.product = 'Required'
+    if (!form.productLines.some((l) => l.name.trim())) e.productLines = 'Add at least one product'
     if (!form.amount) e.amount = 'Required'
     setErrors(e)
     return Object.keys(e).length === 0
@@ -128,7 +124,15 @@ export default function OrderForm() {
     e.preventDefault()
     if (!validate()) return
     setSaving(true)
-    const payload = { ...form, balanceDue }
+    const filledLines = form.productLines.filter((l) => l.name.trim())
+    const payload = {
+      ...form,
+      product:  formatProductLines(filledLines),
+      size:     filledLines[0]?.size || '',
+      quantity: filledLines.reduce((sum, l) => sum + (parseInt(l.qty, 10) || 0), 0),
+      balanceDue,
+    }
+    delete payload.productLines
     try {
       if (isEdit) {
         await updateOrder(id, payload)
@@ -192,9 +196,6 @@ export default function OrderForm() {
             <Field label="Phone">
               <input type="tel" className="input" value={form.phone} onChange={set('phone')} placeholder="+92300 0000000" />
             </Field>
-            <Field label="City / Place">
-              <input className="input" value={form.place} onChange={set('place')} placeholder="Karachi, Lahore..." />
-            </Field>
           </div>
           <Field label="Address">
             <textarea className="input resize-none" rows={2} value={form.address} onChange={set('address')} placeholder="Full delivery address" />
@@ -218,39 +219,72 @@ export default function OrderForm() {
               </select>
             </Field>
           </div>
-          <Field label="Product Description *">
-            <textarea
-              className={`input resize-none ${errors.product ? 'border-red-400' : ''}`}
-              rows={2}
-              value={form.product}
-              onChange={set('product')}
-              placeholder="e.g. Gul Afshan - Small [Customized] - Without Embellishment"
-            />
-            {errors.product && <p className="mt-1 text-xs text-red-500">{errors.product}</p>}
-          </Field>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Products *</span>
+              <button
+                type="button"
+                onClick={addLine}
+                className="flex items-center gap-1 rounded-md border border-brand-300 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
+              >
+                <Plus size={13} /> Add Product
+              </button>
+            </div>
+            {errors.productLines && <p className="mb-2 text-xs text-red-500">{errors.productLines}</p>}
+            <div className="space-y-2">
+              {form.productLines.map((line, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <input
+                    className="input flex-1"
+                    value={line.name}
+                    onChange={setLine(idx, 'name')}
+                    placeholder="Product name"
+                  />
+                  <select
+                    className="input w-32"
+                    value={line.size}
+                    onChange={setLine(idx, 'size')}
+                  >
+                    {SIZE_OPTIONS.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min="1"
+                    className="input w-20"
+                    value={line.qty}
+                    onChange={setLine(idx, 'qty')}
+                    placeholder="Qty"
+                  />
+                  {form.productLines.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeLine(idx)}
+                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-red-200 text-red-400 hover:bg-red-50"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
           <Field label="Special Instructions">
             <textarea className="input resize-none" rows={2} value={form.specialInstructions} onChange={set('specialInstructions')} placeholder="Any special notes..." />
           </Field>
         </Section>
 
         {/* Measurements */}
-        <Section icon={Ruler} title="Measurements">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            <MeasurementField label="Body Length"       value={form.measurements.bodyLength}     onChange={setMeasurement('bodyLength')} />
-            <MeasurementField label="Shoulder"          value={form.measurements.shoulder}       onChange={setMeasurement('shoulder')} />
-            <MeasurementField label="Upper Bust"        value={form.measurements.upperBust}      onChange={setMeasurement('upperBust')}      unit="" />
-            <MeasurementField label="Bust"              value={form.measurements.bust}           onChange={setMeasurement('bust')}           unit="" />
-            <MeasurementField label="High Waist"        value={form.measurements.highWaist}      onChange={setMeasurement('highWaist')}      unit="" />
-            <MeasurementField label="Armhole"           value={form.measurements.armhole}        onChange={setMeasurement('armhole')}        unit="" />
-            <MeasurementField label="Muscle"            value={form.measurements.muscle}         onChange={setMeasurement('muscle')}         unit="" />
-            <MeasurementField label="Wrist"             value={form.measurements.wrist}          onChange={setMeasurement('wrist')}          unit="" />
-            <MeasurementField label="Sleeves Length"    value={form.measurements.sleevesLength}  onChange={setMeasurement('sleevesLength')}  unit="" />
-            <MeasurementField label="Dress Full Length" value={form.measurements.dressFullLength}onChange={setMeasurement('dressFullLength')} unit="" />
-            <MeasurementField label="Lehanga Waist"     value={form.measurements.lehangaWaist}   onChange={setMeasurement('lehangaWaist')}   unit="" />
-            <MeasurementField label="Lehanga Length"    value={form.measurements.lehangaLength}  onChange={setMeasurement('lehangaLength')}  unit="" />
-          </div>
-          <Field label="Measurement Notes">
-            <textarea className="input resize-none" rows={2} value={form.measurements.additionalNotes} onChange={setMeasurement('additionalNotes')} placeholder="e.g. Lehanga length: waist till floor (heel size included)" />
+        <Section icon={Tag} title="Measurements">
+          <Field label="Measurements">
+            <textarea
+              className="input resize-y"
+              rows={5}
+              value={form.measurements.additionalNotes}
+              onChange={setMeasurementNotes}
+              placeholder="e.g. Bust: 36, Waist: 30, Length: 54..."
+            />
           </Field>
         </Section>
 
