@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, User, Package, Tag, CreditCard, Plus, Trash2 } from 'lucide-react'
 import { addOrder, updateOrder, getOrderById, STATUS_OPTIONS } from '../data/storage'
+import ProductInput from '../components/ProductInput'
 
 const SIZE_OPTIONS = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
 const EMPTY_LINE   = () => ({ name: '', size: 'Small', qty: 1 })
@@ -234,11 +235,10 @@ export default function OrderForm() {
             <div className="space-y-2">
               {form.productLines.map((line, idx) => (
                 <div key={idx} className="flex gap-2 items-center">
-                  <input
-                    className="input flex-1"
+                  <ProductInput
                     value={line.name}
                     onChange={setLine(idx, 'name')}
-                    placeholder="Product name"
+                    placeholder="Search product..."
                   />
                   <select
                     className="input w-32"

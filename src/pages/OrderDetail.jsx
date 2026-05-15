@@ -5,6 +5,7 @@ import {
   CreditCard, Calendar, RefreshCw, Save, X, Plus,
 } from 'lucide-react'
 import { getOrderById, deleteOrder, updateOrder, STATUS_OPTIONS } from '../data/storage'
+ import ProductInput from '../components/ProductInput'
 import StatusBadge from '../components/StatusBadge'
 import { generateOrderPDF } from '../utils/generatePDF'
 
@@ -259,7 +260,7 @@ export default function OrderDetail() {
                   <div className="space-y-2">
                     {form.productLines.map((line, idx) => (
                       <div key={idx} className="flex gap-2 items-center">
-                        <input className="input flex-1" value={line.name} onChange={setLine(idx, 'name')} placeholder="Product name" />
+                        <ProductInput value={line.name} onChange={setLine(idx, 'name')} placeholder="Search product..." />
                         <select className="input w-32" value={line.size} onChange={setLine(idx, 'size')}>
                           {SIZE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                         </select>
