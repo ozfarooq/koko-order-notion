@@ -58,7 +58,7 @@ export default function Layout() {
             }
           >
             <Kanban size={16} />
-            Kanban
+            Order Status Board
           </NavLink>
 
           <NavLink
