@@ -5,6 +5,7 @@ import OrderForm from './pages/OrderForm'
 import OrderDetail from './pages/OrderDetail'
 import Kanban from './pages/Kanban'
 import BoardReadOnly from './pages/BoardReadOnly'
+import FashionCollage from './pages/FashionCollage'
 import Login from './pages/Login'
 import { isLoggedIn } from './utils/auth'
 
@@ -27,6 +28,7 @@ export default function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="/kanban" element={<Kanban />} />
+          <Route path="/fashion-collage" element={<FashionCollage />} />
           <Route path="/orders/new" element={<OrderForm />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/orders/:id/edit" element={<OrderForm />} />

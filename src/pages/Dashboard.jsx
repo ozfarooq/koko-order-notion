@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PlusCircle, ChevronDown, ChevronRight, Package, Users, TrendingUp, Clock, RefreshCw, FileDown, X } from 'lucide-react'
-import { getOrders, groupByStatus, STATUS_OPTIONS } from '../data/storage'
+import { getOrders, groupByStatus, STATUS_OPTIONS, FC_STATUSES } from '../data/storage'
 import StatusBadge from '../components/StatusBadge'
 import { generateSummaryPDF } from '../utils/generatePDF'
 
@@ -167,8 +167,9 @@ export default function Dashboard() {
 
   useEffect(() => { load() }, [load])
 
-  const grouped = groupByStatus(orders)
-  const activeOrders = orders.filter((o) => !['Cancelled', 'Returned', 'Paid'].includes(o.status)).length
+  const regularOrders = orders.filter((o) => !FC_STATUSES.includes(o.status))
+  const grouped = groupByStatus(regularOrders)
+  const activeOrders = regularOrders.filter((o) => !['Cancelled', 'Returned', 'Paid'].includes(o.status)).length
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6">

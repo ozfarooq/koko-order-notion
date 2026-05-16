@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Lock, Calendar } from 'lucide-react'
-import { getOrders } from '../data/storage'
+import { getOrders, FC_STATUSES } from '../data/storage'
 
 const KANBAN_COLUMNS = [
   { value: 'New',             label: 'New',             color: 'bg-blue-500',   light: 'bg-blue-50',   border: 'border-blue-200',   text: 'text-blue-700'   },
@@ -108,7 +108,7 @@ export default function BoardReadOnly() {
 
   useEffect(() => { load() }, [load])
 
-  const grouped = groupByStatus(orders)
+  const grouped = groupByStatus(orders.filter((o) => !FC_STATUSES.includes(o.status)))
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#f5f3ff]">

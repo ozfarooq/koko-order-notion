@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RefreshCw, PlusCircle, Calendar, Link } from 'lucide-react'
-import { getOrders, updateOrder } from '../data/storage'
+import { getOrders, updateOrder, FC_STATUSES } from '../data/storage'
 
 const KANBAN_COLUMNS = [
   { value: 'New',             label: 'New',             color: 'bg-blue-500',   light: 'bg-blue-50',   border: 'border-blue-200',   text: 'text-blue-700'   },
@@ -214,7 +214,7 @@ export default function Kanban() {
     dragOrder.current = null
   }
 
-  const grouped = groupByStatus(orders)
+  const grouped = groupByStatus(orders.filter((o) => !FC_STATUSES.includes(o.status)))
 
   return (
     <div className="flex h-full flex-col overflow-hidden">

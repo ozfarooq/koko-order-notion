@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, PlusCircle, LogOut, Kanban } from 'lucide-react'
+import { LayoutDashboard, PlusCircle, LogOut, Kanban, Store } from 'lucide-react'
 import { logout } from '../utils/auth'
 
 export default function Layout() {
@@ -59,6 +59,18 @@ export default function Layout() {
           >
             <Kanban size={16} />
             Order Status Board
+          </NavLink>
+
+          <NavLink
+            to="/fashion-collage"
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                isActive ? 'bg-brand-600 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white'
+              }`
+            }
+          >
+            <Store size={16} />
+            Fashion Collage
           </NavLink>
 
           <NavLink
