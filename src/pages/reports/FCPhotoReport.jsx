@@ -18,7 +18,7 @@ function ProductImage({ name }) {
 
   if (failed) {
     return (
-      <div className="w-full h-52 rounded-xl bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
+      <div className="w-full h-64 rounded-xl bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
         No image
       </div>
     )
@@ -29,7 +29,7 @@ function ProductImage({ name }) {
       src={`/Images/${name}${IMG_EXTS[extIdx]}`}
       alt={name}
       onError={handleError}
-      className="w-full h-52 rounded-xl object-cover object-top"
+      className="w-full h-64 rounded-xl object-contain bg-gray-50"
     />
   )
 }
