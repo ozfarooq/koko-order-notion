@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, Printer } from 'lucide-react'
+import { RefreshCw, Printer, ArrowUp, ArrowDown } from 'lucide-react'
 import { getOrders, FC_STATUSES } from '../../data/storage'
 
 const COMMISSION = 0.30
@@ -12,7 +12,7 @@ const STATUS_KEYS = [
   { key: 'FC - Returned', label: 'Returned', color: 'text-rose-700 bg-rose-50' },
 ]
 
-function buildReport(orders) {
+function buildReport(orders, sortDir = 'asc') {
   const byProduct = {}
   orders.forEach((o) => {
     const name = (o.product || 'Unknown').trim()
@@ -21,7 +21,7 @@ function buildReport(orders) {
   })
 
   return Object.entries(byProduct)
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => sortDir === 'asc' ? a.localeCompare(b) : b.localeCompare(a))
     .map(([product, items]) => {
       const bySizeMap = {}
       items.forEach((o) => {
@@ -53,6 +53,7 @@ export default function FCInventoryReport() {
   const [orders,  setOrders]  = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -65,7 +66,7 @@ export default function FCInventoryReport() {
 
   useEffect(() => { load() }, [load])
 
-  const report = buildReport(orders)
+  const report = buildReport(orders, sortDir)
 
   // Overall totals
   const grandTotal    = orders.length
@@ -86,6 +87,14 @@ export default function FCInventoryReport() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            className="btn-secondary"
+            onClick={() => setSortDir((d) => d === 'asc' ? 'desc' : 'asc')}
+            title={`Sort product name ${sortDir === 'asc' ? 'Z→A' : 'A→Z'}`}
+          >
+            {sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+            Product {sortDir === 'asc' ? 'A→Z' : 'Z→A'}
+          </button>
           <button className="btn-secondary" onClick={() => window.print()}>
             <Printer size={14} /> Print
           </button>

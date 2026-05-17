@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RefreshCw, Store } from 'lucide-react'
+import { RefreshCw, Store, ArrowUp, ArrowDown } from 'lucide-react'
 import { getOrders, updateOrder, FC_STATUS_OPTIONS, FC_STATUSES } from '../data/storage'
 
 const COMMISSION = 0.30
@@ -31,8 +31,15 @@ export default function FashionCollage() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [editingPrice, setEditingPrice] = useState({}) // id -> draft price string
+  const [editingPrice, setEditingPrice] = useState({})
   const [savingId, setSavingId] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
+
+  const sortItems = (list) => [...list].sort((a, b) => {
+    const va = (a.product || '').toLowerCase()
+    const vb = (b.product || '').toLowerCase()
+    return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+  })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -89,7 +96,6 @@ export default function FashionCollage() {
   const paidAED      = orders.filter((o) => o.status === 'FC - Paid').reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
   const pendingAED   = orders.filter((o) => o.status === 'FC - Sold').reduce((s, o) => s + ((Number(o.aedPrice) || 0) * (1 - COMMISSION)), 0)
 
-  // Group by status order
   const grouped = {}
   FC_STATUS_OPTIONS.forEach((s) => { grouped[s.value] = [] })
   orders.forEach((o) => { if (grouped[o.status]) grouped[o.status].push(o) })
@@ -107,10 +113,20 @@ export default function FashionCollage() {
             <p className="text-sm text-gray-500">Consignment stock tracking · 30% commission</p>
           </div>
         </div>
-        <button className="btn-secondary" onClick={load} disabled={loading}>
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className="btn-secondary"
+            onClick={() => setSortDir((d) => d === 'asc' ? 'desc' : 'asc')}
+            title={`Sort product name ${sortDir === 'asc' ? 'Z→A' : 'A→Z'}`}
+          >
+            {sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+            Product {sortDir === 'asc' ? 'A→Z' : 'Z→A'}
+          </button>
+          <button className="btn-secondary" onClick={load} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -156,7 +172,7 @@ export default function FashionCollage() {
       ) : (
         <div className="space-y-4">
           {FC_STATUS_OPTIONS.map((statusMeta) => {
-            const items = grouped[statusMeta.value] || []
+            const items = sortItems(grouped[statusMeta.value] || [])
             if (items.length === 0) return null
             const groupTotal = items.reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
             const isRevenue = ['FC - Sold', 'FC - Paid'].includes(statusMeta.value)
