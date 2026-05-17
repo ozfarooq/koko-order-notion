@@ -51,3 +51,19 @@
   body > * { display: none !important; }
   #pdf-print-area { display: block !important; }
 }
+
+/* Print styles for report pages */
+@media print {
+  body.printing-report > * { display: block !important; }
+  body.printing-report aside { display: none !important; }
+  body.printing-report main {
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+  body.printing-report main > * {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  body.printing-report .print\:hidden { display: none !important; }
+}

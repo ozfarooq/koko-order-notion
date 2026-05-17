@@ -116,7 +116,7 @@ export default function FCPhotoReport() {
   const soldKoko       = soldTotal - soldCommission
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto print:h-auto print:overflow-visible">
       <div className="max-w-5xl mx-auto p-6 space-y-10">
 
         {/* Header */}
@@ -128,7 +128,14 @@ export default function FCPhotoReport() {
             </p>
           </div>
           <div className="flex gap-2 print:hidden">
-            <button className="btn-secondary" onClick={() => window.print()}>
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                document.body.classList.add('printing-report')
+                window.print()
+                document.body.classList.remove('printing-report')
+              }}
+            >
               <Printer size={14} /> Print / Save PDF
             </button>
             <button className="btn-secondary" onClick={load} disabled={loading}>
