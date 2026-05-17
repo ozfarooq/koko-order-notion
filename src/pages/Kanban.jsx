@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RefreshCw, PlusCircle, Calendar, Link } from 'lucide-react'
+import { RefreshCw, PlusCircle, Calendar, Link, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { getOrders, updateOrder, FC_STATUSES } from '../data/storage'
 
 const KANBAN_COLUMNS = [
@@ -139,9 +139,36 @@ export default function Kanban() {
   const [error,      setError]      = useState(null)
   const [draggingId, setDraggingId] = useState(null)
   const [dragOverCol,setDragOverCol]= useState(null)
-  const [saving,     setSaving]     = useState(null)  // col value currently saving
+  const [saving,     setSaving]     = useState(null)
   const [copied,     setCopied]     = useState(false)
+  const [sortBy,     setSortBy]     = useState('orderDate') // orderDate | customer | product
+  const [sortDir,    setSortDir]    = useState('asc')
   const dragOrder = useRef(null)
+
+  const SORT_OPTIONS = [
+    { value: 'orderDate', label: 'Order Date' },
+    { value: 'customer',  label: 'Customer Name' },
+    { value: 'product',   label: 'Product Name' },
+  ]
+
+  const toggleDir = () => setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
+
+  const sortOrders = (list) => [...list].sort((a, b) => {
+    let va, vb
+    if (sortBy === 'orderDate') {
+      va = a.orderDate || ''
+      vb = b.orderDate || ''
+    } else if (sortBy === 'customer') {
+      va = (a.customer || '').toLowerCase()
+      vb = (b.customer || '').toLowerCase()
+    } else {
+      va = (a.product || '').toLowerCase()
+      vb = (b.product || '').toLowerCase()
+    }
+    if (va < vb) return sortDir === 'asc' ? -1 : 1
+    if (va > vb) return sortDir === 'asc' ?  1 : -1
+    return 0
+  })
 
   const handleShare = () => {
     const url = `${window.location.origin}/board`
@@ -214,7 +241,10 @@ export default function Kanban() {
     dragOrder.current = null
   }
 
-  const grouped = groupByStatus(orders.filter((o) => !FC_STATUSES.includes(o.status)))
+  const rawGrouped = groupByStatus(orders.filter((o) => !FC_STATUSES.includes(o.status)))
+  const grouped = Object.fromEntries(
+    Object.entries(rawGrouped).map(([k, v]) => [k, sortOrders(v)])
+  )
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -225,6 +255,23 @@ export default function Kanban() {
           <p className="text-sm text-gray-500">{orders.length} orders · drag cards to change status</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Sort controls */}
+          <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5">
+            <ArrowUpDown size={13} className="text-gray-400" />
+            <select
+              className="bg-transparent text-sm text-gray-700 font-medium focus:outline-none cursor-pointer"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <button onClick={toggleDir} className="ml-1 text-gray-400 hover:text-gray-700">
+              {sortDir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
+            </button>
+          </div>
+
           <button className="btn-secondary" onClick={handleShare}>
             <Link size={14} />
             {copied ? 'Copied!' : 'Share Board'}
