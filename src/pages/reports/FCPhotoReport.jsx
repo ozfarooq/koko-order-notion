@@ -18,7 +18,7 @@ function ProductImage({ name }) {
 
   if (failed) {
     return (
-      <div className="w-full aspect-[3/4] rounded-2xl bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
+      <div className="w-full h-52 rounded-xl bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
         No image
       </div>
     )
@@ -29,7 +29,7 @@ function ProductImage({ name }) {
       src={`/Images/${name}${IMG_EXTS[extIdx]}`}
       alt={name}
       onError={handleError}
-      className="w-full aspect-[3/4] rounded-2xl object-cover"
+      className="w-full h-52 rounded-xl object-cover object-top"
     />
   )
 }
@@ -132,8 +132,8 @@ export default function FCPhotoReport() {
               className="btn-secondary"
               onClick={() => {
                 document.body.classList.add('printing-report')
+                window.onafterprint = () => document.body.classList.remove('printing-report')
                 window.print()
-                document.body.classList.remove('printing-report')
               }}
             >
               <Printer size={14} /> Print / Save PDF
