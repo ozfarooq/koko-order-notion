@@ -189,6 +189,58 @@ export default function FCPhotoReport() {
               </section>
             )}
 
+            {/* ── INVENTORY TABLE ── */}
+            {inventory.length > 0 && (
+              <section>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
+                  Inventory Summary
+                </h2>
+                <div className="card overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="py-3 pl-5 pr-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-400">Product</th>
+                        {['XS','S','M','L','XL'].map((s) => (
+                          <th key={s} className="px-3 py-3 text-center text-[11px] font-bold uppercase tracking-wide text-gray-400">{s}</th>
+                        ))}
+                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Price (AED)</th>
+                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Commission (30%)</th>
+                        <th className="px-3 py-3 pr-5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Koko (70%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inventory.map(({ product, sizes, totalQty, priceLabel }) => {
+                        const sizeMap = Object.fromEntries(sizes)
+                        const sizeLabels = { 'X-Small': 'XS', 'Small': 'S', 'Medium': 'M', 'Large': 'L', 'X-Large': 'XL' }
+                        const totalAED = orders
+                          .filter((o) => (o.product || '').trim() === product && o.status === 'FC - At Store')
+                          .reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
+                        return (
+                          <tr key={product} className="border-b border-gray-50 hover:bg-gray-50/50">
+                            <td className="py-2.5 pl-5 pr-3 text-sm font-semibold text-gray-800">{product}</td>
+                            {['X-Small','Small','Medium','Large','X-Large'].map((size) => (
+                              <td key={size} className="px-3 py-2.5 text-center text-sm text-gray-700">
+                                {sizeMap[size] || '—'}
+                              </td>
+                            ))}
+                            <td className="px-3 py-2.5 text-right text-sm font-semibold text-gray-800">
+                              {priceLabel || '—'}
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-sm font-semibold text-rose-600">
+                              {totalAED > 0 ? `AED ${(totalAED * 0.3).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
+                            </td>
+                            <td className="px-3 py-2.5 pr-5 text-right text-sm font-bold text-emerald-700">
+                              {totalAED > 0 ? `AED ${(totalAED * 0.7).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
             {/* ── SOLD ── */}
             {sold.length > 0 && (
               <section>
