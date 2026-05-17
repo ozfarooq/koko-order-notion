@@ -212,9 +212,9 @@ export default function FCPhotoReport() {
                       {inventory.map(({ product, sizes, totalQty, priceLabel }) => {
                         const sizeMap = Object.fromEntries(sizes)
                         const sizeLabels = { 'X-Small': 'XS', 'Small': 'S', 'Medium': 'M', 'Large': 'L', 'X-Large': 'XL' }
-                        const totalAED = orders
-                          .filter((o) => (o.product || '').trim() === product && o.status === 'FC - At Store')
-                          .reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
+                        const unitPrice = orders
+                          .filter((o) => (o.product || '').trim() === product && o.status === 'FC - At Store' && o.aedPrice)
+                          .map((o) => Number(o.aedPrice))[0] || 0
                         return (
                           <tr key={product} className="border-b border-gray-50 hover:bg-gray-50/50">
                             <td className="py-2.5 pl-5 pr-3 text-sm font-semibold text-gray-800">{product}</td>
@@ -227,10 +227,10 @@ export default function FCPhotoReport() {
                               {priceLabel || '—'}
                             </td>
                             <td className="px-3 py-2.5 text-right text-sm font-semibold text-rose-600">
-                              {totalAED > 0 ? `AED ${(totalAED * 0.3).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
+                              {unitPrice > 0 ? `AED ${(unitPrice * 0.3).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
                             </td>
                             <td className="px-3 py-2.5 pr-5 text-right text-sm font-bold text-emerald-700">
-                              {totalAED > 0 ? `AED ${(totalAED * 0.7).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
+                              {unitPrice > 0 ? `AED ${(unitPrice * 0.7).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
                             </td>
                           </tr>
                         )
