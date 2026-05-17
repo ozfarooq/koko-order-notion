@@ -86,6 +86,17 @@ export default function Layout() {
                   <FileText size={13} />
                   FC Inventory
                 </NavLink>
+                <NavLink
+                  to="/reports/fc-photos"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                      isActive ? 'bg-brand-600 text-white' : 'text-white/50 hover:bg-white/10 hover:text-white'
+                    }`
+                  }
+                >
+                  <FileText size={13} />
+                  FC Product Sheet
+                </NavLink>
               </div>
             )}
           </div>

@@ -7,6 +7,7 @@ import Kanban from './pages/Kanban'
 import BoardReadOnly from './pages/BoardReadOnly'
 import FashionCollage from './pages/FashionCollage'
 import FCInventoryReport from './pages/reports/FCInventoryReport'
+import FCPhotoReport from './pages/reports/FCPhotoReport'
 import Login from './pages/Login'
 import { isLoggedIn } from './utils/auth'
 
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/kanban" element={<Kanban />} />
           <Route path="/fashion-collage" element={<FashionCollage />} />
           <Route path="/reports/fc-inventory" element={<FCInventoryReport />} />
+          <Route path="/reports/fc-photos" element={<FCPhotoReport />} />
           <Route path="/orders/new" element={<OrderForm />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/orders/:id/edit" element={<OrderForm />} />
