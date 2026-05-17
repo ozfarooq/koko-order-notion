@@ -54,16 +54,20 @@
 
 /* Print styles for report pages */
 @media print {
-  body.printing-report > * { display: block !important; }
+  body.printing-report,
+  body.printing-report #root,
+  body.printing-report #root > *,
+  body.printing-report .flex,
+  body.printing-report aside ~ *,
+  body.printing-report main,
+  body.printing-report main > *,
+  body.printing-report main > * > * {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
   body.printing-report aside { display: none !important; }
-  body.printing-report main {
-    overflow: visible !important;
-    height: auto !important;
-    width: 100% !important;
-  }
-  body.printing-report main > * {
-    overflow: visible !important;
-    height: auto !important;
-  }
+  body.printing-report main { width: 100% !important; display: block !important; }
   body.printing-report .print\:hidden { display: none !important; }
 }
