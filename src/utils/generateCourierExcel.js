@@ -72,7 +72,7 @@ export function generateCourierExcel(orders) {
       order.address || '',         // Consignee Address
       normalizePhone(order.phone), // Consignee Phone Number 1
       '',                          // Consignee Phone Number 2
-      '',                          // Consignee Email Address
+      order.email || '',           // Consignee Email Address
       '',                          // Consignee Address Latitude
       '',                          // Consignee Address Longitude
       'No',                        // Self Collection
