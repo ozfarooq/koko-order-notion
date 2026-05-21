@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PlusCircle, ChevronDown, ChevronRight, Package, Users, TrendingUp, Clock, RefreshCw, FileDown, X } from 'lucide-react'
+import { PlusCircle, ChevronDown, ChevronRight, Package, Users, TrendingUp, Clock, RefreshCw, FileDown, X, Sheet } from 'lucide-react'
 import { getOrders, groupByStatus, STATUS_OPTIONS, FC_STATUSES } from '../data/storage'
 import StatusBadge from '../components/StatusBadge'
 import { generateSummaryPDF } from '../utils/generatePDF'
+import { generateCourierExcel } from '../utils/generateCourierExcel'
 
 function StatCard({ icon: Icon, label, value, color }) {
   return (
@@ -134,6 +135,7 @@ export default function Dashboard() {
   const [error, setError] = useState(null)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [printingPDF, setPrintingPDF] = useState(false)
+  const [generatingExcel, setGeneratingExcel] = useState(false)
 
   const toggleSelect = (id, forceValue) => {
     setSelectedIds((prev) => {
@@ -150,6 +152,14 @@ export default function Dashboard() {
     setPrintingPDF(true)
     try { await generateSummaryPDF(selected) }
     finally { setPrintingPDF(false) }
+  }
+
+  const handleCourierExcel = () => {
+    const selected = orders.filter((o) => selectedIds.has(o.id))
+    if (!selected.length) return
+    setGeneratingExcel(true)
+    try { generateCourierExcel(selected) }
+    finally { setGeneratingExcel(false) }
   }
 
   const load = useCallback(async () => {
@@ -261,6 +271,14 @@ export default function Dashboard() {
           >
             <FileDown size={15} />
             {printingPDF ? 'Generating...' : 'Print Summary'}
+          </button>
+          <button
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+            onClick={handleCourierExcel}
+            disabled={generatingExcel}
+          >
+            <Sheet size={15} />
+            {generatingExcel ? 'Exporting...' : 'Courier Booking'}
           </button>
           <button
             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white"

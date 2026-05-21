@@ -27,6 +27,7 @@ const EMPTY_FORM = {
   email: '',
   phone: '',
   address: '',
+  city: '',
   productLines: [EMPTY_LINE()],
   orderDate: new Date().toISOString().split('T')[0],
   deliveryDate: '',
@@ -196,6 +197,9 @@ export default function OrderForm() {
             </Field>
             <Field label="Phone">
               <input type="tel" className="input" value={form.phone} onChange={set('phone')} placeholder="+92300 0000000" />
+            </Field>
+            <Field label="City">
+              <input className="input" value={form.city} onChange={set('city')} placeholder="e.g. Lahore" />
             </Field>
           </div>
           <Field label="Address">

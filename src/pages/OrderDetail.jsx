@@ -81,6 +81,7 @@ export default function OrderDetail() {
       email:               order.email || '',
       phone:               order.phone || '',
       address:             order.address || '',
+      city:                order.city || '',
       productLines:        parseProductLines(order.product),
       status:              order.status || 'New',
       orderDate:           order.orderDate || '',
@@ -228,6 +229,9 @@ export default function OrderDetail() {
                     <input type="tel" className="input" value={form.phone} onChange={set('phone')} placeholder="+92300 0000000" />
                   </Field>
                 </div>
+                <Field label="City">
+                  <input className="input" value={form.city} onChange={set('city')} placeholder="e.g. Lahore" />
+                </Field>
                 <Field label="Address">
                   <textarea className="input resize-none" rows={3} value={form.address} onChange={set('address')} placeholder="Full delivery address" />
                 </Field>
@@ -237,6 +241,7 @@ export default function OrderDetail() {
                 <InfoRow label="Name"    value={order.customer} />
                 <InfoRow label="Email"   value={order.email} />
                 <InfoRow label="Phone"   value={order.phone} />
+                <InfoRow label="City"    value={order.city} />
                 <InfoRow label="Address" value={order.address} />
               </>
             )}
