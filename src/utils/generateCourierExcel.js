@@ -2,6 +2,14 @@ import * as XLSX from 'xlsx'
 
 const PICKUP_ADDRESS_ID = 468603
 
+// Normalize phone to Pakistani local format: 03XXXXXXXXX
+function normalizePhone(phone) {
+  if (!phone) return ''
+  const digits = phone.replace(/[\s\-().+]/g, '')
+  if (digits.startsWith('92') && digits.length >= 12) return '0' + digits.slice(2)
+  return digits
+}
+
 // Extract clean product name + size from product string
 // e.g. "Shab-e-Siyah (X-Large) × 1" → { name: "Shab-e-Siyah", size: "X-LARGE" }
 function parseProduct(productStr, fallbackSize) {
@@ -62,7 +70,7 @@ export function generateCourierExcel(orders) {
       order.city || '',            // Consignee City Name
       order.customer || '',        // Consignee Name
       order.address || '',         // Consignee Address
-      order.phone || '',           // Consignee Phone Number 1
+      normalizePhone(order.phone), // Consignee Phone Number 1
       '',                          // Consignee Phone Number 2
       '',                          // Consignee Email Address
       '',                          // Consignee Address Latitude
