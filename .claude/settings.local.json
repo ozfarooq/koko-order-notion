@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp \"c:/_Work/koko-order-notion/images/Neel.jpg\" \"c:/_Work/koko-order-notion/public/Images/Neel.jpg\")",
+      "Bash(cp \"c:/_Work/koko-order-notion/images/Zard Chandni.jpg\" \"c:/_Work/koko-order-notion/public/Images/Zard Chandni.jpg\")"
+    ]
+  }
+}
