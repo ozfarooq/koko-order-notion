@@ -27,7 +27,7 @@ export const PRODUCTS = [
   'Giglio d\'Oro',
   'Goldenrod',
   'Gul Afshan',
-  'Gul-e-Mehtab',
+  'GulEMehtab',
   'Gulaab Booti',
   'Gulab-e-Eid',
   'Gull Bahar',
