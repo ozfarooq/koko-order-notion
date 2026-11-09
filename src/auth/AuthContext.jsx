@@ -8,7 +8,11 @@ export const can = (user, permission) =>
   !!user && (user.permissions || []).some((p) => p === '*' || p === permission)
 
 // Where each role lands after logging in
-export const homeFor = (user) => (user?.role === 'reseller' ? '/fashion-collage' : '/')
+export const homeFor = (user) => {
+  if (!user) return '/login'
+  if (user.role === 'reseller') return `/resellers/${user.resellerId}`
+  return user.permissions?.some((p) => p === '*' || p === 'orders:read') ? '/orders' : '/'
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined)   // undefined = still checking, null = logged out

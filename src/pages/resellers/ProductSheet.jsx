@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import { RefreshCw, Printer } from 'lucide-react'
 import { getConsignments, pieceMoney } from '../../data/storage'
 
@@ -22,7 +23,7 @@ function ProductImage({ name, src }) {
 
   if (failed) {
     return (
-      <div className="w-full h-64 rounded-xl bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
+      <div className="w-full h-64 rounded-xl bg-subtle2 flex items-center justify-center text-faint text-sm">
         No image
       </div>
     )
@@ -33,7 +34,7 @@ function ProductImage({ name, src }) {
       src={useLocal ? `/Images/${name}${IMG_EXTS[extIdx]}` : src}
       alt={name}
       onError={handleError}
-      className="w-full h-64 rounded-xl object-contain bg-gray-50"
+      className="w-full h-64 rounded-xl object-contain bg-subtle"
     />
   )
 }
@@ -96,6 +97,8 @@ function buildSold(orders) {
 }
 
 export default function FCPhotoReport() {
+  const { resellerId } = useParams()
+  const [reseller, setReseller] = useState(null)
   const [orders,  setOrders]  = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
@@ -104,12 +107,14 @@ export default function FCPhotoReport() {
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const data = await getConsignments()
+      const data = await getConsignments(resellerId)
+      const r = data.resellers.find((x) => String(x.id) === String(resellerId)) || data.resellers[0]
       setOrders(data.items)
-      setPct(data.resellers[0]?.commissionPct ?? 0)
+      setReseller(r || null)
+      setPct(r?.commissionPct ?? 0)
     } catch (err) { setError(err.message) }
     finally { setLoading(false) }
-  }, [])
+  }, [resellerId])
 
   useEffect(() => { load() }, [load])
 
@@ -121,14 +126,14 @@ export default function FCPhotoReport() {
   const soldKoko       = soldTotal - soldCommission
 
   return (
-    <div className="h-full overflow-y-auto print:h-auto print:overflow-visible">
-      <div className="max-w-5xl mx-auto p-6 space-y-10">
+    <div className="print:h-auto print:overflow-visible">
+      <div className="mx-auto max-w-5xl space-y-10 p-4 sm:p-6 lg:p-8">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Koko Atelier — Fashion Collage</h1>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <h1 className="text-3xl text-ink">Koko Atelier — {reseller?.name || 'Reseller'}</h1>
+            <p className="text-sm text-faint mt-0.5">
               {new Date().toLocaleDateString('en-PK', { day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           </div>
@@ -165,7 +170,7 @@ export default function FCPhotoReport() {
             {/* ── INVENTORY ── */}
             {inventory.length > 0 && (
               <section>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-faint mb-4">
                   In Store — {inventory.reduce((s, p) => s + p.totalQty, 0)} outfits
                 </h2>
                 <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">
@@ -173,15 +178,15 @@ export default function FCPhotoReport() {
                     <div key={product} className="flex flex-col gap-3 print:break-inside-avoid">
                       <ProductImage name={product} src={imageUrl} />
                       <div>
-                        <h3 className="text-base font-bold text-gray-900 leading-tight">{product}</h3>
+                        <h3 className="text-base font-bold text-ink leading-tight">{product}</h3>
                         {priceLabel && (
-                          <p className="text-sm font-semibold text-gray-600 mt-0.5">{priceLabel}</p>
+                          <p className="text-sm font-semibold text-ink-soft mt-0.5">{priceLabel}</p>
                         )}
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {sizes.map(([size, qty]) => (
                             <span
                               key={size}
-                              className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700"
+                              className="rounded-full bg-subtle2 px-2.5 py-0.5 text-xs font-semibold text-ink-soft"
                             >
                               {size} × {qty}
                             </span>
@@ -197,20 +202,20 @@ export default function FCPhotoReport() {
             {/* ── INVENTORY TABLE ── */}
             {inventory.length > 0 && (
               <section>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-faint mb-4">
                   Inventory Summary
                 </h2>
-                <div className="card overflow-hidden">
+                <div className="card overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="bg-gray-50 border-b border-gray-100">
-                        <th className="py-3 pl-5 pr-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-400">Product</th>
+                      <tr className="bg-subtle border-b border-line">
+                        <th className="py-3 pl-5 pr-3 text-left text-[11px] font-bold uppercase tracking-wide text-faint">Product</th>
                         {['XS','S','M','L','XL'].map((s) => (
-                          <th key={s} className="px-3 py-3 text-center text-[11px] font-bold uppercase tracking-wide text-gray-400">{s}</th>
+                          <th key={s} className="px-3 py-3 text-center text-[11px] font-bold uppercase tracking-wide text-faint">{s}</th>
                         ))}
-                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Price (AED)</th>
-                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Commission ({pct}%)</th>
-                        <th className="px-3 py-3 pr-5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Koko ({100 - pct}%)</th>
+                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-faint">Price (AED)</th>
+                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-faint">Commission ({pct}%)</th>
+                        <th className="px-3 py-3 pr-5 text-right text-[11px] font-bold uppercase tracking-wide text-faint">Koko ({100 - pct}%)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -221,14 +226,14 @@ export default function FCPhotoReport() {
                           .filter((o) => (o.product || '').trim() === product && o.status === 'FC - At Store' && o.aedPrice)
                           .map((o) => Number(o.aedPrice))[0] || 0
                         return (
-                          <tr key={product} className="border-b border-gray-50 hover:bg-gray-50/50">
-                            <td className="py-2.5 pl-5 pr-3 text-sm font-semibold text-gray-800">{product}</td>
+                          <tr key={product} className="border-b border-line hover:bg-subtle/50">
+                            <td className="py-2.5 pl-5 pr-3 text-sm font-semibold text-ink">{product}</td>
                             {['X-Small','Small','Medium','Large','X-Large'].map((size) => (
-                              <td key={size} className="px-3 py-2.5 text-center text-sm text-gray-700">
+                              <td key={size} className="px-3 py-2.5 text-center text-sm text-ink-soft">
                                 {sizeMap[size] || '—'}
                               </td>
                             ))}
-                            <td className="px-3 py-2.5 text-right text-sm font-semibold text-gray-800">
+                            <td className="px-3 py-2.5 text-right text-sm font-semibold text-ink">
                               {priceLabel || '—'}
                             </td>
                             <td className="px-3 py-2.5 text-right text-sm font-semibold text-rose-600">
@@ -249,26 +254,26 @@ export default function FCPhotoReport() {
             {/* ── SOLD ── */}
             {sold.length > 0 && (
               <section>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-faint mb-4">
                   Sold — {sold.length} outfits
                 </h2>
-                <div className="card overflow-hidden">
+                <div className="card overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="bg-gray-50 border-b border-gray-100">
-                        <th className="py-3 pl-5 pr-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-400">Product</th>
-                        <th className="px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-400">Size</th>
-                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Amount Sold</th>
-                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Commission ({pct}%)</th>
-                        <th className="px-3 py-3 pr-5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Koko Amount ({100 - pct}%)</th>
+                      <tr className="bg-subtle border-b border-line">
+                        <th className="py-3 pl-5 pr-3 text-left text-[11px] font-bold uppercase tracking-wide text-faint">Product</th>
+                        <th className="px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-faint">Size</th>
+                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-faint">Amount Sold</th>
+                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-faint">Commission ({pct}%)</th>
+                        <th className="px-3 py-3 pr-5 text-right text-[11px] font-bold uppercase tracking-wide text-faint">Koko Amount ({100 - pct}%)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sold.map((row) => (
-                        <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                          <td className="py-3 pl-5 pr-3 text-sm font-semibold text-gray-800">{row.product}</td>
-                          <td className="px-3 py-3 text-sm text-gray-600">{row.size}</td>
-                          <td className="px-3 py-3 text-right text-sm font-semibold text-gray-800">
+                        <tr key={row.id} className="border-b border-line hover:bg-subtle/50">
+                          <td className="py-3 pl-5 pr-3 text-sm font-semibold text-ink">{row.product}</td>
+                          <td className="px-3 py-3 text-sm text-ink-soft">{row.size}</td>
+                          <td className="px-3 py-3 text-right text-sm font-semibold text-ink">
                             {row.aed > 0 ? `AED ${row.aed.toLocaleString()}` : '—'}
                           </td>
                           <td className="px-3 py-3 text-right text-sm font-semibold text-rose-600">
@@ -280,9 +285,9 @@ export default function FCPhotoReport() {
                         </tr>
                       ))}
                       {/* Totals row */}
-                      <tr className="bg-gray-50 font-bold">
-                        <td colSpan={2} className="py-3 pl-5 pr-3 text-xs uppercase tracking-wide text-gray-500">Total</td>
-                        <td className="px-3 py-3 text-right text-sm text-gray-800">
+                      <tr className="bg-subtle font-bold">
+                        <td colSpan={2} className="py-3 pl-5 pr-3 text-xs uppercase tracking-wide text-muted">Total</td>
+                        <td className="px-3 py-3 text-right text-sm text-ink">
                           {soldTotal > 0 ? `AED ${soldTotal.toLocaleString()}` : '—'}
                         </td>
                         <td className="px-3 py-3 text-right text-sm text-rose-600">
@@ -300,7 +305,7 @@ export default function FCPhotoReport() {
 
             {inventory.length === 0 && sold.length === 0 && (
               <div className="card flex flex-col items-center gap-3 py-16 text-center">
-                <p className="text-gray-500">No Fashion Collage outfits found.</p>
+                <p className="text-muted">No stock at this reseller yet.</p>
               </div>
             )}
           </>

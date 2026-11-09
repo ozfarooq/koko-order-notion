@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, User, Package, Tag, CreditCard, Plus, Trash2 } from 'lucide-react'
 import { addOrder, updateOrder, getOrderById, STATUS_OPTIONS } from '../data/storage'
 import ProductInput from '../components/ProductInput'
+import { toast } from 'sonner'
 
 const SIZE_OPTIONS = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
 const EMPTY_LINE   = () => ({ name: '', size: 'Small', qty: 1 })
@@ -42,9 +43,9 @@ const EMPTY_FORM = {
 function Section({ icon: Icon, title, children }) {
   return (
     <div className="card p-5 space-y-4">
-      <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-50">
-          <Icon size={14} className="text-brand-600" />
+      <div className="flex items-center gap-2 border-b border-line pb-3">
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-plum-50">
+          <Icon size={14} className="text-accent" />
         </div>
         <h2 className="section-title">{title}</h2>
       </div>
@@ -139,13 +140,15 @@ export default function OrderForm() {
     try {
       if (isEdit) {
         await updateOrder(id, payload)
+        toast.success('Order updated')
         navigate(`/orders/${id}`)
       } else {
         const created = await addOrder(payload)
+        toast.success(`${created.orderNumber} created`)
         navigate(`/orders/${created.id}`)
       }
     } catch (err) {
-      alert(`Error saving order: ${err.message}`)
+      toast.error(`Couldn't save the order: ${err.message}`)
     } finally {
       setSaving(false)
     }
@@ -163,16 +166,16 @@ export default function OrderForm() {
     <div className="h-full overflow-y-auto p-6">
       <div className="mb-6 flex items-center gap-4">
         <button
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-surface text-muted hover:bg-subtle"
           onClick={() => navigate(-1)}
         >
           <ArrowLeft size={16} />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">
+          <h1 className="text-xl font-bold text-ink">
             {isEdit ? 'Edit Order' : 'New Order'}
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted">
             {isEdit ? 'Update order details' : 'Saved directly to the database'}
           </p>
         </div>
@@ -227,11 +230,11 @@ export default function OrderForm() {
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Products *</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Products *</span>
               <button
                 type="button"
                 onClick={addLine}
-                className="flex items-center gap-1 rounded-md border border-brand-300 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
+                className="flex items-center gap-1 rounded-md border border-brand-300 bg-plum-50 px-3 py-1 text-xs font-semibold text-accent hover:bg-brand-100"
               >
                 <Plus size={13} /> Add Product
               </button>

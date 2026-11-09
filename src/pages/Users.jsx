@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Users as UsersIcon, UserPlus, RefreshCw, Pencil, X, Save } from 'lucide-react'
 import { getUsers, addUser, updateUser, getResellers } from '../data/storage'
 import { useAuth } from '../auth/AuthContext'
+import { toast } from 'sonner'
+import { PageHeader } from '../ui/kit'
 
 const ROLES = [
   { value: 'owner',    label: 'Owner',    help: 'Everything, including staff accounts and commission rates' },
@@ -33,6 +35,7 @@ function UserModal({ user, resellers, onClose, onSaved }) {
     try {
       const saved = isNew ? await addUser({ ...payload, username: form.username }) : await updateUser(user.id, payload)
       onSaved(saved)
+      toast.success(isNew ? `${saved.name} added` : 'User saved')
       onClose()
     } catch (err) {
       setError(err.message)
@@ -45,8 +48,8 @@ function UserModal({ user, resellers, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={onClose}>
       <form className="card w-full max-w-lg p-6 space-y-4" onMouseDown={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">{isNew ? 'Add user' : `Edit ${user.name}`}</h2>
-          <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100" onClick={onClose}><X size={16} /></button>
+          <h2 className="text-lg font-bold text-ink">{isNew ? 'Add user' : `Edit ${user.name}`}</h2>
+          <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg text-faint hover:bg-subtle2" onClick={onClose}><X size={16} /></button>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -76,7 +79,7 @@ function UserModal({ user, resellers, onClose, onSaved }) {
             <select className="input" value={form.role} onChange={set('role')}>
               {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
-            <p className="mt-1 text-[11px] text-gray-400">{ROLES.find((r) => r.value === form.role)?.help}</p>
+            <p className="mt-1 text-[11px] text-faint">{ROLES.find((r) => r.value === form.role)?.help}</p>
           </div>
           {form.role === 'reseller' && (
             <div className="col-span-2">
@@ -85,7 +88,7 @@ function UserModal({ user, resellers, onClose, onSaved }) {
                 <option value="">Choose…</option>
                 {resellers.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
-              <p className="mt-1 text-[11px] text-gray-400">This login will only see this reseller's stock.</p>
+              <p className="mt-1 text-[11px] text-faint">This login will only see this reseller's stock.</p>
             </div>
           )}
         </div>
@@ -128,54 +131,49 @@ export default function Users() {
   const saved = (u) => setUsers((prev) => (prev.some((x) => x.id === u.id) ? prev.map((x) => (x.id === u.id ? u : x)) : [...prev, u]))
 
   const toggleActive = async (u) => {
-    try { saved(await updateUser(u.id, { isActive: !u.isActive })) }
-    catch (err) { setError(err.message) }
+    try { const s = await updateUser(u.id, { isActive: !u.isActive }); saved(s); toast.success(`${s.name} ${s.isActive ? 'enabled' : 'disabled'}`) }
+    catch (err) { toast.error(err.message) }
   }
   const unlock = async (u) => {
-    try { saved(await updateUser(u.id, { unlock: true })); }
-    catch (err) { setError(err.message) }
+    try { saved(await updateUser(u.id, { unlock: true })); toast.success(`${u.name} unlocked`) }
+    catch (err) { toast.error(err.message) }
   }
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100"><UsersIcon size={20} className="text-brand-600" /></div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-            <p className="text-sm text-gray-500">Staff and reseller logins · every change they make is recorded</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+      <PageHeader
+        eyebrow="Admin" title="Users" icon={UsersIcon}
+        subtitle="Staff and reseller logins · every change they make is recorded"
+        actions={<>
           <button className="btn-secondary" onClick={load} disabled={loading}><RefreshCw size={14} className={loading ? 'animate-spin' : ''} />Refresh</button>
           <button className="btn-primary" onClick={() => setEditing(null)}><UserPlus size={16} />Add user</button>
-        </div>
-      </div>
+        </>}
+      />
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-      <div className="card overflow-hidden">
-        <table className="w-full">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[720px]">
           <thead>
-            <tr className="bg-gray-50/80">
+            <tr className="bg-subtle/80">
               {['Name', 'Username', 'Role', 'Contact', 'Last login', 'Status', ''].map((h) => (
-                <th key={h} className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">{h}</th>
+                <th key={h} className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-faint">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} className={`border-b border-gray-50 ${u.isActive ? '' : 'opacity-50'}`}>
-                <td className="px-4 py-3 text-sm font-semibold text-gray-900">{u.name}{u.id === me?.id && <span className="ml-2 text-xs font-normal text-gray-400">(you)</span>}</td>
-                <td className="px-4 py-3 font-mono text-sm text-gray-600">{u.username}</td>
-                <td className="px-4 py-3 text-sm text-gray-700">
+              <tr key={u.id} className={`border-b border-line ${u.isActive ? '' : 'opacity-50'}`}>
+                <td className="px-4 py-3 text-sm font-semibold text-ink">{u.name}{u.id === me?.id && <span className="ml-2 text-xs font-normal text-faint">(you)</span>}</td>
+                <td className="px-4 py-3 font-mono text-sm text-ink-soft">{u.username}</td>
+                <td className="px-4 py-3 text-sm text-ink-soft">
                   {roleLabel(u.role)}
-                  {u.resellerName && <p className="text-xs text-gray-400">{u.resellerName}</p>}
+                  {u.resellerName && <p className="text-xs text-faint">{u.resellerName}</p>}
                 </td>
-                <td className="px-4 py-3 text-xs text-gray-500">{u.email}<p>{u.phone}</p></td>
-                <td className="px-4 py-3 text-xs text-gray-500">{fmtWhen(u.lastLoginAt)}</td>
+                <td className="px-4 py-3 text-xs text-muted">{u.email}<p>{u.phone}</p></td>
+                <td className="px-4 py-3 text-xs text-muted">{fmtWhen(u.lastLoginAt)}</td>
                 <td className="px-4 py-3">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${u.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${u.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-subtle2 text-muted'}`}>
                     {u.isActive ? 'Active' : 'Disabled'}
                   </span>
                 </td>
@@ -185,7 +183,7 @@ export default function Users() {
                     {u.id !== me?.id && (
                       <button className="btn-secondary px-2 py-1 text-xs" onClick={() => toggleActive(u)}>{u.isActive ? 'Disable' : 'Enable'}</button>
                     )}
-                    <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-brand-50 hover:text-brand-600" onClick={() => setEditing(u)} title="Edit">
+                    <button className="flex h-7 w-7 items-center justify-center rounded-lg text-faint hover:bg-plum-50 hover:text-accent" onClick={() => setEditing(u)} title="Edit">
                       <Pencil size={14} />
                     </button>
                   </div>
