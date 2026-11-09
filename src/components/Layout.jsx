@@ -153,7 +153,7 @@ export default function Layout() {
         animate={{ width: collapsed ? 76 : 256 }} transition={{ duration: 0.3, ease }}
         className="relative hidden flex-shrink-0 flex-col bg-sidebar text-[#EAE7DC] md:flex"
       >
-        <div className={`relative flex items-center bg-white py-4 ${collapsed ? 'justify-center px-2' : 'px-4'}`}>
+        <div className={`relative flex items-center bg-[#EAE7DC] py-4 ${collapsed ? 'justify-center px-2' : 'px-4'}`}>
           <Logo collapsed={collapsed} />
         </div>
         <div className="relative h-[2px] bg-gradient-to-r from-brand-primary via-plum-300/60 to-transparent" />
@@ -238,7 +238,7 @@ export default function Layout() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/20" />
-              <div className="-mx-3 mb-2 flex items-center justify-between bg-white px-4 py-3">
+              <div className="-mx-3 mb-2 flex items-center justify-between bg-[#EAE7DC] px-4 py-3">
                 <Logo />
                 <button className="rounded-lg p-2 text-[#8E8D8A]" onClick={() => setMoreOpen(false)}><X size={18} /></button>
               </div>
