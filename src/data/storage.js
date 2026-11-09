@@ -72,7 +72,9 @@ export const updateUser     = (id, upd) => api(`/users/${id}`, { method: 'PATCH'
 // Resellers (menu + pages). Cached for the session; call refreshResellers() after changes.
 let resellersPromise
 export const getResellers = () => (resellersPromise ??= api('/resellers').catch((err) => { resellersPromise = null; throw err }))
-export const refreshResellers = () => { resellersPromise = null; return getResellers() }
+// Pages that change resellers announce it so the menu reloads them
+export const RESELLERS_CHANGED = 'koko:resellers-changed'
+export const refreshResellers = () => { resellersPromise = null; window.dispatchEvent(new Event(RESELLERS_CHANGED)); return getResellers() }
 
 export const search = (q) => api(`/search?q=${encodeURIComponent(q)}`)
 
@@ -131,6 +133,14 @@ export function pieceMoney(p, gross = p.aedPrice) {
   const commission = netPrice * (Number(p.commissionPct) || 0) / 100
   return { netPrice, commission, netPayable: netPrice - commission - (Number(p.alterationCharge) || 0) }
 }
+
+export const addReseller      = (r) => api('/resellers', { method: 'POST', body: JSON.stringify(r) }).then((x) => { refreshResellers(); return x })
+export const updateReseller   = (id, r) => api(`/resellers/${id}`, { method: 'PATCH', body: JSON.stringify(r) }).then((x) => { refreshResellers(); return x })
+export const enterStatement   = (id, lines) => api(`/resellers/${id}/statement`, { method: 'POST', body: JSON.stringify({ lines }) })
+export const getPayments      = (id) => api(`/resellers/${id}/payments`)
+export const recordPayment    = (id, p) => api(`/resellers/${id}/payments`, { method: 'POST', body: JSON.stringify(p) })
+export const deletePayment    = (id, paymentId) => api(`/resellers/${id}/payments/${paymentId}`, { method: 'DELETE', body: '{}' })
+export const recordReturns    = (id, r) => api(`/resellers/${id}/returns`, { method: 'POST', body: JSON.stringify(r) })
 
 export const addConsignment = (handover) =>
   api('/consignments', { method: 'POST', body: JSON.stringify(handover) })

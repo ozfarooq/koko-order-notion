@@ -23,6 +23,9 @@ const ResellerHome    = lazy(() => import('./pages/resellers/ResellerDashboard')
 const ResellerStock   = lazy(() => import('./pages/resellers/ResellerStock'))
 const InventoryReport = lazy(() => import('./pages/resellers/InventoryReport'))
 const ProductSheet    = lazy(() => import('./pages/resellers/ProductSheet'))
+const Handovers       = lazy(() => import('./pages/resellers/Handovers'))
+const Statements      = lazy(() => import('./pages/resellers/Statements'))
+const ResellerSettings = lazy(() => import('./pages/resellers/ResellerSettings'))
 
 function Spinner({ full }) {
   return (
@@ -100,6 +103,10 @@ export default function App() {
                 <Route path="/resellers/:resellerId" element={<Require permission="fc:read"><ResellerScope><ResellerHome /></ResellerScope></Require>} />
                 <Route path="/resellers/:resellerId/stock" element={<Require permission="fc:read"><ResellerScope><ResellerStock /></ResellerScope></Require>} />
                 <Route path="/resellers/:resellerId/reports/inventory" element={<Require permission="fc:read"><ResellerScope><InventoryReport /></ResellerScope></Require>} />
+                <Route path="/resellers/:resellerId/handovers" element={<Require permission="fc:read"><ResellerScope><Handovers /></ResellerScope></Require>} />
+                <Route path="/resellers/:resellerId/statements" element={<Require permission="fc:money"><ResellerScope><Statements /></ResellerScope></Require>} />
+                <Route path="/resellers/:resellerId/settings" element={<Require permission="resellers:manage"><ResellerSettings /></Require>} />
+                <Route path="/resellers/new" element={<Require permission="resellers:manage"><ResellerSettings /></Require>} />
                 <Route path="/resellers/:resellerId/reports/product-sheet" element={<Require permission="fc:read"><ResellerScope><ProductSheet /></ResellerScope></Require>} />
 
                 <Route path="/fashion-collage" element={<LegacyReseller to="/stock" />} />

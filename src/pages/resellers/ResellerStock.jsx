@@ -3,9 +3,9 @@ import { useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { RefreshCw, Store, ArrowUp, ArrowDown, Pencil, Search, Package, CheckCircle2, Wallet, Undo2 } from 'lucide-react'
-import { getConsignments, updateConsignmentItem, pieceMoney, FC_STATUS_OPTIONS } from '../../data/storage'
+import { getConsignments, updateConsignmentItem, recordReturns, pieceMoney, FC_STATUS_OPTIONS } from '../../data/storage'
 import { useAuth } from '../../auth/AuthContext'
-import { PageHeader, StatCard, SkeletonCards, SkeletonRows, EmptyState, ErrorBanner, Segmented, fmtDate } from '../../ui/kit'
+import { PageHeader, StatCard, SkeletonCards, SkeletonRows, EmptyState, ErrorBanner, Segmented, Modal, Field, fmtDate } from '../../ui/kit'
 import { ease } from '../../ui/motion'
 import SaleDetailsModal from './SaleDetailsModal'
 
@@ -23,7 +23,7 @@ export function StatusPill({ status }) {
 }
 
 function PieceDate({ o }) {
-  if (o.status === 'FC - Returned') return <>Returned {fmtDate(o.returnedOn)}</>
+  if (o.status === 'FC - Returned') return <><p>Returned {fmtDate(o.returnedOn)}</p>{o.returnReason && <p className="text-[11px] text-faint">{o.returnReason}</p>}</>
   if (['FC - Sold', 'FC - Paid'].includes(o.status))
     return <><p>Sold {fmtDate(o.soldOn)}</p>{o.resellerInvoiceNo && <p className="font-mono text-[11px] text-faint">{o.resellerInvoiceNo}</p>}</>
   return <>Handed over {fmtDate(o.handoverDate)}</>
@@ -45,6 +45,8 @@ export default function ResellerStock() {
   const [sortDir, setSortDir] = useState('asc')
   const [editingPrice, setEditingPrice] = useState({})
   const [detailsId, setDetailsId] = useState(null)
+  const [selected, setSelected] = useState(new Set())
+  const [returning, setReturning] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -107,6 +109,15 @@ export default function ResellerStock() {
   const filterOptions = [{ value: 'all', label: `All ${pieces.length}` },
     ...FC_STATUS_OPTIONS.map((s) => ({ value: s.value, label: `${s.label} ${pieces.filter((o) => o.status === s.value).length}` }))]
 
+  const toggle = (id) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const saveReturns = async () => {
+    try {
+      const r = await recordReturns(resellerId, { pieceIds: [...selected], returnedOn: returning.date, reason: returning.reason })
+      toast.success(`${r.returned} piece${r.returned === 1 ? '' : 's'} marked returned`)
+      setSelected(new Set()); setReturning(null); load()
+    } catch (err) { toast.error(err.message) }
+  }
+
   const moneyCols = showMoney ? ['Gross', 'Discount', 'Commission', 'Alt/Laundry', 'Net payable'] : []
   const detailPiece = pieces.find((o) => o.id === detailsId)
 
@@ -168,6 +179,7 @@ export default function ResellerStock() {
           {/* Desktop */}
           <table className="hidden w-full md:table">
             <thead><tr className="bg-subtle/70">
+              {canEdit && <th className="th w-8" />}
               {['Product', 'Size', ...moneyCols, 'Status', 'Date / Invoice', ''].map((h, i) => <th key={i} className="th">{h}</th>)}
             </tr></thead>
             <motion.tbody layout className="divide-y divide-line">
@@ -177,7 +189,8 @@ export default function ResellerStock() {
                   const gross = drafting ? Number(editingPrice[o.id]) || 0 : Number(o.aedPrice) || 0
                   const m = pieceMoney(o, gross)
                   return (
-                    <motion.tr key={o.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease }} className="hover:bg-subtle/50">
+                    <motion.tr key={o.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease }} className={selected.has(o.id) ? 'bg-plum-50/60 dark:bg-plum-900/20' : 'hover:bg-subtle/50'}>
+                      {canEdit && <td className="pl-4">{o.status === 'FC - At Store' && <input type="checkbox" className="accent-plum-600" checked={selected.has(o.id)} onChange={() => toggle(o.id)} aria-label="Select for return" />}</td>}
                       <td className="td">
                         <div className="flex items-center gap-3">
                           {o.imageUrl && <img src={o.imageUrl} alt="" className="h-9 w-9 rounded-md object-cover" loading="lazy" />}
@@ -243,6 +256,30 @@ export default function ResellerStock() {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {canEdit && selected.size > 0 && (
+          <motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }} transition={{ duration: 0.25, ease }}
+            className="fixed inset-x-4 bottom-20 z-30 mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-plum-950 px-4 py-3 text-white shadow-2xl md:bottom-6">
+            <p className="flex-1 text-sm">{selected.size} piece{selected.size === 1 ? '' : 's'} selected</p>
+            <button className="text-xs text-white/70 hover:text-white" onClick={() => setSelected(new Set())}>Clear</button>
+            <button className="btn-primary" onClick={() => setReturning({ date: new Date().toISOString().slice(0, 10), reason: '' })}><Undo2 size={15} />Return</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Modal open={!!returning} onClose={() => setReturning(null)} title="Return pieces to Koko" subtitle={`${selected.size} piece${selected.size === 1 ? '' : 's'} coming back from ${reseller?.name || 'the reseller'}`}
+        footer={<><button className="btn-secondary" onClick={() => setReturning(null)}>Cancel</button><button className="btn-primary" onClick={saveReturns}>Mark returned</button></>}>
+        {returning && (
+          <div className="space-y-4 p-5">
+            <ul className="max-h-48 space-y-1 overflow-y-auto text-sm text-ink">{pieces.filter((p) => selected.has(p.id)).map((p) => <li key={p.id}>{p.product} <span className="text-faint">· {p.size}</span></li>)}</ul>
+            <div className="grid gap-3 sm:grid-cols-[160px_1fr]">
+              <Field label="Returned on"><input type="date" className="input" value={returning.date} onChange={(e) => setReturning((r) => ({ ...r, date: e.target.value }))} /></Field>
+              <Field label="Reason"><input className="input" value={returning.reason} onChange={(e) => setReturning((r) => ({ ...r, reason: e.target.value }))} placeholder="e.g. end of season, not selling" /></Field>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {canEdit && detailPiece && (
         <SaleDetailsModal piece={detailPiece} onClose={() => setDetailsId(null)}

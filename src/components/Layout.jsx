@@ -5,7 +5,7 @@ import {
   LogOut, KeyRound, Search, Sun, Moon, ChevronsLeft, ChevronsRight, ChevronDown, Menu, ClipboardList, Kanban, Store, X,
 } from 'lucide-react'
 import { useAuth, homeFor } from '../auth/AuthContext'
-import { getResellers } from '../data/storage'
+import { getResellers, RESELLERS_CHANGED } from '../data/storage'
 import { buildNav, flattenNav } from '../app/nav'
 import CommandPalette from '../app/CommandPalette'
 import ChangePasswordModal from './ChangePasswordModal'
@@ -108,7 +108,13 @@ export default function Layout() {
   const [moreOpen, setMoreOpen] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
 
-  useEffect(() => { if (can('fc:read')) getResellers().then(setResellers).catch(() => {}) }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!can('fc:read')) return
+    const load = () => getResellers().then(setResellers).catch(() => {})
+    load()
+    window.addEventListener(RESELLERS_CHANGED, load)
+    return () => window.removeEventListener(RESELLERS_CHANGED, load)
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { try { localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0') } catch { /* ignore */ } }, [collapsed])
   useEffect(() => { setMoreOpen(false) }, [pathname])
 
