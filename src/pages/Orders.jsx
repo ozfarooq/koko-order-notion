@@ -171,7 +171,7 @@ export default function Orders() {
           <StatCard label="All orders" value={orders.length} icon={Package} />
           <StatCard label="In progress" value={active.length} tone="plum" icon={TrendingUp} />
           <StatCard label="Due this week" value={dueSoon} tone="gold" icon={CalendarClock} />
-          <StatCard label="Balance outstanding" value={outstanding} prefix="PKR " tone="red" icon={Wallet} />
+          <StatCard label="Balance outstanding" value={outstanding} prefix="PKR " tone={outstanding > 0 ? "red" : "green"} icon={Wallet} />
         </div>
       )}
 
@@ -185,7 +185,7 @@ export default function Orders() {
           {chips.map((c) => (
             <button key={c.value} onClick={() => setStatusFilter(c.value)}
               className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition ${statusFilter === c.value
-                ? 'border-plum-600 bg-plum-700 text-white dark:border-plum-400 dark:bg-plum-500'
+                ? 'border-brand-primary bg-brand-primary text-white'
                 : 'border-line bg-surface text-muted hover:border-line-strong hover:text-ink'}`}>
               {c.label}
             </button>

@@ -35,23 +35,20 @@ export default function Login() {
   return (
     <div className="grid min-h-[100dvh] bg-canvas lg:grid-cols-[1.1fr_1fr]">
       {/* Brand panel */}
-      <div className="relative flex flex-col justify-between overflow-hidden bg-plum-950 px-8 py-10 text-white sm:px-12 lg:py-14">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_70%_at_10%_10%,rgba(207,168,74,0.18),transparent_60%),radial-gradient(70%_60%_at_100%_100%,rgba(165,108,147,0.25),transparent_60%)]" />
+      <div className="relative flex flex-col justify-between overflow-hidden bg-sidebar px-8 py-10 text-[#EAE7DC] sm:px-12 lg:py-14">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_60%_at_100%_100%,rgba(233,128,116,0.16),transparent_60%)]" />
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }} className="relative flex items-center gap-4">
-          <img src="/kokoLogo.jpg" alt="Koko Atelier" className="h-14 w-14 rounded-full object-cover ring-2 ring-gold-400/50" />
-          <div>
-            <p className="font-display text-3xl font-semibold tracking-wide">Koko Atelier</p>
-            <p className="text-[10px] uppercase tracking-[0.35em] text-gold-300/80">Atelier Studio</p>
-          </div>
+          <img src="/brand/emblem-white.png" alt="" className="h-16 w-auto opacity-90" />
+          <img src="/brand/wordmark-white.png" alt="Koko Atelier" className="h-11 w-auto opacity-90" />
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.1, ease }} className="relative my-10 hidden lg:block">
-          <div className="mb-6 h-px w-24 bg-gradient-to-r from-gold-400 to-transparent" />
+          <div className="mb-6 h-px w-24 bg-gradient-to-r from-brand-primary to-transparent" />
           <p className="max-w-md font-display text-5xl font-medium leading-[1.1]">Every order, every stitch, in one place.</p>
-          <p className="mt-5 max-w-sm text-sm leading-relaxed text-white/60">Orders, customers and reseller stock for the Koko Atelier studio.</p>
+          <p className="mt-5 max-w-sm text-sm leading-relaxed text-[#8E8D8A]">Orders, customers and reseller stock for the Koko Atelier studio.</p>
         </motion.div>
 
-        <p className="relative hidden text-xs text-white/30 lg:block">Koko Atelier © {new Date().getFullYear()}</p>
+        <p className="relative hidden text-xs text-[#8E8D8A]/70 lg:block">Koko Atelier © {new Date().getFullYear()}</p>
       </div>
 
       {/* Form */}

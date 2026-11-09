@@ -1,20 +1,51 @@
 /** @type {import('tailwindcss').Config} */
-// Koko Atelier design tokens. Neutral surfaces come from CSS variables (src/index.css) so the
-// same classes work in light and dark mode; plum and gold are fixed brand scales.
+// Koko Atelier design tokens — "Minimal Yet Warm".
+//   Canvas #EAE7DC eggshell · cards #FFFFFF · accent surfaces #D8C3A5 dark vanilla · sidebar #1F1F1E obsidian
+//   Text #2C2C2A charcoal / #8E8D8A taupe · primary #E98074 coral · alert #E85A4F jelly-bean red
+// Neutral surfaces come from CSS variables (src/index.css) so the same classes work in light and dark mode.
+// The `plum` and `gold` scale names are kept so existing classes recolour everywhere: plum = coral/terracotta
+// brand scale (900/950 = charcoal/obsidian), gold = vanilla/sand → taupe. Other utility hues are pulled into
+// the palette below so status chips and charts stay harmonious on every page.
 const v = (name) => `rgb(var(--${name}) / <alpha-value>)`
 
-const plum = {
-  50:  '#f8f2f6',
-  100: '#efe0ea',
-  200: '#dec1d5',
-  300: '#c599b7',
-  400: '#a56c93',
-  500: '#874d77',
-  600: '#6e3962',
-  700: '#592d50',
-  800: '#462441',
-  900: '#351b31',
-  950: '#20101d',
+const coral = {
+  50:  '#FDF4F2',
+  100: '#FAE3DF',
+  200: '#F5C8C1',
+  300: '#EFA99F',
+  400: '#EC9488',
+  500: '#E98074',   // brand primary
+  600: '#D96A5D',
+  700: '#B9544A',
+  800: '#8F3F36',
+  900: '#2C2C2A',   // charcoal
+  950: '#1F1F1E',   // obsidian
+}
+const sand = {
+  50:  '#F6F2EA',
+  100: '#EFE7DA',
+  200: '#E5D7C2',
+  300: '#DDCCB2',
+  400: '#D8C3A5',   // dark vanilla
+  500: '#B8A487',
+  600: '#8E8D8A',   // taupe gray
+  700: '#6E6C68',
+}
+const alert = {
+  50:  '#FEE2E2', 100: '#FDD5D0', 200: '#F9B9B1', 300: '#F29589', 400: '#EC7468',
+  500: '#E85A4F', 600: '#E85A4F', 700: '#D04A3F', 800: '#A33B33', 900: '#7A2C26', 950: '#3D1613',
+}
+const sage = {
+  50:  '#DCFCE7', 100: '#DCFCE7', 200: '#BBF7D0', 300: '#86EFAC', 400: '#4ADE80',
+  500: '#22A55A', 600: '#16883F', 700: '#15803D', 800: '#166534', 900: '#14532D', 950: '#052E16',
+}
+const warm = {   // pending / in production
+  50:  '#FEF3C7', 100: '#FEF3C7', 200: '#FDE68A', 300: '#FCD34D', 400: '#F5B544',
+  500: '#E39B2B', 600: '#B45309', 700: '#B45309', 800: '#92400E', 900: '#78350F', 950: '#451A03',
+}
+const taupe = {  // neutral informational chips
+  50:  '#F3EFE7', 100: '#E9E2D5', 200: '#DDD3C3', 300: '#C4B79F', 400: '#A9A08F', 500: '#8E8D8A',
+  600: '#76736D', 700: '#5F5D59', 800: '#45443F', 900: '#2C2C2A', 950: '#1F1F1E',
 }
 
 export default {
@@ -23,37 +54,38 @@ export default {
   theme: {
     extend: {
       colors: {
-        canvas: v('canvas'),          // page background (ivory / deep plum-black)
-        surface: v('surface'),        // cards
-        subtle: v('subtle'),          // table headers, hovers
+        canvas: v('canvas'),          // page background (eggshell / obsidian)
+        surface: v('surface'),        // cards, menus, dialogs (white)
+        card: v('surface'),
+        subtle: v('subtle'),          // hovers, quiet fills
         subtle2: v('subtle2'),        // stronger fills
-        line: v('line'),              // borders
+        'surface-accent': v('surface-accent'), // table headers (dark vanilla)
+        line: v('line'),              // borders / row dividers
         'line-strong': v('line-strong'),
-        ink: v('ink'),                // primary text
-        'ink-soft': v('ink-soft'),    // secondary text
-        muted: v('muted'),            // labels
+        ink: v('ink'),                // primary text (charcoal)
+        'ink-soft': v('ink-soft'),
+        muted: v('muted'),            // secondary text (taupe)
         faint: v('faint'),            // hints, placeholders
-        accent: v('accent'),          // plum that stays readable in both modes
-        plum,
-        brand: plum,                  // existing brand-* classes now render in Koko plum
-        gold: {
-          50:  '#fbf7ec',
-          100: '#f5ebcc',
-          200: '#ebd69b',
-          300: '#dfbf6c',
-          400: '#cfa84a',
-          500: '#b98f33',
-          600: '#9a7428',
-          700: '#7a5a20',
-        },
+        accent: v('accent'),          // readable coral for links/active text
+        sidebar: '#1F1F1E',
+        plum: coral,
+        brand: { ...coral, primary: '#E98074', alert: '#E85A4F' },
+        gold: sand,
+        rose: alert, red: alert,
+        emerald: sage, green: sage, teal: sage,
+        amber: warm, orange: warm,
+        violet: coral, purple: coral,
+        sky: taupe, blue: taupe,
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Poppins', 'system-ui', 'sans-serif'],
         display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        label: ['Montserrat', 'Poppins', 'sans-serif'],
       },
       boxShadow: {
-        soft: '0 1px 2px rgb(32 16 29 / 0.04), 0 4px 16px -4px rgb(32 16 29 / 0.08)',
-        lift: '0 2px 4px rgb(32 16 29 / 0.06), 0 12px 32px -8px rgb(32 16 29 / 0.18)',
+        soft: '0 1px 2px rgb(44 44 42 / 0.04), 0 4px 16px -6px rgb(44 44 42 / 0.08)',
+        lift: '0 2px 4px rgb(44 44 42 / 0.06), 0 12px 32px -8px rgb(44 44 42 / 0.16)',
       },
       borderRadius: {
         xl: '0.875rem',

@@ -2,36 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Koko Atelier palette ─────────────────────────────────────────────
-   Neutral surfaces as RGB triplets so Tailwind opacity modifiers work.
-   Light: ivory & plum ink.  Dark: plum-black & ivory ink.            */
+/* ── Koko Atelier palette: "Minimal Yet Warm" ───────────────────────
+   Spec tokens as hex (for reference / plain CSS), and the same colours as
+   RGB triplets that Tailwind classes read (so opacity modifiers work).   */
+:root {
+  --bg-canvas: #EAE7DC;          /* eggshell white */
+  --bg-card: #FFFFFF;
+  --bg-surface-accent: #D8C3A5;  /* dark vanilla */
+  --bg-sidebar: #1F1F1E;         /* obsidian */
+  --text-primary: #2C2C2A;       /* charcoal */
+  --text-secondary: #8E8D8A;     /* taupe gray */
+  --brand-primary: #E98074;      /* muted coral */
+  --brand-alert: #E85A4F;        /* jelly bean red */
+  --border-subtle: #E5E0D8;
+}
 @layer base {
   :root {
-    --canvas: 250 247 242;      /* #FAF7F2 ivory */
+    --canvas: 234 231 220;        /* #EAE7DC */
     --surface: 255 255 255;
-    --subtle: 245 240 232;      /* #F5F0E8 */
-    --subtle2: 236 229 217;     /* #ECE5D9 */
-    --line: 232 224 210;        /* #E8E0D2 */
-    --line-strong: 214 203 186;
-    --ink: 42 27 46;            /* #2A1B2E */
-    --ink-soft: 76 61 80;
-    --muted: 120 108 122;
-    --faint: 164 154 164;
-    --accent: 110 57 98;        /* plum-600 */
+    --subtle: 246 243 237;        /* #F6F3ED quiet hover inside cards */
+    --subtle2: 229 224 216;       /* #E5E0D8 */
+    --surface-accent: 216 195 165;/* #D8C3A5 */
+    --line: 229 224 216;          /* #E5E0D8 */
+    --line-strong: 216 195 165;
+    --ink: 44 44 42;              /* #2C2C2A */
+    --ink-soft: 69 68 63;
+    --muted: 142 141 138;         /* #8E8D8A */
+    --faint: 160 158 153;
+    --accent: 201 92 80;          /* coral, deepened for readable text */
     color-scheme: light;
   }
   .dark {
-    --canvas: 22 16 24;         /* #161018 */
-    --surface: 31 23 33;        /* #1F1721 */
-    --subtle: 40 31 43;
-    --subtle2: 50 40 53;
-    --line: 58 47 61;
-    --line-strong: 78 66 82;
-    --ink: 245 239 230;         /* ivory */
-    --ink-soft: 222 213 205;
-    --muted: 170 157 172;
-    --faint: 125 113 128;
-    --accent: 197 153 183;      /* plum-300 */
+    --canvas: 31 31 30;           /* #1F1F1E */
+    --surface: 44 44 42;          /* #2C2C2A */
+    --subtle: 52 52 49;
+    --subtle2: 62 61 58;
+    --surface-accent: 74 66 54;
+    --line: 66 65 61;
+    --line-strong: 92 88 80;
+    --ink: 234 231 220;           /* eggshell */
+    --ink-soft: 214 210 199;
+    --muted: 160 158 153;
+    --faint: 122 120 116;
+    --accent: 233 128 116;        /* #E98074 */
     color-scheme: dark;
   }
 
@@ -43,46 +56,45 @@
   h1 { @apply font-display font-semibold tracking-tight; }
   /* Cormorant defaults to old-style numerals ("1" looks like "I"); use lining figures for amounts */
   .font-display, h1 { font-variant-numeric: lining-nums; }
-  ::selection { @apply bg-gold-200 text-plum-900; }
+  ::selection { @apply bg-plum-100 text-plum-900; }
   :focus-visible { outline: 2px solid rgb(var(--accent) / 0.6); outline-offset: 2px; }
 }
 
 @layer components {
   .input {
     @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint shadow-sm transition
-           focus:border-plum-400 focus:outline-none focus:ring-2 focus:ring-plum-200 dark:focus:ring-plum-800
+           focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-plum-100 dark:focus:ring-plum-800/60
            disabled:cursor-not-allowed disabled:opacity-60;
   }
-  .label { @apply mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted; }
+  .label { @apply mb-1 block font-label text-[10.5px] font-semibold uppercase tracking-wider text-muted; }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-plum-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition
-           hover:bg-plum-800 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-plum-400 disabled:opacity-50 disabled:active:scale-100
-           dark:bg-plum-500 dark:hover:bg-plum-400;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition
+           hover:bg-plum-600 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-plum-300 disabled:opacity-50 disabled:active:scale-100;
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-soft shadow-sm transition
-           hover:bg-subtle hover:text-ink active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-plum-300 disabled:opacity-50;
+           hover:bg-subtle hover:text-ink active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-plum-200 disabled:opacity-50;
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:bg-subtle hover:text-ink;
   }
   .btn-gold {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-plum-950 shadow-sm transition hover:bg-gold-300 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-plum-900 shadow-sm transition hover:bg-gold-300 active:scale-[0.98];
   }
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-alert px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400;
   }
   .btn-icon {
     @apply inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-subtle hover:text-ink;
   }
 
-  .card { @apply rounded-xl border border-line bg-surface shadow-soft; }
-  .section-title { @apply text-[11px] font-bold uppercase tracking-[0.18em] text-gold-600 dark:text-gold-400; }
-  .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-gold-600 dark:text-gold-400; }
-  .th { @apply px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-muted; }
-  .td { @apply px-3 py-3 text-sm text-ink-soft; }
-  .gold-rule { @apply h-px bg-gradient-to-r from-gold-400/70 via-gold-300/40 to-transparent; }
+  .card { @apply rounded-xl border border-line bg-surface shadow-sm; }
+  .section-title { @apply font-label text-[11px] font-semibold uppercase tracking-[0.18em] text-muted; }
+  .eyebrow { @apply font-label text-[11px] font-semibold uppercase tracking-[0.2em] text-muted; }
+  .th { @apply bg-surface-accent px-3 py-2.5 text-left font-label text-[10.5px] font-medium uppercase tracking-wider text-ink; }
+  .td { @apply px-3 py-3 text-sm text-ink; }
+  .gold-rule { @apply h-px bg-gradient-to-r from-plum-300/70 via-gold-400/40 to-transparent; }
 }
 
 /* Scrollbars */

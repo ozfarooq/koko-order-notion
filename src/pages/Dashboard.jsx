@@ -9,8 +9,8 @@ import { listParent, listItem } from '../ui/motion'
 import StatusBadge from '../components/StatusBadge'
 
 const STATUS_HEX = {
-  New: '#3b82f6', 'In Tailoring': '#f59e0b', Ready: '#22c55e', 'Payment Pending': '#f97316',
-  Paid: '#14b8a6', 'Out for Delivery': '#a855f7', Returned: '#f43f5e', Cancelled: '#a8a29e',
+  New: '#B8A487', 'In Tailoring': '#E39B2B', Ready: '#E98074', 'Payment Pending': '#B45309',
+  Paid: '#15803D', 'Out for Delivery': '#8E8D8A', Returned: '#A8A29E', Cancelled: '#E85A4F',
 }
 const compact = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n))
 const monthShort = (k) => new Date(`${k}-01`).toLocaleDateString('en-PK', { month: 'short' })
@@ -99,15 +99,15 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={d.months} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#874d77" stopOpacity={0.35} /><stop offset="100%" stopColor="#874d77" stopOpacity={0} /></linearGradient>
-                      <linearGradient id="col" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#cfa84a" stopOpacity={0.3} /><stop offset="100%" stopColor="#cfa84a" stopOpacity={0} /></linearGradient>
+                      <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E98074" stopOpacity={0.35} /><stop offset="100%" stopColor="#E98074" stopOpacity={0} /></linearGradient>
+                      <linearGradient id="col" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#D8C3A5" stopOpacity={0.45} /><stop offset="100%" stopColor="#D8C3A5" stopOpacity={0} /></linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-line" vertical={false} />
                     <XAxis dataKey="month" tickFormatter={monthShort} tick={{ fontSize: 11, fill: 'currentColor' }} className="text-faint" axisLine={false} tickLine={false} />
                     <YAxis tickFormatter={compact} tick={{ fontSize: 11, fill: 'currentColor' }} className="text-faint" axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip content={<ChartTip showMoney={d.showMoney} />} />
-                    {d.showMoney && <Area type="monotone" dataKey="collected" stroke="#cfa84a" strokeWidth={2} fill="url(#col)" />}
-                    <Area type="monotone" dataKey={d.showMoney ? 'revenue' : 'orders'} stroke="#874d77" strokeWidth={2.5} fill="url(#rev)" />
+                    {d.showMoney && <Area type="monotone" dataKey="collected" stroke="#B8A487" strokeWidth={2} fill="url(#col)" />}
+                    <Area type="monotone" dataKey={d.showMoney ? 'revenue' : 'orders'} stroke="#E98074" strokeWidth={2.5} fill="url(#rev)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -119,7 +119,7 @@ export default function Dashboard() {
                   <BarChart data={statusRows} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }}>
                     <XAxis type="number" hide allowDecimals={false} />
                     <YAxis type="category" dataKey="status" width={110} tick={{ fontSize: 11, fill: 'currentColor' }} className="text-muted" axisLine={false} tickLine={false} />
-                    <Tooltip cursor={{ fill: 'rgba(135,77,119,0.06)' }} formatter={(v) => [`${v} orders`, '']} separator="" />
+                    <Tooltip cursor={{ fill: 'rgba(216,195,165,0.25)' }} formatter={(v) => [`${v} orders`, '']} separator="" />
                     <Bar dataKey="n" radius={[0, 6, 6, 0]} barSize={16} label={{ position: 'right', fontSize: 11, fill: 'currentColor' }}>
                       {statusRows.map((r) => <Cell key={r.status} fill={STATUS_HEX[r.status]} />)}
                     </Bar>
