@@ -1,5 +1,6 @@
 import {
   LayoutDashboard, ClipboardList, Kanban, PlusCircle, Users, Store, FileText, Images, Contact, Shirt,
+  Truck, ReceiptText, Settings, Building2,
 } from 'lucide-react'
 
 // Screens switched on as each phase ships
@@ -36,15 +37,21 @@ export function buildNav({ can, user, resellers = [] }) {
         items: [
           { to: `/resellers/${r.id}`, label: 'Dashboard', icon: LayoutDashboard, end: true },
           { to: `/resellers/${r.id}/stock`, label: isReseller ? 'My Stock' : 'Stock', icon: Store },
+          { to: `/resellers/${r.id}/handovers`, label: 'Handovers', icon: Truck },
+          { to: `/resellers/${r.id}/statements`, label: 'Statements', icon: ReceiptText, when: can('fc:money') },
           { to: `/resellers/${r.id}/reports/inventory`, label: 'Inventory report', icon: FileText },
           { to: `/resellers/${r.id}/reports/product-sheet`, label: 'Product sheet', icon: Images },
-        ],
+          { to: `/resellers/${r.id}/settings`, label: 'Settings', icon: Settings, when: can('resellers:manage') },
+        ].filter((i) => i.when !== false),
       })),
     })
   }
 
   if (can('users:manage')) {
-    sections.push({ title: 'Admin', items: [{ to: '/users', label: 'Users', icon: Users }] })
+    sections.push({ title: 'Admin', items: [
+      { to: '/users', label: 'Users', icon: Users },
+      { to: '/resellers/new', label: 'Add reseller', icon: Building2, when: can('resellers:manage') },
+    ].filter((i) => i.when !== false) })
   }
   return sections
 }
