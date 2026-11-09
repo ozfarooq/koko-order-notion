@@ -42,18 +42,18 @@ function StatementView({ reseller, pieces, payments }) {
       <div className="card overflow-x-auto p-4 sm:p-6 print:border-0 print:shadow-none">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="inline-block border-2 border-plum-950 bg-gold-400 px-3 py-1 text-xs font-bold uppercase tracking-wider text-plum-950">Designer name</p>
+            <p className="eyebrow">Designer name</p>
             <p className="mt-2 font-display text-2xl font-semibold text-ink">{reseller.name}</p>
             <p className="text-xs text-muted">Sales statement · {period === 'all' ? 'all sales' : monthLabel(period)} · generated {fmtDate(today())}</p>
           </div>
-          <p className="border-2 border-plum-950 bg-gold-400 px-6 py-2 font-display text-2xl font-bold tracking-wider text-plum-950">KOKO ATELIER</p>
+          <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-12 w-auto dark:invert" />
         </div>
         {sold.length === 0 ? <p className="py-8 text-center text-sm text-muted">No sales in this period.</p> : (
           <table className="w-full min-w-[980px] border-collapse text-sm">
             <thead>
-              <tr className="bg-gold-400 text-plum-950">
+              <tr className="bg-surface-accent text-ink">
                 {['Date', 'Inv no', 'Code', 'Product', 'Gross price', 'Designer disc.', 'Collage disc.', 'Net price', 'Alt/Laundry', 'Commission', 'Net payable', ''].map((h) => (
-                  <th key={h} className="border border-plum-950/60 px-2 py-1.5 text-center text-[11px] font-bold uppercase">{h}</th>
+                  <th key={h} className="border border-gold-500/40 px-2 py-2 text-center font-label text-[10.5px] font-medium uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -86,9 +86,9 @@ function StatementView({ reseller, pieces, payments }) {
           </table>
         )}
         <div className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
-          <div className="rounded-lg bg-subtle p-3"><p className="text-xs text-muted">Net payable to Koko</p><p className="font-display text-2xl font-semibold text-ink">{cur} {f2(t.payable)}</p></div>
-          <div className="rounded-lg bg-subtle p-3"><p className="text-xs text-muted">Already paid</p><p className="font-display text-2xl font-semibold text-emerald-700 dark:text-emerald-400">{cur} {f2(paidHere)}</p></div>
-          <div className="rounded-lg bg-subtle p-3"><p className="text-xs text-muted">Still owed</p><p className="font-display text-2xl font-semibold text-orange-600">{cur} {f2(t.payable - paidHere)}</p></div>
+          <div className="rounded-xl border border-line bg-surface p-4 shadow-sm"><p className="text-xs text-muted">Net payable to Koko</p><p className="font-display text-2xl font-semibold text-ink">{cur} {f2(t.payable)}</p></div>
+          <div className="rounded-xl border border-line bg-surface p-4 shadow-sm"><p className="text-xs text-muted">Already paid</p><p className="font-display text-2xl font-semibold text-emerald-700 dark:text-emerald-400">{cur} {f2(paidHere)}</p></div>
+          <div className="rounded-xl border border-line bg-surface p-4 shadow-sm"><p className="text-xs text-muted">Still owed</p><p className="font-display text-2xl font-semibold text-rose-600">{cur} {f2(t.payable - paidHere)}</p></div>
         </div>
         {period === 'all' && payments.length > 0 && (
           <p className="mt-3 text-xs text-muted">Payments received: {payments.map((p) => `${fmtDate(p.paidOn)} ${cur} ${f2(p.amount)}${p.reference ? ` (${p.reference})` : ''}`).join(' · ')}</p>

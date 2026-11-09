@@ -9,10 +9,10 @@ const fmt = (date) =>
 const pkr = (val) => `PKR ${Number(val || 0).toLocaleString()}`
 
 // Color scheme — dark charcoal with warm gold accents
-const DARK  = '#1C1C2E'
-const MID   = '#2D2D44'
-const GOLD  = '#C9A96E'
-const LIGHT = '#F7F6F3'
+const DARK  = '#1F1F1E'   // obsidian
+const MID   = '#2C2C2A'   // charcoal
+const GOLD  = '#E98074'   // coral accent
+const LIGHT = '#F6F3ED'
 const WHITE = '#FFFFFF'
 
 import { MEASUREMENT_FIELDS } from '../data/measurements'
@@ -29,15 +29,15 @@ function buildMeasurementsSection(m) {
   const grid = fields.length
     ? '<table style="width:100%;border-collapse:collapse;margin-bottom:' + (rawText ? 10 : 0) + 'px;"><tr>' +
       fields.map((f, i) => (i && i % 6 === 0 ? '</tr><tr>' : '') +
-        '<td style="padding:4px 6px 4px 0;vertical-align:top;"><div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;">' + esc(f.label) +
+        '<td style="padding:4px 6px 4px 0;vertical-align:top;"><div style="font-size:8px;color:#8E8D8A;text-transform:uppercase;letter-spacing:1px;">' + esc(f.label) +
         '</div><div style="font-size:13px;font-weight:700;color:' + DARK + ';">' + esc(m[f.key]) + '&Prime;</div></td>').join('') + '</tr></table>'
     : ''
   const html = grid + esc(rawText).replace(/\n/g, '<br/>')
 
   return `
-  <div style="background:${LIGHT};border-radius:10px;padding:20px;border:1px solid #E8E4DC;margin-bottom:18px;">
+  <div style="background:${LIGHT};border-radius:10px;padding:20px;border:1px solid #E5E0D8;margin-bottom:18px;">
     <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;color:${GOLD};margin-bottom:12px;">Measurements</div>
-    <div style="font-size:11px;color:#374151;line-height:1.6;">${html}</div>
+    <div style="font-size:11px;color:#2C2C2A;line-height:1.6;">${html}</div>
   </div>`
 }
 
@@ -66,15 +66,15 @@ function buildPDFHTML(order, logoDataUrl) {
         <td style="vertical-align:middle;">
           <table style="border-collapse:collapse;"><tr>
             <td style="vertical-align:middle;padding-right:14px;">
-              <div style="width:60px;height:60px;border-radius:50%;overflow:hidden;border:2px solid rgba(201,169,110,0.5);background:#fff;">
+              <div style="height:64px;">
                 ${logoDataUrl
-                  ? `<img src="${logoDataUrl}" style="width:60px;height:60px;object-fit:cover;display:block;" />`
-                  : `<div style="width:60px;height:60px;line-height:60px;text-align:center;background:#2D2D44;font-size:22px;font-weight:900;color:#C9A96E;">K</div>`
+                  ? `<img src="${logoDataUrl}" style="height:64px;width:auto;display:block;" />`
+                  : `<div style="width:60px;height:60px;line-height:60px;text-align:center;background:#2C2C2A;font-size:22px;font-weight:900;color:#E98074;">K</div>`
                 }
               </div>
             </td>
             <td style="vertical-align:middle;">
-              <div style="font-size:22px;font-weight:800;color:${WHITE};letter-spacing:1px;">Koko Atelier</div>
+              <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:600;color:#EAE7DC;letter-spacing:5px;">KOKO ATELIER</div>
               <div style="font-size:9px;color:${GOLD};letter-spacing:4px;text-transform:uppercase;margin-top:3px;">Order Receipt</div>
             </td>
           </tr></table>
@@ -93,7 +93,7 @@ function buildPDFHTML(order, logoDataUrl) {
       <!-- Customer + Payment row — table layout -->
       <table style="width:100%;border-collapse:collapse;margin-bottom:14px;"><tr>
         <td style="vertical-align:top;padding-right:14px;">
-          <div style="background:${LIGHT};border-radius:10px;padding:16px;border:1px solid #E8E4DC;">
+          <div style="background:${LIGHT};border-radius:10px;padding:16px;border:1px solid #E5E0D8;">
             <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;color:${GOLD};margin-bottom:10px;">Customer Information</div>
             <div style="font-size:15px;font-weight:700;color:${DARK};margin-bottom:6px;">${order.customer || '—'}</div>
             ${order.email   ? `<div style="font-size:11px;color:#555;margin-bottom:3px;">&#9993;&nbsp;${order.email}</div>` : ''}
@@ -102,15 +102,15 @@ function buildPDFHTML(order, logoDataUrl) {
           </div>
         </td>
         <td style="vertical-align:top;width:210px;">
-          <div style="background:${LIGHT};border-radius:10px;padding:16px;border:1px solid #E8E4DC;">
+          <div style="background:${LIGHT};border-radius:10px;padding:16px;border:1px solid #E5E0D8;">
             <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;color:${GOLD};margin-bottom:10px;">Payment Summary</div>
             <table style="width:100%;border-collapse:collapse;">
               <tr><td style="font-size:11px;color:#666;padding-bottom:6px;">Total Amount</td><td style="font-size:11px;font-weight:600;color:${DARK};text-align:right;padding-bottom:6px;">${pkr(order.amount)}</td></tr>
-              <tr><td style="font-size:11px;color:#666;padding-bottom:6px;">Advance Paid</td><td style="font-size:11px;font-weight:600;color:#2D8653;text-align:right;padding-bottom:6px;">${pkr(order.advancePaid)}</td></tr>
+              <tr><td style="font-size:11px;color:#666;padding-bottom:6px;">Advance Paid</td><td style="font-size:11px;font-weight:600;color:#15803D;text-align:right;padding-bottom:6px;">${pkr(order.advancePaid)}</td></tr>
             </table>
-            <div style="height:1px;background:#DDD8D0;margin:6px 0;"></div>
+            <div style="height:1px;background:#E5E0D8;margin:6px 0;"></div>
             <table style="width:100%;border-collapse:collapse;">
-              <tr><td style="font-size:12px;font-weight:700;color:${DARK};">Balance Due</td><td style="font-size:13px;font-weight:800;color:${Number(order.balanceDue) > 0 ? '#C0392B' : '#2D8653'};text-align:right;">${pkr(order.balanceDue)}</td></tr>
+              <tr><td style="font-size:12px;font-weight:700;color:${DARK};">Balance Due</td><td style="font-size:13px;font-weight:800;color:${Number(order.balanceDue) > 0 ? '#E85A4F' : '#15803D'};text-align:right;">${pkr(order.balanceDue)}</td></tr>
             </table>
             ${order.paymentNotes ? `<div style="margin-top:8px;padding:7px;background:#FFF8EC;border-radius:6px;border:1px solid #E8D9B0;font-size:10px;color:#7A5C1E;line-height:1.5;">${order.paymentNotes}</div>` : ''}
           </div>
@@ -118,24 +118,24 @@ function buildPDFHTML(order, logoDataUrl) {
       </tr></table>
 
       <!-- Order Details — table layout -->
-      <div style="background:${LIGHT};border-radius:10px;padding:16px;border:1px solid #E8E4DC;margin-bottom:14px;">
+      <div style="background:${LIGHT};border-radius:10px;padding:16px;border:1px solid #E5E0D8;margin-bottom:14px;">
         <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;color:${GOLD};margin-bottom:10px;">Order Details</div>
         <table style="width:100%;border-collapse:collapse;"><tr>
           <td style="vertical-align:top;">
-            <div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Items</div>
+            <div style="font-size:8px;color:#8E8D8A;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Items</div>
             ${buildItemsTable(order)}
           </td>
           <td style="vertical-align:top;width:190px;">
             <table style="border-collapse:collapse;">
-              ${order.quantity != null ? `<tr><td style="padding-bottom:10px;"><div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Pieces</div><div style="font-size:13px;font-weight:600;color:${DARK};">${order.quantity}</div></td></tr>` : ''}
-              <tr><td><div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Delivery Date</div><div style="font-size:13px;font-weight:600;color:${DARK};">${fmt(order.deliveryDate)}</div></td></tr>
+              ${order.quantity != null ? `<tr><td style="padding-bottom:10px;"><div style="font-size:8px;color:#8E8D8A;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Pieces</div><div style="font-size:13px;font-weight:600;color:${DARK};">${order.quantity}</div></td></tr>` : ''}
+              <tr><td><div style="font-size:8px;color:#8E8D8A;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Delivery Date</div><div style="font-size:13px;font-weight:600;color:${DARK};">${fmt(order.deliveryDate)}</div></td></tr>
             </table>
           </td>
         </tr></table>
         ${order.specialInstructions ? `
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #E8E4DC;">
-          <div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Special Instructions</div>
-          <div style="font-size:11px;color:#374151;line-height:1.6;">${order.specialInstructions}</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #E5E0D8;">
+          <div style="font-size:8px;color:#8E8D8A;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Special Instructions</div>
+          <div style="font-size:11px;color:#2C2C2A;line-height:1.6;">${order.specialInstructions}</div>
         </div>` : ''}
       </div>
 
@@ -181,7 +181,7 @@ async function loadLogoDataUrl(src) {
 
 export async function generateOrderPDF(order) {
   // Load logo at native resolution first
-  const logoDataUrl = await loadLogoDataUrl('/kokoLogo.jpg')
+  const logoDataUrl = await loadLogoDataUrl('/brand/emblem-white.png')
 
   const container = document.createElement('div')
   container.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;background:white;width:794px;'
@@ -233,15 +233,15 @@ export async function generateOrderPDF(order) {
 // ── Summary PDF for multiple orders ──────────────────────────────────────────
 function buildSummaryHTML(orders) {
   const rows = orders.map((o, i) => `
-    <tr style="background:${i % 2 === 0 ? WHITE : '#F9F8F6'};">
+    <tr style="background:${i % 2 === 0 ? WHITE : '#F6F3ED'};">
       <td style="padding:8px 10px;font-family:monospace;font-size:10px;font-weight:700;color:${DARK};white-space:nowrap;">${o.orderNumber || '—'}</td>
       <td style="padding:8px 10px;font-size:10px;color:${DARK};">${o.customer || '—'}</td>
-      <td style="padding:8px 10px;font-size:10px;color:#374151;white-space:pre-wrap;">${o.product || '—'}</td>
-      <td style="padding:8px 10px;font-size:10px;color:#374151;text-align:center;">${o.size || '—'}</td>
-      <td style="padding:8px 10px;font-size:10px;color:#374151;text-align:center;">${o.quantity != null ? o.quantity : '—'}</td>
-      <td style="padding:8px 10px;font-size:10px;color:#374151;white-space:nowrap;">${fmt(o.deliveryDate)}</td>
+      <td style="padding:8px 10px;font-size:10px;color:#2C2C2A;white-space:pre-wrap;">${o.product || '—'}</td>
+      <td style="padding:8px 10px;font-size:10px;color:#2C2C2A;text-align:center;">${o.size || '—'}</td>
+      <td style="padding:8px 10px;font-size:10px;color:#2C2C2A;text-align:center;">${o.quantity != null ? o.quantity : '—'}</td>
+      <td style="padding:8px 10px;font-size:10px;color:#2C2C2A;white-space:nowrap;">${fmt(o.deliveryDate)}</td>
       <td style="padding:8px 10px;font-size:10px;font-weight:600;color:${DARK};white-space:nowrap;">${pkr(o.amount)}</td>
-      <td style="padding:8px 10px;font-size:10px;font-weight:700;white-space:nowrap;color:${Number(o.balanceDue) > 0 ? '#C0392B' : '#2D8653'};">${pkr(o.balanceDue)}</td>
+      <td style="padding:8px 10px;font-size:10px;font-weight:700;white-space:nowrap;color:${Number(o.balanceDue) > 0 ? '#E85A4F' : '#15803D'};">${pkr(o.balanceDue)}</td>
       <td style="padding:8px 10px;">
         <span style="padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(201,169,110,0.15);color:${GOLD};">${o.status || '—'}</span>
       </td>
@@ -254,7 +254,7 @@ function buildSummaryHTML(orders) {
     <!-- Header -->
     <div style="background:linear-gradient(135deg,${DARK} 0%,${MID} 100%);padding:24px 36px;display:flex;align-items:center;justify-content:space-between;">
       <div>
-        <div style="font-size:20px;font-weight:800;color:${WHITE};letter-spacing:1px;">Koko Atelier</div>
+        <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:600;color:#EAE7DC;letter-spacing:5px;">KOKO ATELIER</div>
         <div style="font-size:9px;color:${GOLD};letter-spacing:4px;text-transform:uppercase;margin-top:3px;">Order Summary</div>
       </div>
       <div style="text-align:right;">
@@ -264,18 +264,18 @@ function buildSummaryHTML(orders) {
     </div>
     <!-- Table -->
     <div style="padding:24px 36px;">
-      <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #E8E4DC;">
+      <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #E5E0D8;">
         <thead>
-          <tr style="background:${DARK};">
-            <th style="padding:10px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${GOLD};">Order</th>
-            <th style="padding:10px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${GOLD};">Customer</th>
-            <th style="padding:10px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${GOLD};">Product</th>
-            <th style="padding:10px;text-align:center;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${GOLD};">Size</th>
-            <th style="padding:10px;text-align:center;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${GOLD};">Qty</th>
-            <th style="padding:10px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${GOLD};">Delivery</th>
-            <th style="padding:10px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${GOLD};">Amount</th>
-            <th style="padding:10px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${GOLD};">Balance</th>
-            <th style="padding:10px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${GOLD};">Status</th>
+          <tr style="background:#D8C3A5;">
+            <th style="padding:10px;text-align:left;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#2C2C2A;">Order</th>
+            <th style="padding:10px;text-align:left;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#2C2C2A;">Customer</th>
+            <th style="padding:10px;text-align:left;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#2C2C2A;">Product</th>
+            <th style="padding:10px;text-align:center;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#2C2C2A;">Size</th>
+            <th style="padding:10px;text-align:center;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#2C2C2A;">Qty</th>
+            <th style="padding:10px;text-align:left;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#2C2C2A;">Delivery</th>
+            <th style="padding:10px;text-align:left;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#2C2C2A;">Amount</th>
+            <th style="padding:10px;text-align:left;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#2C2C2A;">Balance</th>
+            <th style="padding:10px;text-align:left;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#2C2C2A;">Status</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>

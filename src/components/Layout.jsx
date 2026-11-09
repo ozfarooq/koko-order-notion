@@ -19,13 +19,8 @@ const readCollapsed = () => { try { return localStorage.getItem(COLLAPSE_KEY) ==
 function Logo({ collapsed }) {
   return (
     <Link to="/" className="flex items-center gap-3 px-1">
-      <img src="/kokoLogo.jpg" alt="Koko Atelier" className="h-10 w-10 flex-shrink-0 rounded-full object-cover ring-2 ring-gold-400/40" />
-      {!collapsed && (
-        <div className="min-w-0">
-          <p className="font-display text-xl font-semibold leading-none tracking-wide text-white">Koko Atelier</p>
-          <p className="mt-1 text-[9px] uppercase tracking-[0.3em] text-gold-300/80">Atelier Studio</p>
-        </div>
-      )}
+      <img src="/brand/emblem-white.png" alt={collapsed ? 'Koko Atelier' : ''} className="h-11 w-auto flex-shrink-0 opacity-90" />
+      {!collapsed && <img src="/brand/wordmark-white.png" alt="Koko Atelier" className="h-8 w-auto opacity-90" />}
     </Link>
   )
 }
@@ -39,13 +34,13 @@ function SideLink({ item, collapsed, nested }) {
       title={collapsed ? item.label : undefined}
       className={({ isActive }) =>
         `group relative flex items-center gap-3 rounded-lg ${nested ? 'py-1.5 pl-3 text-[13px]' : 'py-2 pl-3 text-sm'} pr-3 font-medium transition
-         ${isActive ? 'bg-white/10 text-white' : 'text-white/55 hover:bg-white/5 hover:text-white'}`
+         ${isActive ? 'bg-plum-900 text-[#EAE7DC]' : 'text-[#EAE7DC]/55 hover:bg-white/5 hover:text-[#EAE7DC]'}`
       }
     >
       {({ isActive }) => (
         <>
-          {isActive && <motion.span layoutId="nav-active" className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-gold-400" transition={{ duration: 0.3, ease }} />}
-          <Icon size={nested ? 15 : 17} className={isActive ? 'text-gold-300' : ''} />
+          {isActive && <motion.span layoutId="nav-active" className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-brand-primary" transition={{ duration: 0.3, ease }} />}
+          <Icon size={nested ? 15 : 17} className={isActive ? 'text-plum-400' : ''} />
           {!collapsed && <span className="truncate">{item.label}</span>}
         </>
       )}
@@ -61,10 +56,10 @@ function ResellerGroup({ group, collapsed, defaultOpen }) {
     <div>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-white/80 transition hover:bg-white/5 hover:text-white"
+        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-[#EAE7DC]/85 transition hover:bg-white/5 hover:text-[#EAE7DC]"
       >
         <span className="flex-1 truncate">{group.label}</span>
-        {group.badge > 0 && <span className="rounded-full bg-gold-400/15 px-1.5 text-[10px] font-bold text-gold-300">{group.badge}</span>}
+        {group.badge > 0 && <span className="rounded-full bg-plum-500/20 px-1.5 text-[10px] font-bold text-plum-300">{group.badge}</span>}
         <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence initial={false}>
@@ -87,7 +82,7 @@ function NavSections({ sections, collapsed, pathname }) {
   return sections.map((s) => (
     <div key={s.title} className="space-y-0.5">
       {!collapsed ? (
-        <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.22em] text-white/30">{s.title}</p>
+        <p className="px-3 pb-1 pt-4 font-label text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8E8D8A]">{s.title}</p>
       ) : <div className="mx-3 my-3 h-px bg-white/10" />}
       {(s.items || []).map((i) => <SideLink key={i.to} item={i} collapsed={collapsed} />)}
       {(s.groups || []).map((g) => (
@@ -138,8 +133,8 @@ export default function Layout() {
     <div className="space-y-0.5">
       {!compact && (
         <div className="px-3 pb-2">
-          <p className="truncate text-sm font-semibold text-white">{user?.name}</p>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-white/40">{ROLE_LABELS[user?.role]}</p>
+          <p className="truncate text-sm font-semibold text-[#EAE7DC]">{user?.name}</p>
+          <p className="font-label text-[10px] uppercase tracking-[0.2em] text-[#8E8D8A]">{ROLE_LABELS[user?.role]}</p>
         </div>
       )}
       <button onClick={() => setChangingPassword(true)} title="Change password" className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/55 transition hover:bg-white/5 hover:text-white">
@@ -156,13 +151,12 @@ export default function Layout() {
       {/* ── Desktop sidebar ── */}
       <motion.aside
         animate={{ width: collapsed ? 76 : 256 }} transition={{ duration: 0.3, ease }}
-        className="relative hidden flex-shrink-0 flex-col bg-plum-950 text-white md:flex"
+        className="relative hidden flex-shrink-0 flex-col bg-sidebar text-[#EAE7DC] md:flex"
       >
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_60%_at_0%_0%,rgba(207,168,74,0.10),transparent_60%)]" />
         <div className="relative flex items-center justify-between px-4 pb-4 pt-5">
           <Logo collapsed={collapsed} />
         </div>
-        <div className="relative mx-4 h-px bg-gradient-to-r from-gold-400/40 to-transparent" />
+        <div className="relative mx-4 h-px bg-gradient-to-r from-plum-500/40 via-white/10 to-transparent" />
         <nav className="relative flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 pb-4">
           <NavSections sections={sections} collapsed={collapsed} pathname={pathname} />
         </nav>
@@ -183,8 +177,9 @@ export default function Layout() {
         {/* Top bar */}
         <header className="flex h-14 flex-shrink-0 items-center gap-2 border-b border-line bg-surface/80 px-3 backdrop-blur md:h-16 md:px-6">
           <div className="flex items-center gap-2 md:hidden">
-            <img src="/kokoLogo.jpg" alt="" className="h-8 w-8 rounded-full object-cover ring-1 ring-gold-400/40" />
-            <span className="font-display text-lg font-semibold text-ink">Koko Atelier</span>
+            <img src="/brand/emblem.png" alt="" className="h-9 w-auto dark:hidden" />
+            <img src="/brand/emblem-white.png" alt="" className="hidden h-9 w-auto dark:block" />
+            <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-6 w-auto dark:invert" />
           </div>
           <button
             onClick={() => setPaletteOpen(true)}
@@ -238,7 +233,7 @@ export default function Layout() {
         {moreOpen && (
           <motion.div className="fixed inset-0 z-50 bg-plum-950/50 md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMoreOpen(false)}>
             <motion.div
-              className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-plum-950 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 text-white"
+              className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-sidebar px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 text-[#EAE7DC]"
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ duration: 0.3, ease }}
               onClick={(e) => e.stopPropagation()}
             >

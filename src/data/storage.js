@@ -5,23 +5,23 @@
 
 // Consignment pieces ("FC - " prefix is the frontend's internal value; the API stores plain names)
 export const FC_STATUS_OPTIONS = [
-  { value: 'FC - At Store', label: 'At Store', color: 'bg-sky-50 text-sky-800 ring-1 ring-inset ring-sky-200/70 dark:bg-sky-950/50 dark:text-sky-300 dark:ring-sky-800/60',     dot: 'bg-sky-500' },
-  { value: 'FC - Sold',     label: 'Sold',     color: 'bg-violet-50 text-violet-800 ring-1 ring-inset ring-violet-200/70 dark:bg-violet-950/50 dark:text-violet-300 dark:ring-violet-800/60',  dot: 'bg-violet-500' },
-  { value: 'FC - Paid',     label: 'Paid',     color: 'bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200/70 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800/60', dot: 'bg-emerald-500' },
-  { value: 'FC - Returned', label: 'Returned', color: 'bg-rose-50 text-rose-800 ring-1 ring-inset ring-rose-200/70 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-800/60',    dot: 'bg-rose-500' },
+  { value: 'FC - At Store', label: 'At Store', color: 'bg-gold-100 text-gold-700 ring-1 ring-inset ring-gold-300/60 dark:bg-gold-700/25 dark:text-gold-200 dark:ring-white/10',     dot: 'bg-gold-500' },
+  { value: 'FC - Sold',     label: 'Sold',     color: 'bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200/70 dark:bg-amber-900/30 dark:text-amber-300 dark:ring-white/10',  dot: 'bg-amber-500' },
+  { value: 'FC - Paid',     label: 'Paid',     color: 'bg-green-100 text-green-700 ring-1 ring-inset ring-green-200/70 dark:bg-green-900/30 dark:text-green-300 dark:ring-white/10', dot: 'bg-green-600' },
+  { value: 'FC - Returned', label: 'Returned', color: 'bg-stone-100 text-stone-600 ring-1 ring-inset ring-stone-200/70 dark:bg-stone-800/40 dark:text-stone-300 dark:ring-white/10',    dot: 'bg-stone-400' },
 ]
 
 export const FC_STATUSES = FC_STATUS_OPTIONS.map((s) => s.value)
 
 export const STATUS_OPTIONS = [
-  { value: 'New',              label: 'New',              color: 'bg-blue-50 text-blue-800 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/50 dark:text-blue-300 dark:ring-blue-800/60',    dot: 'bg-blue-500' },
-  { value: 'In Tailoring',    label: 'In Tailoring',     color: 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200/70 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-800/60',   dot: 'bg-amber-500' },
-  { value: 'Ready',           label: 'Ready',            color: 'bg-green-50 text-green-800 ring-1 ring-inset ring-green-200/70 dark:bg-green-950/50 dark:text-green-300 dark:ring-green-800/60',   dot: 'bg-green-500' },
-  { value: 'Payment Pending', label: 'Payment Pending',  color: 'bg-orange-50 text-orange-800 ring-1 ring-inset ring-orange-200/70 dark:bg-orange-950/50 dark:text-orange-300 dark:ring-orange-800/60',  dot: 'bg-orange-500' },
-  { value: 'Paid',            label: 'Paid',             color: 'bg-teal-50 text-teal-800 ring-1 ring-inset ring-teal-200/70 dark:bg-teal-950/50 dark:text-teal-300 dark:ring-teal-800/60',    dot: 'bg-teal-500' },
-  { value: 'Out for Delivery',label: 'Out for Delivery', color: 'bg-purple-50 text-purple-800 ring-1 ring-inset ring-purple-200/70 dark:bg-purple-950/50 dark:text-purple-300 dark:ring-purple-800/60',  dot: 'bg-purple-500' },
-  { value: 'Returned',        label: 'Returned',         color: 'bg-rose-50 text-rose-800 ring-1 ring-inset ring-rose-200/70 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-800/60',    dot: 'bg-rose-500' },
-  { value: 'Cancelled',       label: 'Cancelled',        color: 'bg-stone-50 text-stone-800 ring-1 ring-inset ring-stone-200/70 dark:bg-stone-950/50 dark:text-stone-300 dark:ring-stone-800/60',   dot: 'bg-stone-400' },
+  { value: 'New',              label: 'New',              color: 'bg-gold-100 text-gold-700 ring-1 ring-inset ring-gold-300/60 dark:bg-gold-700/25 dark:text-gold-200 dark:ring-white/10',    dot: 'bg-gold-500' },
+  { value: 'In Tailoring',    label: 'In Tailoring',     color: 'bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200/70 dark:bg-amber-900/30 dark:text-amber-300 dark:ring-white/10',   dot: 'bg-amber-500' },
+  { value: 'Ready',           label: 'Ready',            color: 'bg-plum-100 text-plum-700 ring-1 ring-inset ring-plum-200/70 dark:bg-plum-800/30 dark:text-plum-300 dark:ring-white/10',   dot: 'bg-plum-500' },
+  { value: 'Payment Pending', label: 'Payment Pending',  color: 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-300/60 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-white/10',  dot: 'bg-amber-600' },
+  { value: 'Paid',            label: 'Paid',             color: 'bg-green-100 text-green-700 ring-1 ring-inset ring-green-200/70 dark:bg-green-900/30 dark:text-green-300 dark:ring-white/10',    dot: 'bg-green-600' },
+  { value: 'Out for Delivery',label: 'Out for Delivery', color: 'bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-200/70 dark:bg-sky-800/40 dark:text-sky-200 dark:ring-white/10',  dot: 'bg-sky-500' },
+  { value: 'Returned',        label: 'Returned',         color: 'bg-stone-100 text-stone-600 ring-1 ring-inset ring-stone-200/70 dark:bg-stone-800/40 dark:text-stone-300 dark:ring-white/10',    dot: 'bg-stone-400' },
+  { value: 'Cancelled',       label: 'Cancelled',        color: 'bg-rose-50 text-rose-600 ring-1 ring-inset ring-rose-200/70 dark:bg-rose-900/30 dark:text-rose-300 dark:ring-white/10',   dot: 'bg-rose-600' },
 ]
 
 export const getStatusMeta = (status) =>

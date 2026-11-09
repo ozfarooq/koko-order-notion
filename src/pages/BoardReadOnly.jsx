@@ -3,14 +3,14 @@ import { RefreshCw, Lock, Calendar } from 'lucide-react'
 import { getBoard, FC_STATUSES } from '../data/storage'
 
 const KANBAN_COLUMNS = [
-  { value: 'New',             label: 'New',             color: 'bg-blue-500',   light: 'bg-blue-50',   border: 'border-blue-200',   text: 'text-blue-700'   },
+  { value: 'New',             label: 'New',             color: 'bg-gold-500',   light: 'bg-gold-100',  border: 'border-gold-300',   text: 'text-gold-700'   },
   { value: 'In Tailoring',   label: 'In Tailoring',    color: 'bg-amber-500',  light: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-700'  },
-  { value: 'Ready',           label: 'Ready',           color: 'bg-green-500',  light: 'bg-green-50',  border: 'border-green-200',  text: 'text-green-700'  },
-  { value: 'Out for Delivery',label: 'Out for Delivery',color: 'bg-purple-500', light: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
+  { value: 'Ready',           label: 'Ready',           color: 'bg-plum-500',   light: 'bg-plum-50',   border: 'border-plum-200',   text: 'text-plum-700'   },
+  { value: 'Out for Delivery',label: 'Out for Delivery',color: 'bg-sky-500',    light: 'bg-sky-50',    border: 'border-sky-200',    text: 'text-sky-700'    },
   { value: 'Payment Pending', label: 'Payment Pending', color: 'bg-orange-500', light: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' },
   { value: 'Paid',            label: 'Paid',            color: 'bg-teal-500',   light: 'bg-teal-50',   border: 'border-teal-200',   text: 'text-teal-700'   },
-  { value: 'Cancelled',       label: 'Cancelled',       color: 'bg-gray-400',   light: 'bg-subtle',   border: 'border-line',   text: 'text-muted'   },
-  { value: 'Returned',        label: 'Returned',        color: 'bg-rose-500',   light: 'bg-rose-50',   border: 'border-rose-200',   text: 'text-rose-700'   },
+  { value: 'Cancelled',       label: 'Cancelled',       color: 'bg-rose-500',   light: 'bg-rose-50',   border: 'border-rose-200',   text: 'text-rose-700'   },
+  { value: 'Returned',        label: 'Returned',        color: 'bg-stone-400',  light: 'bg-subtle',    border: 'border-line',       text: 'text-muted'      },
 ]
 
 const fmt = (date) =>
@@ -116,9 +116,9 @@ export default function BoardReadOnly() {
       <div className="flex flex-shrink-0 items-center justify-between border-b border-line bg-surface px-6 py-4">
         <div className="flex items-center gap-4">
           <img
-            src="/kokoLogo.jpg"
+            src="/brand/emblem.png"
             alt="Koko Atelier"
-            className="h-9 w-9 rounded-full object-cover ring-2 ring-brand-200"
+            className="h-11 w-auto"
             onError={(e) => { e.target.style.display = 'none' }}
           />
           <div>

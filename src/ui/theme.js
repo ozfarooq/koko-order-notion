@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 
-// Light / dark preference, remembered per browser (falls back to the device setting)
-const KEY = 'koko-theme'
+// Light / dark preference, remembered per browser. The "Minimal Yet Warm" light theme is the default;
+// the key changed with the redesign so everyone starts on it.
+const KEY = 'koko-theme-v2'
 const read = () => { try { return localStorage.getItem(KEY) } catch { return null } }
-const systemDark = () => window.matchMedia?.('(prefers-color-scheme: dark)').matches
 
 export function useTheme() {
-  const [theme, setTheme] = useState(() => read() || (systemDark() ? 'dark' : 'light'))
+  const [theme, setTheme] = useState(() => read() || 'light')
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')

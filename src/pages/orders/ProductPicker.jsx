@@ -32,7 +32,7 @@ export default function ProductPicker({ open, onClose, onPick }) {
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
           {[{ v: 'all', l: 'All' }, ...collections.map((c) => ({ v: c, l: c })), { v: 'none', l: 'Separates' }].map((c) => (
             <button key={c.v} type="button" onClick={() => setCollection(c.v)}
-              className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition ${collection === c.v ? 'border-plum-600 bg-plum-700 text-white' : 'border-line text-muted hover:text-ink'}`}>
+              className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition ${collection === c.v ? 'border-brand-primary bg-brand-primary text-white' : 'border-line text-muted hover:text-ink'}`}>
               {c.l}
             </button>
           ))}
