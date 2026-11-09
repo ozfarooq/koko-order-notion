@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  LogOut, KeyRound, Search, Sun, Moon, ChevronsLeft, ChevronsRight, ChevronDown, Menu, ClipboardList, Kanban, Store, X,
+  LogOut, KeyRound, Search, Sun, Moon, ChevronsLeft, ChevronsRight, ChevronDown, Menu, ClipboardList, Kanban, Store, X, LayoutDashboard,
 } from 'lucide-react'
 import { useAuth, homeFor } from '../auth/AuthContext'
 import { getResellers, RESELLERS_CHANGED } from '../data/storage'
@@ -126,6 +126,7 @@ export default function Layout() {
   const tabs = isReseller
     ? [{ to: homeFor(user, resellers), label: 'Dashboard', icon: Store, end: true }, { to: `/resellers/${user.resellerId}/stock`, label: 'My Stock', icon: ClipboardList }]
     : [
+        can('orders:read') && { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
         can('orders:read') && { to: '/orders', label: 'Orders', icon: ClipboardList, end: true },
         can('orders:read') && { to: '/kanban', label: 'Board', icon: Kanban },
         can('fc:read') && resellers[0] && { to: `/resellers/${resellers[0].id}/stock`, label: 'Resellers', icon: Store },

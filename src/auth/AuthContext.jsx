@@ -11,7 +11,7 @@ export const can = (user, permission) =>
 export const homeFor = (user) => {
   if (!user) return '/login'
   if (user.role === 'reseller') return `/resellers/${user.resellerId}`
-  return user.permissions?.some((p) => p === '*' || p === 'orders:read') ? '/orders' : '/'
+  return user.permissions?.some((p) => p === '*' || p === 'orders:read') ? '/dashboard' : '/'
 }
 
 export function AuthProvider({ children }) {
