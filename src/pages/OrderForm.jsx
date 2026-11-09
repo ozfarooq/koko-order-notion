@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { ArrowLeft, Save, Plus, Trash2, Shirt, User, Ruler, CreditCard, Truck, StickyNote, RotateCcw, Minus } from 'lucide-react'
-import { addOrder, updateOrder, getOrderById, STATUS_OPTIONS } from '../data/storage'
+import { addOrder, updateOrder, getOrderById, getCustomer, STATUS_OPTIONS } from '../data/storage'
 import { MEASUREMENT_FIELDS, SIZE_OPTIONS } from '../data/measurements'
 import CustomerPicker from './orders/CustomerPicker'
 import ProductPicker from './orders/ProductPicker'
@@ -45,6 +45,16 @@ export default function OrderForm() {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
   const [picking, setPicking] = useState(false)
+  const { state } = useLocation()
+
+  // "New order" from a customer profile starts with that customer filled in
+  useEffect(() => {
+    if (isEdit || !state?.customerId) return
+    getCustomer(state.customerId).then((c) => setForm((f) => ({
+      ...f, customerId: c.id, customer: c.name, phone: c.phone, email: c.email, address: c.address, city: c.city,
+      measurements: c.latestMeasurements ? Object.fromEntries(Object.entries(c.latestMeasurements).filter(([k]) => !['orderId', 'orderNumber'].includes(k))) : f.measurements,
+    }))).catch(() => {})
+  }, [state?.customerId, isEdit])
 
   useEffect(() => {
     if (!isEdit) return

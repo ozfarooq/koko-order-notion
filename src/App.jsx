@@ -15,6 +15,10 @@ const OrderForm       = lazy(() => import('./pages/OrderForm'))
 const OrderDetail     = lazy(() => import('./pages/OrderDetail'))
 const BoardReadOnly   = lazy(() => import('./pages/BoardReadOnly'))
 const Users           = lazy(() => import('./pages/Users'))
+const Customers       = lazy(() => import('./pages/customers/Customers'))
+const CustomerProfile = lazy(() => import('./pages/customers/CustomerProfile'))
+const Catalogue       = lazy(() => import('./pages/catalogue/Catalogue'))
+const ProductPage     = lazy(() => import('./pages/catalogue/ProductPage'))
 const ResellerHome    = lazy(() => import('./pages/resellers/ResellerDashboard'))
 const ResellerStock   = lazy(() => import('./pages/resellers/ResellerStock'))
 const InventoryReport = lazy(() => import('./pages/resellers/InventoryReport'))
@@ -86,6 +90,12 @@ export default function App() {
                 <Route path="/orders/new" element={<Require permission="orders:write"><OrderForm /></Require>} />
                 <Route path="/orders/:id" element={<Require permission="orders:read"><OrderDetail /></Require>} />
                 <Route path="/orders/:id/edit" element={<Require permission="orders:write"><OrderForm /></Require>} />
+
+                <Route path="/customers" element={<Require permission="customers:read"><Customers /></Require>} />
+                <Route path="/customers/:id" element={<Require permission="customers:read"><CustomerProfile /></Require>} />
+                <Route path="/catalogue" element={<Require permission="products:read"><Catalogue /></Require>} />
+                <Route path="/catalogue/collections/:collectionId" element={<Require permission="products:read"><Catalogue /></Require>} />
+                <Route path="/catalogue/products/:id" element={<Require permission="products:read"><ProductPage /></Require>} />
 
                 <Route path="/resellers/:resellerId" element={<Require permission="fc:read"><ResellerScope><ResellerHome /></ResellerScope></Require>} />
                 <Route path="/resellers/:resellerId/stock" element={<Require permission="fc:read"><ResellerScope><ResellerStock /></ResellerScope></Require>} />

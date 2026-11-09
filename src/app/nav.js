@@ -3,7 +3,7 @@ import {
 } from 'lucide-react'
 
 // Screens switched on as each phase ships
-export const FEATURES = { dashboard: false, customers: false, catalogue: false }
+export const FEATURES = { dashboard: false, customers: true, catalogue: true }
 
 // One navigation model, used by the sidebar, the phone "More" sheet and the command palette.
 // Items are filtered by permission; reseller sections are built from the resellers in the database.

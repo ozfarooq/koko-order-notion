@@ -91,6 +91,16 @@ export const deleteOrder  = (id)       => api(`/orders/${id}`,{ method: 'DELETE'
 let productsPromise
 export const getProducts = () => (productsPromise ??= api('/products').catch((err) => { productsPromise = null; throw err }))
 export const searchCustomers = (q) => api(`/customers?q=${encodeURIComponent(q)}`)
+export const getCustomers    = ({ q = '', sort = 'recent' } = {}) => api(`/customers?all=1&sort=${sort}&q=${encodeURIComponent(q)}`)
+export const getCustomer     = (id) => api(`/customers/${id}`)
+export const updateCustomer  = (id, upd) => api(`/customers/${id}`, { method: 'PATCH', body: JSON.stringify(upd) })
+export const mergeCustomer   = (id, intoId) => api(`/customers/${id}/merge`, { method: 'POST', body: JSON.stringify({ intoId }) })
+
+export const getCollections   = () => api('/collections')
+export const addCollection    = (name) => api('/collections', { method: 'POST', body: JSON.stringify({ name }) })
+export const getProduct       = (id) => api(`/products/${id}`)
+export const updateProduct    = (id, upd) => api(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(upd) }).then((p) => { productsPromise = null; return p })
+export const importCatalogue  = (products) => api('/catalogue/import', { method: 'POST', body: JSON.stringify({ products }) }).then((r) => { productsPromise = null; return r })
 
 // ── B2B consignment (Fashion Collage) ──────────────────────────────────
 // Pieces are returned in the shape the FC pages use: `status` carries the FC_STATUS_OPTIONS
