@@ -1,16 +1,21 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Printer } from 'lucide-react'
-import { getOrders, FC_STATUSES } from '../../data/storage'
+import { getConsignments } from '../../data/storage'
 
-const COMMISSION = 0.30
+// Each piece carries the commission rate locked in at its handover
+const rate = (o) => (Number(o.commissionPct) || 0) / 100
+const netOf = (o) => (Number(o.aedPrice) || 0) * (1 - rate(o))
 const SIZE_ORDER = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
 const IMG_EXTS = ['.jpg', '.JPG', '.jpeg', '.png', '.PNG']
 
-function ProductImage({ name }) {
+// Shopify image first; local /Images files as fallback
+function ProductImage({ name, src }) {
+  const [useLocal, setUseLocal] = useState(!src)
   const [extIdx, setExtIdx] = useState(0)
   const [failed, setFailed]   = useState(false)
 
   const handleError = () => {
+    if (!useLocal) { setUseLocal(true); return }
     const next = extIdx + 1
     if (next < IMG_EXTS.length) setExtIdx(next)
     else setFailed(true)
@@ -26,7 +31,7 @@ function ProductImage({ name }) {
 
   return (
     <img
-      src={`/Images/${name}${IMG_EXTS[extIdx]}`}
+      src={useLocal ? `/Images/${name}${IMG_EXTS[extIdx]}` : src}
       alt={name}
       onError={handleError}
       className="w-full h-64 rounded-xl object-contain bg-gray-50"
@@ -68,7 +73,7 @@ function buildInventory(orders) {
           ? `AED ${Number(prices[0]).toLocaleString()}`
           : `AED ${Math.min(...prices.map(Number)).toLocaleString()} – ${Math.max(...prices.map(Number)).toLocaleString()}`
 
-      return { product, sizes, totalQty: items.length, priceLabel }
+      return { product, sizes, totalQty: items.length, priceLabel, imageUrl: items[0].imageUrl, rate: rate(items[0]) }
     })
 }
 
@@ -78,7 +83,7 @@ function buildSold(orders) {
     .sort((a, b) => (a.product || '').localeCompare(b.product || ''))
     .map((o) => {
       const aed        = Number(o.aedPrice) || 0
-      const commission = aed * COMMISSION
+      const commission = aed * rate(o)
       const koko       = aed - commission
       return {
         id:         o.id,
@@ -96,12 +101,14 @@ export default function FCPhotoReport() {
   const [orders,  setOrders]  = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
+  const [pct,     setPct]     = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const all = await getOrders()
-      setOrders(all.filter((o) => FC_STATUSES.includes(o.status)))
+      const data = await getConsignments()
+      setOrders(data.items)
+      setPct(data.resellers[0]?.commissionPct ?? 0)
     } catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }, [])
@@ -112,7 +119,7 @@ export default function FCPhotoReport() {
   const sold      = buildSold(orders)
 
   const soldTotal      = sold.reduce((s, r) => s + r.aed, 0)
-  const soldCommission = soldTotal * COMMISSION
+  const soldCommission = sold.reduce((s, r) => s + r.commission, 0)
   const soldKoko       = soldTotal - soldCommission
 
   return (
@@ -164,9 +171,9 @@ export default function FCPhotoReport() {
                   In Store — {inventory.reduce((s, p) => s + p.totalQty, 0)} outfits
                 </h2>
                 <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">
-                  {inventory.map(({ product, sizes, totalQty, priceLabel }) => (
+                  {inventory.map(({ product, sizes, totalQty, priceLabel, imageUrl }) => (
                     <div key={product} className="flex flex-col gap-3 print:break-inside-avoid">
-                      <ProductImage name={product} />
+                      <ProductImage name={product} src={imageUrl} />
                       <div>
                         <h3 className="text-base font-bold text-gray-900 leading-tight">{product}</h3>
                         {priceLabel && (
@@ -204,12 +211,12 @@ export default function FCPhotoReport() {
                           <th key={s} className="px-3 py-3 text-center text-[11px] font-bold uppercase tracking-wide text-gray-400">{s}</th>
                         ))}
                         <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Price (AED)</th>
-                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Commission (30%)</th>
-                        <th className="px-3 py-3 pr-5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Koko (70%)</th>
+                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Commission ({pct}%)</th>
+                        <th className="px-3 py-3 pr-5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Koko ({100 - pct}%)</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {inventory.map(({ product, sizes, totalQty, priceLabel }) => {
+                      {inventory.map(({ product, sizes, totalQty, priceLabel, rate: r }) => {
                         const sizeMap = Object.fromEntries(sizes)
                         const sizeLabels = { 'X-Small': 'XS', 'Small': 'S', 'Medium': 'M', 'Large': 'L', 'X-Large': 'XL' }
                         const unitPrice = orders
@@ -227,10 +234,10 @@ export default function FCPhotoReport() {
                               {priceLabel || '—'}
                             </td>
                             <td className="px-3 py-2.5 text-right text-sm font-semibold text-rose-600">
-                              {unitPrice > 0 ? `AED ${(unitPrice * 0.3).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
+                              {unitPrice > 0 ? `AED ${(unitPrice * r).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
                             </td>
                             <td className="px-3 py-2.5 pr-5 text-right text-sm font-bold text-emerald-700">
-                              {unitPrice > 0 ? `AED ${(unitPrice * 0.7).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
+                              {unitPrice > 0 ? `AED ${(unitPrice * (1 - r)).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
                             </td>
                           </tr>
                         )
@@ -254,8 +261,8 @@ export default function FCPhotoReport() {
                         <th className="py-3 pl-5 pr-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-400">Product</th>
                         <th className="px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-400">Size</th>
                         <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Amount Sold</th>
-                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Commission (30%)</th>
-                        <th className="px-3 py-3 pr-5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Koko Amount (70%)</th>
+                        <th className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Commission ({pct}%)</th>
+                        <th className="px-3 py-3 pr-5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-400">Koko Amount ({100 - pct}%)</th>
                       </tr>
                     </thead>
                     <tbody>

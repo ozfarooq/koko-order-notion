@@ -1,10 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
-import { PRODUCTS } from '../data/products'
+import { getProducts } from '../data/storage'
 
 export default function ProductInput({ value, onChange, placeholder = 'Search product...' }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState(value || '')
+  const [PRODUCTS, setProducts] = useState([])
   const containerRef = useRef(null)
+
+  // Catalog names come from the database (mirrors Shopify product titles)
+  useEffect(() => {
+    getProducts().then((list) => setProducts(list.map((p) => p.name))).catch(() => {})
+  }, [])
 
   // Sync if parent resets value
   useEffect(() => { setQuery(value || '') }, [value])

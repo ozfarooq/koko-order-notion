@@ -1,38 +1,31 @@
-// Local development API server (Express v4)
-// In production on Vercel, the api/ folder handles these routes automatically.
+// Local development API server (Express v4).
+// Mounts the same handlers Vercel runs from api/, so dev and production behave identically.
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
-import * as notion from './lib/notion.js'
+import orders from './api/orders.js'
+import orderById from './api/orders/[id].js'
+import products from './api/products.js'
+import customers from './api/customers.js'
+import consignments from './api/consignments.js'
+import consignmentItemById from './api/consignment-items/[id].js'
 
 const app = express()
 app.use(cors())
 app.use(express.json())
 
-app.get('/api/orders', async (_req, res) => {
-  try { res.json(await notion.getAllOrders()) }
-  catch (err) { res.status(500).json({ error: err.message }) }
-})
+// Vercel passes dynamic route segments in req.query
+const withParams = (handler) => (req, res) => {
+  Object.defineProperty(req, 'query', { value: { ...req.query, ...req.params }, configurable: true })
+  return handler(req, res)
+}
 
-app.post('/api/orders', async (req, res) => {
-  try { res.status(201).json(await notion.createOrder(req.body)) }
-  catch (err) { res.status(500).json({ error: err.message }) }
-})
-
-app.get('/api/orders/:id', async (req, res) => {
-  try { res.json(await notion.getOrderById(req.params.id)) }
-  catch (err) { res.status(500).json({ error: err.message }) }
-})
-
-app.patch('/api/orders/:id', async (req, res) => {
-  try { res.json(await notion.updateOrder(req.params.id, req.body)) }
-  catch (err) { res.status(500).json({ error: err.message }) }
-})
-
-app.delete('/api/orders/:id', async (req, res) => {
-  try { await notion.deleteOrder(req.params.id); res.status(204).end() }
-  catch (err) { res.status(500).json({ error: err.message }) }
-})
+app.all('/api/orders', orders)
+app.all('/api/orders/:id', withParams(orderById))
+app.all('/api/products', products)
+app.all('/api/customers', customers)
+app.all('/api/consignments', consignments)
+app.all('/api/consignment-items/:id', withParams(consignmentItemById))
 
 const PORT = process.env.API_PORT || 3002
 app.listen(PORT, () => {

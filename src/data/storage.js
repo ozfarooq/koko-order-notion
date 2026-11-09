@@ -1,5 +1,5 @@
 // Reads/writes through the local Express server (dev) or Vercel functions (prod).
-// The Notion token never touches the browser — all API calls go server-side.
+// Database credentials never touch the browser — all API calls go server-side.
 
 export const FC_STATUS_OPTIONS = [
   { value: 'FC - At Store', label: 'At Store', color: 'bg-sky-100 text-sky-800',    dot: 'bg-sky-500' },
@@ -47,8 +47,35 @@ async function api(path, options = {}) {
   return data
 }
 
+// ── Retail orders ──────────────────────────────────────────────────────
 export const getOrders    = ()         => api('/orders')
 export const getOrderById = (id)       => api(`/orders/${id}`)
 export const addOrder     = (order)    => api('/orders',      { method: 'POST',  body: JSON.stringify(order) })
 export const updateOrder  = (id, upd)  => api(`/orders/${id}`,{ method: 'PATCH', body: JSON.stringify(upd) })
 export const deleteOrder  = (id)       => api(`/orders/${id}`,{ method: 'DELETE' })
+
+// ── Catalog & customers ────────────────────────────────────────────────
+let productsPromise
+export const getProducts = () => (productsPromise ??= api('/products').catch((err) => { productsPromise = null; throw err }))
+export const searchCustomers = (q) => api(`/customers?q=${encodeURIComponent(q)}`)
+
+// ── B2B consignment (Fashion Collage) ──────────────────────────────────
+// Pieces are returned in the shape the FC pages use: `status` carries the FC_STATUS_OPTIONS
+// value ("FC - At Store") and `aedPrice` the piece price.
+const toPiece = (p) => ({ ...p, status: `FC - ${p.status}`, aedPrice: p.price })
+
+export async function getConsignments() {
+  const data = await api('/consignments')
+  return { ...data, items: data.items.map(toPiece) }
+}
+
+export async function updateConsignmentItem(id, upd) {
+  const body = {}
+  if (upd.status !== undefined)   body.status = upd.status.replace(/^FC\s*-\s*/, '')
+  if (upd.aedPrice !== undefined) body.price  = upd.aedPrice
+  if (upd.notes !== undefined)    body.notes  = upd.notes
+  return toPiece(await api(`/consignment-items/${id}`, { method: 'PATCH', body: JSON.stringify(body) }))
+}
+
+export const addConsignment = (handover) =>
+  api('/consignments', { method: 'POST', body: JSON.stringify(handover) })

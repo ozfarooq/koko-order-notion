@@ -239,6 +239,8 @@ export default function OrderDetail() {
             ) : (
               <>
                 <InfoRow label="Name"    value={order.customer} />
+                <InfoRow label="Reference" value={order.reference} />
+                <InfoRow label="Shopify order" value={order.shopifyOrderNumber} />
                 <InfoRow label="Email"   value={order.email} />
                 <InfoRow label="Phone"   value={order.phone} />
                 <InfoRow label="City"    value={order.city} />

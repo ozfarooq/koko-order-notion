@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
     "@notionhq/client": "^2.3.0",
     "concurrently": "^9.2.1",
     "cors": "^2.8.6",

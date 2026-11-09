@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { RefreshCw, Store, ArrowUp, ArrowDown } from 'lucide-react'
-import { getOrders, updateOrder, FC_STATUS_OPTIONS, FC_STATUSES } from '../data/storage'
+import { getConsignments, updateConsignmentItem, FC_STATUS_OPTIONS } from '../data/storage'
 
-const COMMISSION = 0.30
+// Each piece carries the commission rate locked in at its handover
+const rate = (o) => (Number(o.commissionPct) || 0) / 100
+const net  = (o) => (Number(o.aedPrice) || 0) * (1 - rate(o))
+const fmtAED = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
 function StatusPill({ status }) {
   const meta = FC_STATUS_OPTIONS.find((s) => s.value === status)
@@ -27,8 +30,8 @@ function SummaryCard({ label, value, sub, color = 'text-gray-900' }) {
 }
 
 export default function FashionCollage() {
-  const navigate = useNavigate()
   const [orders, setOrders] = useState([])
+  const [reseller, setReseller] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editingPrice, setEditingPrice] = useState({})
@@ -45,8 +48,9 @@ export default function FashionCollage() {
     setLoading(true)
     setError(null)
     try {
-      const all = await getOrders()
-      setOrders(all.filter((o) => FC_STATUSES.includes(o.status)))
+      const data = await getConsignments()
+      setOrders(data.items)
+      setReseller(data.resellers[0] || null)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -59,7 +63,8 @@ export default function FashionCollage() {
   const handleStatusChange = async (order, newStatus) => {
     setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, status: newStatus } : o))
     try {
-      await updateOrder(order.id, { status: newStatus })
+      const saved = await updateConsignmentItem(order.id, { status: newStatus })
+      setOrders((prev) => prev.map((o) => o.id === order.id ? saved : o))
     } catch {
       setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, status: order.status } : o))
     }
@@ -74,7 +79,8 @@ export default function FashionCollage() {
     setSavingId(order.id)
     setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, aedPrice: price } : o))
     try {
-      await updateOrder(order.id, { aedPrice: price })
+      const saved = await updateConsignmentItem(order.id, { aedPrice: price })
+      setOrders((prev) => prev.map((o) => o.id === order.id ? saved : o))
     } catch {
       setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, aedPrice: order.aedPrice } : o))
     } finally {
@@ -91,10 +97,11 @@ export default function FashionCollage() {
 
   const soldOrders   = orders.filter((o) => ['FC - Sold', 'FC - Paid'].includes(o.status))
   const totalAED     = soldOrders.reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
-  const commission   = totalAED * COMMISSION
-  const netReceivable= totalAED - commission
-  const paidAED      = orders.filter((o) => o.status === 'FC - Paid').reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
-  const pendingAED   = orders.filter((o) => o.status === 'FC - Sold').reduce((s, o) => s + ((Number(o.aedPrice) || 0) * (1 - COMMISSION)), 0)
+  const netReceivable= soldOrders.reduce((s, o) => s + net(o), 0)
+  const commission   = totalAED - netReceivable
+  const paidNet      = orders.filter((o) => o.status === 'FC - Paid').reduce((s, o) => s + net(o), 0)
+  const pct          = reseller?.commissionPct ?? 0
+  const pendingAED   = orders.filter((o) => o.status === 'FC - Sold').reduce((s, o) => s + net(o), 0)
 
   const grouped = {}
   FC_STATUS_OPTIONS.forEach((s) => { grouped[s.value] = [] })
@@ -109,8 +116,8 @@ export default function FashionCollage() {
             <Store size={20} className="text-sky-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Fashion Collage Dubai</h1>
-            <p className="text-sm text-gray-500">Consignment stock tracking · 30% commission</p>
+            <h1 className="text-2xl font-bold text-gray-900">{reseller?.name || 'Fashion Collage Dubai'}</h1>
+            <p className="text-sm text-gray-500">B2B consignment stock · {pct}% commission</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -134,7 +141,7 @@ export default function FashionCollage() {
         <SummaryCard label="Total Outfits"  value={total}    sub={`${atStore} at store · ${returned} returned`} />
         <SummaryCard label="Sold"           value={sold}     sub="Awaiting payment"   color="text-violet-700" />
         <SummaryCard label="Paid"           value={paid}     sub="Payment received"   color="text-emerald-700" />
-        <SummaryCard label="AED Receivable" value={`AED ${pendingAED.toLocaleString(undefined,{maximumFractionDigits:0})}`} sub="70% of sold items" color="text-orange-600" />
+        <SummaryCard label="AED Receivable" value={`AED ${pendingAED.toLocaleString(undefined,{maximumFractionDigits:0})}`} sub={`${100 - pct}% of sold items`} color="text-orange-600" />
       </div>
 
       {/* Financial summary */}
@@ -147,13 +154,13 @@ export default function FashionCollage() {
               <p className="text-xl font-bold text-gray-900">AED {totalAED.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Commission (30%)</p>
+              <p className="text-xs text-gray-500">Commission ({pct}%)</p>
               <p className="text-xl font-bold text-rose-600">− AED {commission.toLocaleString(undefined,{maximumFractionDigits:0})}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Net to Koko (70%)</p>
+              <p className="text-xs text-gray-500">Net to Koko ({100 - pct}%)</p>
               <p className="text-xl font-bold text-emerald-700">AED {netReceivable.toLocaleString(undefined,{maximumFractionDigits:0})}</p>
-              {paidAED > 0 && <p className="text-xs text-gray-400 mt-0.5">AED {(paidAED * 0.7).toLocaleString(undefined,{maximumFractionDigits:0})} already received</p>}
+              {paidNet > 0 && <p className="text-xs text-gray-400 mt-0.5">AED {fmtAED(paidNet)} already received</p>}
             </div>
           </div>
         </div>
@@ -183,7 +190,7 @@ export default function FashionCollage() {
                   <span className="text-xs text-gray-400 font-semibold">{items.length} outfits</span>
                   {isRevenue && groupTotal > 0 && (
                     <span className="ml-auto text-xs font-semibold text-gray-600">
-                      AED {groupTotal.toLocaleString()} total · Net AED {(groupTotal * 0.7).toLocaleString(undefined,{maximumFractionDigits:0})}
+                      AED {groupTotal.toLocaleString()} total · Net AED {fmtAED(items.reduce((s, o) => s + net(o), 0))}
                     </span>
                   )}
                 </div>
@@ -193,22 +200,20 @@ export default function FashionCollage() {
                       <th className="py-2 pl-4 pr-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Product</th>
                       <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Size</th>
                       <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">AED Price</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Commission (30%)</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Net to Koko (70%)</th>
+                      <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Commission</th>
+                      <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Net to Koko</th>
                       <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Status</th>
-                      <th className="py-2 pl-2 pr-4 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Order</th>
+                      <th className="py-2 pl-2 pr-4 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Handed over</th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.map((order) => {
                       const aed   = Number(order.aedPrice) || 0
-                      const comm  = aed * COMMISSION
-                      const net   = aed - comm
                       const isDrafting = editingPrice[order.id] !== undefined
                       const draftAed  = isDrafting ? Number(editingPrice[order.id]) || 0 : aed
                       return (
                         <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                          <td className="py-3 pl-4 pr-2 text-sm text-gray-800 max-w-xs truncate cursor-pointer" onClick={() => navigate(`/orders/${order.id}`)}>
+                          <td className="py-3 pl-4 pr-2 text-sm text-gray-800 max-w-xs truncate">
                             {order.product || '—'}
                           </td>
                           <td className="px-2 py-3 text-sm text-gray-600">{order.size || '—'}</td>
@@ -227,10 +232,10 @@ export default function FashionCollage() {
                             </div>
                           </td>
                           <td className="px-2 py-3 text-sm text-rose-600 font-medium">
-                            {draftAed > 0 ? `AED ${(draftAed * COMMISSION).toLocaleString(undefined,{maximumFractionDigits:0})}` : '—'}
+                            {draftAed > 0 ? `AED ${fmtAED(draftAed * rate(order))}` : '—'}
                           </td>
                           <td className="px-2 py-3 text-sm text-emerald-700 font-semibold">
-                            {draftAed > 0 ? `AED ${(draftAed * 0.7).toLocaleString(undefined,{maximumFractionDigits:0})}` : '—'}
+                            {draftAed > 0 ? `AED ${fmtAED(draftAed * (1 - rate(order)))}` : '—'}
                           </td>
                           <td className="px-2 py-3">
                             <select
@@ -243,8 +248,8 @@ export default function FashionCollage() {
                               ))}
                             </select>
                           </td>
-                          <td className="py-3 pl-2 pr-4 font-mono text-xs text-brand-700 cursor-pointer hover:underline" onClick={() => navigate(`/orders/${order.id}`)}>
-                            {order.orderNumber}
+                          <td className="py-3 pl-2 pr-4 text-xs text-gray-500">
+                            {fmtDate(order.handoverDate)}
                           </td>
                         </tr>
                       )
@@ -259,7 +264,7 @@ export default function FashionCollage() {
             <div className="card flex flex-col items-center gap-3 py-16 text-center">
               <Store size={32} className="text-gray-300" />
               <p className="text-gray-500">No Fashion Collage outfits found.</p>
-              <p className="text-sm text-gray-400">Move outfits to an FC status in Notion to see them here.</p>
+              <p className="text-sm text-gray-400">Record a stock handover to see pieces here.</p>
             </div>
           )}
         </div>

@@ -220,7 +220,7 @@ export default function Kanban() {
       prev.map((o) => o.id === order.id ? { ...o, status: targetStatus } : o)
     )
 
-    // Persist to Notion
+    // Persist to the database
     setSaving(targetStatus)
     try {
       await updateOrder(order.id, { status: targetStatus })

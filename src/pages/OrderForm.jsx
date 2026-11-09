@@ -7,7 +7,7 @@ import ProductInput from '../components/ProductInput'
 const SIZE_OPTIONS = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
 const EMPTY_LINE   = () => ({ name: '', size: 'Small', qty: 1 })
 
-// Serialize product lines to a human-readable string for Notion
+// Serialize product lines as "Name (Size) × qty" — the API turns each line into an order item
 const formatProductLines = (lines) =>
   lines.filter((l) => l.name.trim()).map((l) => `${l.name.trim()} (${l.size}) × ${l.qty}`).join('\n')
 
@@ -135,6 +135,7 @@ export default function OrderForm() {
       balanceDue,
     }
     delete payload.productLines
+    delete payload.items   // loaded with the order; the edited productLines (sent as `product`) are the source of truth
     try {
       if (isEdit) {
         await updateOrder(id, payload)
@@ -172,14 +173,14 @@ export default function OrderForm() {
             {isEdit ? 'Edit Order' : 'New Order'}
           </h1>
           <p className="text-sm text-gray-500">
-            {isEdit ? 'Update order details' : 'Saved directly to Notion'}
+            {isEdit ? 'Update order details' : 'Saved directly to the database'}
           </p>
         </div>
         <div className="ml-auto flex items-center gap-3">
           <button className="btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
           <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
             <Save size={15} />
-            {saving ? 'Saving to Notion...' : 'Save Order'}
+            {saving ? 'Saving...' : 'Save Order'}
           </button>
         </div>
       </div>
@@ -317,7 +318,7 @@ export default function OrderForm() {
           <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
           <button type="submit" className="btn-primary" disabled={saving}>
             <Save size={15} />
-            {saving ? 'Saving to Notion...' : isEdit ? 'Update Order' : 'Create Order'}
+            {saving ? 'Saving...' : isEdit ? 'Update Order' : 'Create Order'}
           </button>
         </div>
       </form>

@@ -187,7 +187,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Orders Dashboard</h1>
-          <p className="text-sm text-gray-500">Koko Atelier — synced with Notion</p>
+          <p className="text-sm text-gray-500">Koko Atelier — retail orders</p>
         </div>
         <div className="flex items-center gap-2">
           <button className="btn-secondary" onClick={load} disabled={loading}>

@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Printer, ArrowUp, ArrowDown } from 'lucide-react'
-import { getOrders, FC_STATUSES } from '../../data/storage'
+import { getConsignments } from '../../data/storage'
 
-const COMMISSION = 0.30
+// Each piece carries the commission rate locked in at its handover
+const rate = (o) => (Number(o.commissionPct) || 0) / 100
+const netOf = (o) => (Number(o.aedPrice) || 0) * (1 - rate(o))
 const SIZE_ORDER = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
 
 const STATUS_KEYS = [
@@ -45,7 +47,9 @@ function buildReport(orders, sortDir = 'asc') {
       const revenueAED = items.filter((o) => ['FC - Sold','FC - Paid'].includes(o.status))
                               .reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
 
-      return { product, sizes, totals, totalAED, revenueAED, items }
+      const revenueNet = items.filter((o) => ['FC - Sold','FC - Paid'].includes(o.status)).reduce((s, o) => s + netOf(o), 0)
+
+      return { product, sizes, totals, totalAED, revenueAED, revenueNet, items }
     })
 }
 
@@ -54,12 +58,14 @@ export default function FCInventoryReport() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const [sortDir, setSortDir] = useState('asc')
+  const [pct,     setPct]     = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const all = await getOrders()
-      setOrders(all.filter((o) => FC_STATUSES.includes(o.status)))
+      const data = await getConsignments()
+      setOrders(data.items)
+      setPct(data.resellers[0]?.commissionPct ?? 0)
     } catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }, [])
@@ -73,7 +79,7 @@ export default function FCInventoryReport() {
   const grandAED      = orders.reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
   const grandRevenue  = orders.filter((o) => ['FC - Sold','FC - Paid'].includes(o.status))
                               .reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
-  const grandNet      = grandRevenue * (1 - COMMISSION)
+  const grandNet      = orders.filter((o) => ['FC - Sold','FC - Paid'].includes(o.status)).reduce((s, o) => s + netOf(o), 0)
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6">
@@ -128,11 +134,11 @@ export default function FCInventoryReport() {
             <p className="text-xl font-bold text-gray-900">AED {grandRevenue.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 mb-1">Commission 30%</p>
-            <p className="text-xl font-bold text-rose-600">− AED {(grandRevenue * COMMISSION).toLocaleString(undefined,{maximumFractionDigits:0})}</p>
+            <p className="text-xs text-gray-500 mb-1">Commission {pct}%</p>
+            <p className="text-xl font-bold text-rose-600">− AED {(grandRevenue - grandNet).toLocaleString(undefined,{maximumFractionDigits:0})}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 mb-1">Net to Koko 70%</p>
+            <p className="text-xs text-gray-500 mb-1">Net to Koko {100 - pct}%</p>
             <p className="text-xl font-bold text-emerald-700">AED {grandNet.toLocaleString(undefined,{maximumFractionDigits:0})}</p>
           </div>
         </div>
@@ -150,7 +156,7 @@ export default function FCInventoryReport() {
         </div>
       ) : (
         <div className="space-y-5">
-          {report.map(({ product, sizes, totals, revenueAED }) => (
+          {report.map(({ product, sizes, totals, revenueAED, revenueNet }) => (
             <div key={product} className="card overflow-hidden">
               {/* Product header */}
               <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
@@ -168,7 +174,7 @@ export default function FCInventoryReport() {
                   ))}
                   {revenueAED > 0 && (
                     <span className="font-semibold text-emerald-700">
-                      Net AED {(revenueAED * 0.7).toLocaleString(undefined,{maximumFractionDigits:0})}
+                      Net AED {revenueNet.toLocaleString(undefined,{maximumFractionDigits:0})}
                     </span>
                   )}
                 </div>
@@ -184,13 +190,15 @@ export default function FCInventoryReport() {
                       <th key={key} className="px-3 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</th>
                     ))}
                     <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wide text-gray-400 pr-5">AED Value</th>
-                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wide text-gray-400 pr-5">Net (70%)</th>
+                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wide text-gray-400 pr-5">Net ({100 - pct}%)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sizes.map(({ size, items: sItems }) => {
                     const sAED = sItems.filter((o) => ['FC - Sold','FC - Paid'].includes(o.status))
                                        .reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
+                    const sNet = sItems.filter((o) => ['FC - Sold','FC - Paid'].includes(o.status))
+                                       .reduce((s, o) => s + netOf(o), 0)
                     return (
                       <tr key={size} className="border-b border-gray-50 hover:bg-gray-50/50">
                         <td className="py-2.5 pl-5 pr-3 text-sm font-semibold text-gray-700">{size}</td>
@@ -210,7 +218,7 @@ export default function FCInventoryReport() {
                           {sAED > 0 ? `AED ${sAED.toLocaleString()}` : '—'}
                         </td>
                         <td className="px-3 py-2.5 text-right text-sm font-semibold text-emerald-700 pr-5">
-                          {sAED > 0 ? `AED ${(sAED * 0.7).toLocaleString(undefined,{maximumFractionDigits:0})}` : '—'}
+                          {sAED > 0 ? `AED ${sNet.toLocaleString(undefined,{maximumFractionDigits:0})}` : '—'}
                         </td>
                       </tr>
                     )
@@ -228,7 +236,7 @@ export default function FCInventoryReport() {
                       {revenueAED > 0 ? `AED ${revenueAED.toLocaleString()}` : '—'}
                     </td>
                     <td className="px-3 py-2.5 text-right text-sm font-bold text-emerald-700 pr-5">
-                      {revenueAED > 0 ? `AED ${(revenueAED * 0.7).toLocaleString(undefined,{maximumFractionDigits:0})}` : '—'}
+                      {revenueAED > 0 ? `AED ${revenueNet.toLocaleString(undefined,{maximumFractionDigits:0})}` : '—'}
                     </td>
                   </tr>
                 </tbody>
