@@ -167,7 +167,7 @@ export default function Kanban() {
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCorners}
           onDragStart={({ active }) => setActiveId(active.id)} onDragEnd={handleDragEnd} onDragCancel={() => setActiveId(null)}>
-          <div className="flex flex-1 snap-x gap-3 overflow-x-auto px-4 pb-6 sm:px-6 lg:px-8">
+          <div className="flex flex-1 snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-6 sm:scroll-px-6 sm:px-6 lg:scroll-px-8 lg:px-8">
             {visibleColumns.map((c) => (
               <Column key={c.value} col={c} orders={grouped[c.value]} onOpen={(id) => navigate(`/orders/${id}`)} canDrag={canDrag} />
             ))}
