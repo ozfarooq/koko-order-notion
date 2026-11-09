@@ -52,13 +52,13 @@ export default function ProductInput({ value, onChange, placeholder = 'Search pr
         autoComplete="off"
       />
       {open && filtered.length > 0 && (
-        <ul className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-xl">
+        <ul className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-xl">
           {filtered.map((name) => (
             <li
               key={name}
               onMouseDown={() => select(name)}
-              className={`cursor-pointer px-3 py-2 text-sm hover:bg-brand-50 hover:text-brand-700 ${
-                name === query ? 'bg-brand-50 font-medium text-brand-700' : 'text-gray-800'
+              className={`cursor-pointer px-3 py-2 text-sm hover:bg-plum-50 hover:text-accent ${
+                name === query ? 'bg-plum-50 font-medium text-accent' : 'text-ink'
               }`}
             >
               {name}

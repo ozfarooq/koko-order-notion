@@ -1,21 +1,29 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import OrderForm from './pages/OrderForm'
-import OrderDetail from './pages/OrderDetail'
-import Kanban from './pages/Kanban'
-import BoardReadOnly from './pages/BoardReadOnly'
-import FashionCollage from './pages/FashionCollage'
-import FCInventoryReport from './pages/reports/FCInventoryReport'
-import FCPhotoReport from './pages/reports/FCPhotoReport'
-import Users from './pages/Users'
 import Login from './pages/Login'
 import { AuthProvider, useAuth, homeFor } from './auth/AuthContext'
+import { getResellers } from './data/storage'
+import { MotionProvider } from './ui/motion'
+import { useTheme } from './ui/theme'
 
-function Spinner() {
+// Each page loads on demand, so the first visit only downloads what it needs
+const Orders          = lazy(() => import('./pages/Orders'))
+const Kanban          = lazy(() => import('./pages/Kanban'))
+const OrderForm       = lazy(() => import('./pages/OrderForm'))
+const OrderDetail     = lazy(() => import('./pages/OrderDetail'))
+const BoardReadOnly   = lazy(() => import('./pages/BoardReadOnly'))
+const Users           = lazy(() => import('./pages/Users'))
+const ResellerHome    = lazy(() => import('./pages/resellers/ResellerDashboard'))
+const ResellerStock   = lazy(() => import('./pages/resellers/ResellerStock'))
+const InventoryReport = lazy(() => import('./pages/resellers/InventoryReport'))
+const ProductSheet    = lazy(() => import('./pages/resellers/ProductSheet'))
+
+function Spinner({ full }) {
   return (
-    <div className="flex h-screen items-center justify-center bg-[#f5f3ff]">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
+    <div className={`flex items-center justify-center ${full ? 'h-[100dvh] bg-canvas' : 'h-64'}`}>
+      <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-plum-200 border-t-plum-600" />
     </div>
   )
 }
@@ -23,7 +31,7 @@ function Spinner() {
 function ProtectedRoute({ children }) {
   const { user } = useAuth()
   const location = useLocation()
-  if (user === undefined) return <Spinner />
+  if (user === undefined) return <Spinner full />
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
   return children
 }
@@ -34,33 +42,67 @@ function Require({ permission, children }) {
   return can(permission) ? children : <Navigate to={homeFor(user)} replace />
 }
 
+// Reseller logins only ever see their own reseller: any other id is swapped for theirs
+function ResellerScope({ children }) {
+  const { user } = useAuth()
+  const { resellerId } = useParams()
+  const { pathname } = useLocation()
+  if (user?.role === 'reseller' && String(user.resellerId) !== String(resellerId))
+    return <Navigate to={pathname.replace(/^\/resellers\/[^/]+/, `/resellers/${user.resellerId}`)} replace />
+  return children
+}
+
+function Home() {
+  const { user } = useAuth()
+  return <Navigate to={homeFor(user)} replace />
+}
+
+// Old Fashion Collage links → the same page for the first reseller
+function LegacyReseller({ to }) {
+  const [target, setTarget] = useState(null)
+  useEffect(() => { getResellers().then((r) => setTarget(r[0] ? `/resellers/${r[0].id}${to}` : '/')).catch(() => setTarget('/')) }, [to])
+  return target ? <Navigate to={target} replace /> : <Spinner />
+}
+
+function ThemedToaster() {
+  const { theme } = useTheme()
+  return <Toaster theme={theme} position="top-center" richColors closeButton toastOptions={{ className: 'font-sans' }} />
+}
+
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/board" element={<BoardReadOnly />} />
-          <Route
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Require permission="orders:read"><Dashboard /></Require>} />
-            <Route path="/kanban" element={<Require permission="orders:read"><Kanban /></Require>} />
-            <Route path="/fashion-collage" element={<Require permission="fc:read"><FashionCollage /></Require>} />
-            <Route path="/reports/fc-inventory" element={<Require permission="fc:read"><FCInventoryReport /></Require>} />
-            <Route path="/reports/fc-photos" element={<Require permission="fc:read"><FCPhotoReport /></Require>} />
-            <Route path="/orders/new" element={<Require permission="orders:write"><OrderForm /></Require>} />
-            <Route path="/orders/:id" element={<Require permission="orders:read"><OrderDetail /></Require>} />
-            <Route path="/orders/:id/edit" element={<Require permission="orders:write"><OrderForm /></Require>} />
-            <Route path="/users" element={<Require permission="users:manage"><Users /></Require>} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <MotionProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <ThemedToaster />
+          <Suspense fallback={<Spinner full />}>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/board" element={<BoardReadOnly />} />
+              <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                <Route index element={<Home />} />
+                <Route path="/orders" element={<Require permission="orders:read"><Orders /></Require>} />
+                <Route path="/kanban" element={<Require permission="orders:read"><Kanban /></Require>} />
+                <Route path="/orders/new" element={<Require permission="orders:write"><OrderForm /></Require>} />
+                <Route path="/orders/:id" element={<Require permission="orders:read"><OrderDetail /></Require>} />
+                <Route path="/orders/:id/edit" element={<Require permission="orders:write"><OrderForm /></Require>} />
+
+                <Route path="/resellers/:resellerId" element={<Require permission="fc:read"><ResellerScope><ResellerHome /></ResellerScope></Require>} />
+                <Route path="/resellers/:resellerId/stock" element={<Require permission="fc:read"><ResellerScope><ResellerStock /></ResellerScope></Require>} />
+                <Route path="/resellers/:resellerId/reports/inventory" element={<Require permission="fc:read"><ResellerScope><InventoryReport /></ResellerScope></Require>} />
+                <Route path="/resellers/:resellerId/reports/product-sheet" element={<Require permission="fc:read"><ResellerScope><ProductSheet /></ResellerScope></Require>} />
+
+                <Route path="/fashion-collage" element={<LegacyReseller to="/stock" />} />
+                <Route path="/reports/fc-inventory" element={<LegacyReseller to="/reports/inventory" />} />
+                <Route path="/reports/fc-photos" element={<LegacyReseller to="/reports/product-sheet" />} />
+
+                <Route path="/users" element={<Require permission="users:manage"><Users /></Require>} />
+              </Route>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </AuthProvider>
+    </MotionProvider>
   )
 }

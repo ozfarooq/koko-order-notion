@@ -7,7 +7,7 @@ import {
 import { getOrderById, deleteOrder, updateOrder, STATUS_OPTIONS } from '../data/storage'
  import ProductInput from '../components/ProductInput'
 import StatusBadge from '../components/StatusBadge'
-import { generateOrderPDF } from '../utils/generatePDF'
+import { toast } from 'sonner'
 import { useAuth } from '../auth/AuthContext'
 
 const SIZE_OPTIONS = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
@@ -30,8 +30,8 @@ function InfoRow({ label, value }) {
   if (!value && value !== 0) return null
   return (
     <div className="flex gap-3 py-1.5">
-      <span className="w-36 flex-shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
-      <span className="text-sm text-gray-800 whitespace-pre-wrap">{value}</span>
+      <span className="w-36 flex-shrink-0 text-xs font-semibold uppercase tracking-wide text-faint">{label}</span>
+      <span className="text-sm text-ink whitespace-pre-wrap">{value}</span>
     </div>
   )
 }
@@ -113,10 +113,11 @@ export default function OrderDetail() {
     delete payload.productLines
     try {
       setOrder(await updateOrder(id, payload))
+      toast.success('Order saved')
       setEditing(false)
       setForm(null)
     } catch (err) {
-      alert(`Error saving: ${err.message}`)
+      toast.error(`Couldn't save: ${err.message}`)
     } finally {
       setSaving(false)
     }
@@ -130,13 +131,18 @@ export default function OrderDetail() {
   const removeLine = (idx) => setForm((p) => ({ ...p, productLines: p.productLines.filter((_, i) => i !== idx) }))
 
   const handleDelete = async () => {
-    try { await deleteOrder(id); navigate('/') }
-    catch (err) { alert(`Error deleting: ${err.message}`) }
+    try { await deleteOrder(id); toast.success(`${order.orderNumber} deleted`); navigate('/orders') }
+    catch (err) { toast.error(`Couldn't delete: ${err.message}`) }
   }
 
   const handlePDF = async () => {
     setGenerating(true)
-    try { await generateOrderPDF(order) } finally { setGenerating(false) }
+    try {
+      const { generateOrderPDF } = await import('../utils/generatePDF')
+      await generateOrderPDF(order)
+      toast.success('PDF downloaded')
+    } catch (err) { toast.error(`Couldn't create the PDF: ${err.message}`) }
+    finally { setGenerating(false) }
   }
 
   const balanceDue = form
@@ -150,7 +156,7 @@ export default function OrderDetail() {
       {/* ── Header ── */}
       <div className="mb-6 flex items-start gap-4">
         <button
-          className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
+          className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-line bg-surface text-muted hover:bg-subtle"
           onClick={() => navigate('/')}
         >
           <ArrowLeft size={16} />
@@ -158,7 +164,7 @@ export default function OrderDetail() {
 
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="font-mono text-2xl font-bold text-gray-900">{order.orderNumber}</h1>
+            <h1 className="font-mono text-2xl font-bold text-ink">{order.orderNumber}</h1>
             {editing ? (
               <select className="input w-44 text-sm" value={form.status} onChange={set('status')}>
                 {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -167,7 +173,7 @@ export default function OrderDetail() {
               <StatusBadge status={order.status} size="lg" />
             )}
           </div>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted">
             {editing ? form.customer || '—' : order.customer} &middot; Order Date: {fmt(order.orderDate)}
           </p>
         </div>
@@ -261,8 +267,8 @@ export default function OrderDetail() {
               <div className="space-y-3">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Products *</span>
-                    <button type="button" onClick={addLine} className="flex items-center gap-1 rounded-md border border-brand-300 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted">Products *</span>
+                    <button type="button" onClick={addLine} className="flex items-center gap-1 rounded-md border border-brand-300 bg-plum-50 px-3 py-1 text-xs font-semibold text-accent hover:bg-brand-100">
                       <Plus size={13} /> Add Product
                     </button>
                   </div>
@@ -315,7 +321,7 @@ export default function OrderDetail() {
                   placeholder="e.g. Bust: 36, Waist: 30, Length: 54..."
                 />
               ) : (
-                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{measurementNotes}</p>
+                <p className="text-sm text-ink-soft whitespace-pre-wrap leading-relaxed">{measurementNotes}</p>
               )}
             </div>
           )}
@@ -351,16 +357,16 @@ export default function OrderDetail() {
             ) : (
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">Total Amount</span>
-                  <span className="text-sm font-semibold text-gray-900">PKR {Number(order.amount || 0).toLocaleString()}</span>
+                  <span className="text-sm text-muted">Total Amount</span>
+                  <span className="text-sm font-semibold text-ink">PKR {Number(order.amount || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">Advance Paid</span>
+                  <span className="text-sm text-muted">Advance Paid</span>
                   <span className="text-sm font-semibold text-green-600">PKR {Number(order.advancePaid || 0).toLocaleString()}</span>
                 </div>
-                <div className="h-px bg-gray-100" />
+                <div className="h-px bg-subtle2" />
                 <div className="flex justify-between">
-                  <span className="text-sm font-semibold text-gray-700">Balance Due</span>
+                  <span className="text-sm font-semibold text-ink-soft">Balance Due</span>
                   <span className={`text-sm font-bold ${Number(order.balanceDue) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
                     PKR {Number(order.balanceDue || 0).toLocaleString()}
                   </span>
@@ -392,12 +398,12 @@ export default function OrderDetail() {
             ) : (
               <div className="space-y-3">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Order Placed</p>
-                  <p className="text-sm font-medium text-gray-800">{fmt(order.orderDate)}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Order Placed</p>
+                  <p className="text-sm font-medium text-ink">{fmt(order.orderDate)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Delivery Date</p>
-                  <p className="text-sm font-medium text-gray-800">{fmt(order.deliveryDate)}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Delivery Date</p>
+                  <p className="text-sm font-medium text-ink">{fmt(order.deliveryDate)}</p>
                 </div>
               </div>
             )}

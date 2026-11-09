@@ -1,24 +1,26 @@
 import { useState, useEffect } from 'react'
 import { X, Save } from 'lucide-react'
-import { pieceMoney, FC_STATUS_OPTIONS } from '../data/storage'
+import { motion } from 'framer-motion'
+import { ease } from '../../ui/motion'
+import { pieceMoney, FC_STATUS_OPTIONS } from '../../data/storage'
 
 const fmt = (n) => (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const toInput = (v) => (v == null || v === 0 ? '' : String(v))
 
 function Field({ label, hint, children, wide }) {
   return (
-    <div className={wide ? 'col-span-2' : ''}>
+    <div className={wide ? 'sm:col-span-2' : ''}>
       <label className="label">{label}</label>
       {children}
-      {hint && <p className="mt-1 text-[11px] text-gray-400">{hint}</p>}
+      {hint && <p className="mt-1 text-[11px] text-faint">{hint}</p>}
     </div>
   )
 }
 
-function Line({ label, value, sign = '', strong, color = 'text-gray-700' }) {
+function Line({ label, value, sign = '', strong, color = 'text-ink-soft' }) {
   return (
-    <div className={`flex justify-between py-1 text-sm ${strong ? 'border-t border-gray-200 pt-2 font-bold' : ''}`}>
-      <span className={strong ? 'text-gray-900' : 'text-gray-500'}>{label}</span>
+    <div className={`flex justify-between py-1 text-sm ${strong ? 'border-t border-line pt-2 font-bold' : ''}`}>
+      <span className={strong ? 'text-ink' : 'text-muted'}>{label}</span>
       <span className={color}>{sign}AED {fmt(value)}</span>
     </div>
   )
@@ -91,23 +93,25 @@ export default function SaleDetailsModal({ piece, onClose, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={onClose}>
-      <div className="card w-full max-w-3xl max-h-[90vh] overflow-y-auto" onMouseDown={(e) => e.stopPropagation()}>
+    <motion.div className="fixed inset-0 z-50 flex items-end justify-center bg-plum-950/40 backdrop-blur-[2px] sm:items-center sm:p-4"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} onMouseDown={onClose}>
+      <motion.div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-line bg-surface shadow-lift sm:rounded-2xl"
+        initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.28, ease }} onMouseDown={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center gap-4 border-b border-gray-100 p-5">
-          {piece.imageUrl && <img src={piece.imageUrl} alt="" className="h-14 w-14 rounded-lg object-cover bg-gray-100" />}
+        <div className="flex items-center gap-4 border-b border-line p-5">
+          {piece.imageUrl && <img src={piece.imageUrl} alt="" className="h-14 w-14 rounded-lg object-cover bg-subtle2" />}
           <div className="flex-1">
-            <h2 className="text-lg font-bold text-gray-900">{piece.product} <span className="font-normal text-gray-400">· {piece.size || '—'}</span></h2>
-            <p className="text-xs text-gray-500">Sale details as on the {piece.reseller || 'reseller'} statement · handed over {piece.handoverDate}</p>
+            <h2 className="font-display text-2xl font-semibold text-ink">{piece.product} <span className="font-normal text-faint">· {piece.size || '—'}</span></h2>
+            <p className="text-xs text-muted">Sale details as on the {piece.reseller || 'reseller'} statement · handed over {piece.handoverDate}</p>
           </div>
-          <button className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100" onClick={onClose}>
+          <button className="flex h-8 w-8 items-center justify-center rounded-lg text-faint hover:bg-subtle2" onClick={onClose}>
             <X size={16} />
           </button>
         </div>
 
         <div className="grid gap-6 p-5 md:grid-cols-[1fr_260px]">
           {/* Fields */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Status">
               <select className="input" value={form.status} onChange={set('status')}>
                 {FC_STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -148,8 +152,8 @@ export default function SaleDetailsModal({ piece, onClose, onSave }) {
           </div>
 
           {/* Statement breakdown */}
-          <div className="h-fit rounded-xl bg-gray-50 p-4">
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">Statement</h3>
+          <div className="h-fit rounded-xl bg-subtle p-4">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-faint">Statement</h3>
             <Line label="Gross price" value={gross} />
             <Line label="Designer discount" value={form.designerDiscount} sign="− " color="text-rose-600" />
             <Line label="Collage discount" value={form.resellerDiscount} sign="− " color="text-rose-600" />
@@ -164,14 +168,14 @@ export default function SaleDetailsModal({ piece, onClose, onSave }) {
           <div className="mx-5 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{invalid || error}</div>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
+        <div className="flex justify-end gap-2 border-t border-line p-4">
           <button className="btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving || !!invalid}>
             <Save size={14} />
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

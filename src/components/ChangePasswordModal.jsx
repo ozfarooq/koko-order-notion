@@ -31,8 +31,8 @@ export default function ChangePasswordModal({ onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={onClose}>
       <form className="card w-full max-w-sm p-6 space-y-4" onMouseDown={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900"><KeyRound size={18} /> Change password</h2>
-          <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100" onClick={onClose}>
+          <h2 className="flex items-center gap-2 text-lg font-bold text-ink"><KeyRound size={18} /> Change password</h2>
+          <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg text-faint hover:bg-subtle2" onClick={onClose}>
             <X size={16} />
           </button>
         </div>

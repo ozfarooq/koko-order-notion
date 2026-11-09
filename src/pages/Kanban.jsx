@@ -10,7 +10,7 @@ const KANBAN_COLUMNS = [
   { value: 'Out for Delivery',label: 'Out for Delivery',color: 'bg-purple-500', light: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
   { value: 'Payment Pending', label: 'Payment Pending', color: 'bg-orange-500', light: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' },
   { value: 'Paid',            label: 'Paid',            color: 'bg-teal-500',   light: 'bg-teal-50',   border: 'border-teal-200',   text: 'text-teal-700'   },
-  { value: 'Cancelled',       label: 'Cancelled',       color: 'bg-gray-400',   light: 'bg-gray-50',   border: 'border-gray-200',   text: 'text-gray-500'   },
+  { value: 'Cancelled',       label: 'Cancelled',       color: 'bg-gray-400',   light: 'bg-subtle',   border: 'border-line',   text: 'text-muted'   },
   { value: 'Returned',        label: 'Returned',        color: 'bg-rose-500',   light: 'bg-rose-50',   border: 'border-rose-200',   text: 'text-rose-700'   },
 ]
 
@@ -26,7 +26,7 @@ function groupByStatus(orders) {
 
 function OrderCard({ order, onDragStart, onClick, dragging }) {
   const col = KANBAN_COLUMNS.find((c) => c.value === order.status)
-  const borderColor = col?.border || 'border-gray-200'
+  const borderColor = col?.border || 'border-line'
   const accentColor = col?.color  || 'bg-gray-400'
 
   return (
@@ -34,36 +34,36 @@ function OrderCard({ order, onDragStart, onClick, dragging }) {
       draggable
       onDragStart={(e) => onDragStart(e, order)}
       onClick={() => !dragging && onClick(order.id)}
-      className={`group rounded-xl border ${borderColor} bg-white p-4 shadow-sm transition
+      className={`group rounded-xl border ${borderColor} bg-surface p-4 shadow-sm transition
         cursor-grab active:cursor-grabbing select-none
         hover:shadow-md hover:-translate-y-0.5
         ${dragging ? 'opacity-40 scale-95' : ''}`}
     >
       <div className="flex items-center gap-2 mb-2">
         <div className={`h-2 w-2 rounded-full flex-shrink-0 ${accentColor}`} />
-        <span className="font-mono text-xs font-bold text-brand-700">{order.orderNumber}</span>
+        <span className="font-mono text-xs font-bold text-accent">{order.orderNumber}</span>
       </div>
 
-      <p className="text-sm font-semibold text-gray-900 leading-tight mb-1">{order.customer}</p>
+      <p className="text-sm font-semibold text-ink leading-tight mb-1">{order.customer}</p>
 
       {order.product && (
-        <p className="text-xs text-gray-500 leading-snug mb-1 line-clamp-2">{order.product}</p>
+        <p className="text-xs text-muted leading-snug mb-1 line-clamp-2">{order.product}</p>
       )}
       {order.size && (
-        <span className="inline-block rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600 mb-2">
+        <span className="inline-block rounded-md bg-subtle2 px-2 py-0.5 text-[11px] font-semibold text-ink-soft mb-2">
           {order.size}
         </span>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-line">
         {order.deliveryDate ? (
-          <span className="flex items-center gap-1 text-[11px] text-gray-400">
+          <span className="flex items-center gap-1 text-[11px] text-faint">
             <Calendar size={11} />
             {fmt(order.deliveryDate)}
           </span>
         ) : <span />}
         {order.amount != null && (
-          <span className="text-[11px] font-semibold text-gray-700">
+          <span className="text-[11px] font-semibold text-ink-soft">
             PKR {Number(order.amount).toLocaleString()}
           </span>
         )}
@@ -86,7 +86,7 @@ function KanbanColumn({ col, orders, dragOverCol, onDragOver, onDragLeave, onDro
   return (
     <div
       className={`flex w-72 flex-shrink-0 flex-col rounded-2xl overflow-hidden transition-all
-        ${isOver ? `ring-2 ring-offset-1 ${col.color.replace('bg-', 'ring-')} bg-gray-200/80` : 'bg-gray-100/80'}`}
+        ${isOver ? `ring-2 ring-offset-1 ${col.color.replace('bg-', 'ring-')} bg-subtle2/80` : 'bg-subtle2/80'}`}
       onDragOver={(e) => onDragOver(e, col.value)}
       onDragLeave={onDragLeave}
       onDrop={(e) => onDrop(e, col.value)}
@@ -94,12 +94,12 @@ function KanbanColumn({ col, orders, dragOverCol, onDragOver, onDragLeave, onDro
       {/* Header */}
       <div className="flex items-center gap-2.5 px-4 py-3">
         <div className={`h-3 w-3 rounded-full flex-shrink-0 ${col.color}`} />
-        <span className="text-sm font-bold text-gray-800 flex-1">{col.label}</span>
+        <span className="text-sm font-bold text-ink flex-1">{col.label}</span>
         <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${col.light} ${col.text}`}>
           {orders.length}
         </span>
         {saving === col.value && (
-          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-line-strong border-t-gray-600" />
         )}
       </div>
 
@@ -113,8 +113,8 @@ function KanbanColumn({ col, orders, dragOverCol, onDragOver, onDragLeave, onDro
       {/* Cards */}
       <div className="flex-1 overflow-y-auto space-y-2.5 px-3 pb-3 max-h-[calc(100vh-180px)]">
         {orders.length === 0 && !isOver ? (
-          <div className="rounded-xl border-2 border-dashed border-gray-200 py-8 text-center">
-            <p className="text-xs text-gray-400">No orders</p>
+          <div className="rounded-xl border-2 border-dashed border-line py-8 text-center">
+            <p className="text-xs text-faint">No orders</p>
           </div>
         ) : (
           orders.map((order) => (
@@ -249,17 +249,17 @@ export default function Kanban() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-line bg-surface px-6 py-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Order Status Board</h1>
-          <p className="text-sm text-gray-500">{orders.length} orders · drag cards to change status</p>
+          <h1 className="text-xl font-bold text-ink">Order Status Board</h1>
+          <p className="text-sm text-muted">{orders.length} orders · drag cards to change status</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Sort controls */}
-          <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5">
-            <ArrowUpDown size={13} className="text-gray-400" />
+          <div className="flex items-center gap-1.5 rounded-lg border border-line bg-subtle px-3 py-1.5">
+            <ArrowUpDown size={13} className="text-faint" />
             <select
-              className="bg-transparent text-sm text-gray-700 font-medium focus:outline-none cursor-pointer"
+              className="bg-transparent text-sm text-ink-soft font-medium focus:outline-none cursor-pointer"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
             >
@@ -267,7 +267,7 @@ export default function Kanban() {
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
-            <button onClick={toggleDir} className="ml-1 text-gray-400 hover:text-gray-700">
+            <button onClick={toggleDir} className="ml-1 text-faint hover:text-ink-soft">
               {sortDir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
             </button>
           </div>
