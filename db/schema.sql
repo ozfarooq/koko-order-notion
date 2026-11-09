@@ -58,7 +58,7 @@ CREATE TABLE orders (
   delivery_date         DATE,
   amount_pkr            NUMERIC(12,2) NOT NULL DEFAULT 0,
   advance_paid_pkr      NUMERIC(12,2) NOT NULL DEFAULT 0,
-  balance_due_pkr       NUMERIC(12,2) GENERATED ALWAYS AS (amount_pkr - advance_paid_pkr) STORED,
+  balance_due_pkr       NUMERIC(12,2) GENERATED ALWAYS AS (CASE WHEN status IN ('Cancelled','Returned') THEN 0 ELSE amount_pkr - advance_paid_pkr END) STORED,  -- see 005
   delivery_address      TEXT,                  -- where this order shipped (snapshot)
   delivery_city         TEXT,
   measurements          JSONB NOT NULL DEFAULT '{}',
