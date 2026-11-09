@@ -1,146 +1,115 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, User, Package, Tag, CreditCard, Plus, Trash2 } from 'lucide-react'
-import { addOrder, updateOrder, getOrderById, STATUS_OPTIONS } from '../data/storage'
-import ProductInput from '../components/ProductInput'
+import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { ArrowLeft, Save, Plus, Trash2, Shirt, User, Ruler, CreditCard, Truck, StickyNote, RotateCcw, Minus } from 'lucide-react'
+import { addOrder, updateOrder, getOrderById, STATUS_OPTIONS } from '../data/storage'
+import { MEASUREMENT_FIELDS, SIZE_OPTIONS } from '../data/measurements'
+import CustomerPicker from './orders/CustomerPicker'
+import ProductPicker from './orders/ProductPicker'
+import { Field, money, Skeleton } from '../ui/kit'
+import { ease } from '../ui/motion'
 
-const SIZE_OPTIONS = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
-const EMPTY_LINE   = () => ({ name: '', size: 'Small', qty: 1 })
+const today = () => new Date().toISOString().slice(0, 10)
+const REFERENCES = ['Walkin', 'Outstation', 'Website', 'Instagram', 'WhatsApp', 'Usman Ahmed']
+let keySeq = 0
+const lineKey = () => `l${++keySeq}`
 
-// Serialize product lines as "Name (Size) × qty" — the API turns each line into an order item
-const formatProductLines = (lines) =>
-  lines.filter((l) => l.name.trim()).map((l) => `${l.name.trim()} (${l.size}) × ${l.qty}`).join('\n')
-
-// Parse a product string back into line objects (for editing existing orders)
-const parseProductLines = (str) => {
-  if (!str) return [EMPTY_LINE()]
-  const lines = str.split('\n').map((line) => {
-    const m = line.match(/^(.+?)\s*\(([^)]+)\)\s*[×x]\s*(\d+)$/)
-    if (m) return { name: m[1].trim(), size: m[2].trim(), qty: parseInt(m[3], 10) }
-    return { name: line.trim(), size: 'Small', qty: 1 }
-  }).filter((l) => l.name)
-  return lines.length ? lines : [EMPTY_LINE()]
+const EMPTY = {
+  customerId: null, customer: '', phone: '', email: '', address: '', city: '',
+  items: [], status: 'New', orderDate: today(), deliveryDate: '', reference: '', shopifyOrderNumber: '',
+  amount: '', amountManual: false, advancePaid: '', paymentNotes: '', specialInstructions: '',
+  measurements: {},
 }
 
-const EMPTY_FORM = {
-  customer: '',
-  email: '',
-  phone: '',
-  address: '',
-  city: '',
-  productLines: [EMPTY_LINE()],
-  orderDate: new Date().toISOString().split('T')[0],
-  deliveryDate: '',
-  amount: '',
-  advancePaid: '',
-  paymentNotes: '',
-  specialInstructions: '',
-  status: 'New',
-  measurements: { additionalNotes: '' },
-}
-
-function Section({ icon: Icon, title, children }) {
+function Section({ icon: Icon, title, hint, children, action }) {
   return (
-    <div className="card p-5 space-y-4">
-      <div className="flex items-center gap-2 border-b border-line pb-3">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-plum-50">
-          <Icon size={14} className="text-accent" />
-        </div>
-        <h2 className="section-title">{title}</h2>
+    <motion.section layout className="card p-5">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-plum-50 text-plum-600 dark:bg-plum-900/40 dark:text-plum-300"><Icon size={16} /></div>
+        <div className="flex-1"><h2 className="font-display text-xl font-semibold text-ink">{title}</h2>{hint && <p className="text-xs text-muted">{hint}</p>}</div>
+        {action}
       </div>
       {children}
-    </div>
+    </motion.section>
   )
 }
-
-function Field({ label, children }) {
-  return (
-    <div>
-      <label className="label">{label}</label>
-      {children}
-    </div>
-  )
-}
-
 
 export default function OrderForm() {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = Boolean(id)
-
-  const [form, setForm] = useState(EMPTY_FORM)
-  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState(EMPTY)
+  const [orderNumber, setOrderNumber] = useState('')
   const [loading, setLoading] = useState(isEdit)
+  const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
+  const [picking, setPicking] = useState(false)
 
   useEffect(() => {
-    if (!isEdit || !id) return
-    setLoading(true)
-    getOrderById(id)
-      .then((order) => {
-        if (order) {
-          setForm({
-            ...EMPTY_FORM,
-            ...order,
-            productLines: parseProductLines(order.product),
-            measurements: { additionalNotes: order.measurements?.additionalNotes || '' },
-            orderDate: order.orderDate || new Date().toISOString().split('T')[0],
-            deliveryDate: order.deliveryDate || '',
-            amount: order.amount ?? '',
-            advancePaid: order.advancePaid ?? '',
-          })
-        }
+    if (!isEdit) return
+    getOrderById(id).then((o) => {
+      const items = o.items.map((i) => ({
+        key: lineKey(), productId: i.productId, product: i.product, imageUrl: i.imageUrl, collection: i.collection,
+        size: i.size || '', quantity: i.quantity, unitPrice: i.unitPrice ?? '', note: i.note || '',
+      }))
+      const subtotal = items.reduce((s, i) => s + (Number(i.unitPrice) || 0) * i.quantity, 0)
+      setOrderNumber(o.orderNumber)
+      setForm({
+        ...EMPTY,
+        customerId: o.customerId, customer: o.customer, phone: o.phone, email: o.email, address: o.address, city: o.city,
+        items, status: o.status, orderDate: o.orderDate || today(), deliveryDate: o.deliveryDate || '',
+        reference: o.reference || '', shopifyOrderNumber: o.shopifyOrderNumber || '',
+        amount: o.amount ?? '', amountManual: Number(o.amount) !== subtotal, advancePaid: o.advancePaid ?? '',
+        paymentNotes: o.paymentNotes, specialInstructions: o.specialInstructions, measurements: o.measurements || {},
       })
-      .catch(() => navigate('/'))
+    }).catch(() => { toast.error('Order not found'); navigate('/orders') })
       .finally(() => setLoading(false))
-  }, [id, isEdit])
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
-  const setMeasurementNotes = (e) =>
-    setForm((f) => ({ ...f, measurements: { additionalNotes: e.target.value } }))
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const setLine = (key, patch) => setForm((f) => ({ ...f, items: f.items.map((l) => (l.key === key ? { ...l, ...patch } : l)) }))
+  const removeLine = (key) => setForm((f) => ({ ...f, items: f.items.filter((l) => l.key !== key) }))
+  const addProduct = (p) => {
+    setPicking(false)
+    setForm((f) => ({ ...f, items: [...f.items, { key: lineKey(), productId: p.id, product: p.name, imageUrl: p.imageUrl, collection: p.collection, size: 'Medium', quantity: 1, unitPrice: p.pricePkr ?? '' }] }))
+    setErrors((e) => ({ ...e, items: undefined }))
+  }
+  const addCustomLine = () => setForm((f) => ({ ...f, items: [...f.items, { key: lineKey(), productId: null, product: '', size: 'Custom', quantity: 1, unitPrice: '' }] }))
 
-  const setLine = (idx, field) => (e) =>
-    setForm((f) => {
-      const lines = f.productLines.map((l, i) => i === idx ? { ...l, [field]: e.target.value } : l)
-      return { ...f, productLines: lines }
-    })
-
-  const addLine = () =>
-    setForm((f) => ({ ...f, productLines: [...f.productLines, EMPTY_LINE()] }))
-
-  const removeLine = (idx) =>
-    setForm((f) => ({ ...f, productLines: f.productLines.filter((_, i) => i !== idx) }))
-
-  const balanceDue = (Number(form.amount) || 0) - (Number(form.advancePaid) || 0)
+  const subtotal = useMemo(() => form.items.reduce((s, l) => s + (Number(l.unitPrice) || 0) * (Number(l.quantity) || 0), 0), [form.items])
+  const amount = form.amountManual ? Number(form.amount) || 0 : subtotal
+  const balance = amount - (Number(form.advancePaid) || 0)
 
   const validate = () => {
     const e = {}
-    if (!form.customer.trim()) e.customer = 'Required'
-    if (!form.productLines.some((l) => l.name.trim())) e.productLines = 'Add at least one product'
-    if (!form.amount) e.amount = 'Required'
+    if (!form.customer.trim()) e.customer = 'Choose or add a customer'
+    if (!form.items.some((l) => l.productId || l.product.trim())) e.items = 'Add at least one product'
+    if (!amount) e.amount = 'Enter the order amount'
     setErrors(e)
-    return Object.keys(e).length === 0
+    if (Object.keys(e).length) toast.error(Object.values(e)[0])
+    return !Object.keys(e).length
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e?.preventDefault()
     if (!validate()) return
     setSaving(true)
-    const filledLines = form.productLines.filter((l) => l.name.trim())
     const payload = {
-      ...form,
-      product:  formatProductLines(filledLines),
-      size:     filledLines[0]?.size || '',
-      quantity: filledLines.reduce((sum, l) => sum + (parseInt(l.qty, 10) || 0), 0),
-      balanceDue,
+      customerId: form.customerId, customer: form.customer, phone: form.phone, email: form.email, address: form.address, city: form.city,
+      items: form.items.filter((l) => l.productId || l.product.trim()).map((l) => ({
+        productId: l.productId, product: l.product, size: l.size, quantity: Number(l.quantity) || 1,
+        unitPrice: l.unitPrice === '' ? null : Number(l.unitPrice), note: l.note,
+      })),
+      status: form.status, orderDate: form.orderDate, deliveryDate: form.deliveryDate,
+      reference: form.reference, shopifyOrderNumber: form.shopifyOrderNumber,
+      amount, advancePaid: Number(form.advancePaid) || 0,
+      paymentNotes: form.paymentNotes, specialInstructions: form.specialInstructions, measurements: form.measurements,
     }
-    delete payload.productLines
-    delete payload.items   // loaded with the order; the edited productLines (sent as `product`) are the source of truth
     try {
       if (isEdit) {
         await updateOrder(id, payload)
-        toast.success('Order updated')
+        toast.success(`${orderNumber} updated`)
         navigate(`/orders/${id}`)
       } else {
         const created = await addOrder(payload)
@@ -148,183 +117,176 @@ export default function OrderForm() {
         navigate(`/orders/${created.id}`)
       }
     } catch (err) {
-      toast.error(`Couldn't save the order: ${err.message}`)
+      toast.error(`Couldn't save: ${err.message}`)
     } finally {
       setSaving(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
-      </div>
-    )
-  }
+  if (loading) return <div className="mx-auto max-w-6xl space-y-4 p-4 sm:p-6 lg:p-8"><Skeleton className="h-12 w-64" /><Skeleton className="h-64" /><Skeleton className="h-64" /></div>
 
   return (
-    <div className="h-full overflow-y-auto p-6">
-      <div className="mb-6 flex items-center gap-4">
-        <button
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-surface text-muted hover:bg-subtle"
-          onClick={() => navigate(-1)}
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-ink">
-            {isEdit ? 'Edit Order' : 'New Order'}
-          </h1>
-          <p className="text-sm text-muted">
-            {isEdit ? 'Update order details' : 'Saved directly to the database'}
-          </p>
+    <form onSubmit={handleSubmit} className="mx-auto max-w-6xl space-y-6 p-4 pb-28 sm:p-6 lg:p-8 lg:pb-8">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button type="button" className="btn-icon border border-line bg-surface" onClick={() => navigate(-1)} aria-label="Back"><ArrowLeft size={16} /></button>
+        <div className="flex-1">
+          <p className="eyebrow">{isEdit ? 'Edit order' : 'New order'}</p>
+          <h1 className="text-3xl text-ink">{isEdit ? orderNumber : 'Create an order'}</h1>
         </div>
-        <div className="ml-auto flex items-center gap-3">
-          <button className="btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
-          <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
-            <Save size={15} />
-            {saving ? 'Saving...' : 'Save Order'}
-          </button>
+        <button type="submit" className="btn-primary hidden lg:inline-flex" disabled={saving}><Save size={15} />{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create order'}</button>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="space-y-6">
+          <Section icon={User} title="Customer" hint="Search existing customers so repeat clients keep one record">
+            <CustomerPicker value={form} onChange={(c) => { setForm((f) => ({ ...f, ...c })); setErrors((e) => ({ ...e, customer: undefined })) }} error={errors.customer} />
+            <AnimatePresence initial={false}>
+              {(form.customerId || form.customer) && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25, ease }} className="overflow-hidden">
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <Field label="Name"><input className="input" value={form.customer} onChange={set('customer')} /></Field>
+                    <Field label="Phone"><input className="input" type="tel" value={form.phone} onChange={set('phone')} placeholder="03xx xxxxxxx" /></Field>
+                    <Field label="Email" className="sm:col-span-2"><input className="input" type="email" value={form.email} onChange={set('email')} /></Field>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Section>
+
+          <Section icon={Shirt} title="Items" hint="Prices come from Shopify; adjust per line if needed"
+            action={<button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={() => setPicking(true)}><Plus size={14} />Add product</button>}>
+            {form.items.length === 0 ? (
+              <button type="button" onClick={() => setPicking(true)}
+                className={`flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-10 text-sm transition hover:border-plum-300 hover:text-accent ${errors.items ? 'border-rose-300 text-rose-600' : 'border-line text-muted'}`}>
+                <Shirt size={24} />Choose products from the catalogue
+              </button>
+            ) : (
+              <ul className="space-y-3">
+                <AnimatePresence initial={false}>
+                  {form.items.map((l) => (
+                    <motion.li key={l.key} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.22, ease }}
+                      className="flex flex-col gap-3 rounded-xl border border-line p-3 sm:flex-row sm:items-center">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-subtle2">
+                          {l.imageUrl ? <img src={l.imageUrl} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-faint"><Shirt size={18} /></div>}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          {l.productId
+                            ? <><p className="truncate font-medium text-ink">{l.product}</p><p className="truncate text-xs text-faint">{l.collection || 'Separates'}</p></>
+                            : <input className="input" placeholder="Custom item description" value={l.product} onChange={(e) => setLine(l.key, { product: e.target.value })} />}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select className="input w-28" value={l.size} onChange={(e) => setLine(l.key, { size: e.target.value })}>
+                          {[...new Set([...SIZE_OPTIONS, l.size].filter(Boolean))].map((s) => <option key={s}>{s}</option>)}
+                        </select>
+                        <div className="flex items-center rounded-lg border border-line">
+                          <button type="button" className="px-2 py-2 text-muted hover:text-ink" onClick={() => setLine(l.key, { quantity: Math.max(1, (Number(l.quantity) || 1) - 1) })} aria-label="Less"><Minus size={13} /></button>
+                          <span className="w-6 text-center text-sm font-semibold text-ink">{l.quantity}</span>
+                          <button type="button" className="px-2 py-2 text-muted hover:text-ink" onClick={() => setLine(l.key, { quantity: (Number(l.quantity) || 1) + 1 })} aria-label="More"><Plus size={13} /></button>
+                        </div>
+                        <div className="relative w-32">
+                          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-faint">PKR</span>
+                          <input type="number" min="0" className="input pl-10" value={l.unitPrice} onChange={(e) => setLine(l.key, { unitPrice: e.target.value })} placeholder="Price" />
+                        </div>
+                        <button type="button" className="btn-icon hover:text-rose-600" onClick={() => removeLine(l.key)} aria-label="Remove"><Trash2 size={15} /></button>
+                      </div>
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
+              </ul>
+            )}
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <button type="button" className="text-xs font-semibold text-muted hover:text-accent" onClick={addCustomLine}>+ Custom item</button>
+              {form.items.length > 0 && <p className="text-muted">Items total <span className="ml-2 font-semibold text-ink">{money(subtotal)}</span></p>}
+            </div>
+          </Section>
+
+          <Section icon={Truck} title="Delivery">
+            <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
+              <Field label="Address"><textarea className="input" rows={2} value={form.address} onChange={set('address')} placeholder="House, street, area" /></Field>
+              <Field label="City"><input className="input" value={form.city} onChange={set('city')} placeholder="Lahore" /></Field>
+            </div>
+          </Section>
+
+          <Section icon={Ruler} title="Measurements" hint="Inches · leave blank what isn't needed">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {MEASUREMENT_FIELDS.map((m) => (
+                <Field key={m.key} label={m.label}>
+                  <input className="input" inputMode="decimal" value={form.measurements[m.key] || ''}
+                    onChange={(e) => setForm((f) => ({ ...f, measurements: { ...f.measurements, [m.key]: e.target.value } }))} />
+                </Field>
+              ))}
+            </div>
+            <Field label="Measurement notes" className="mt-4">
+              <textarea className="input" rows={2} value={form.measurements.additionalNotes || ''}
+                onChange={(e) => setForm((f) => ({ ...f, measurements: { ...f.measurements, additionalNotes: e.target.value } }))} />
+            </Field>
+          </Section>
+
+          <Section icon={StickyNote} title="Notes">
+            <Field label="Special instructions"><textarea className="input" rows={3} value={form.specialInstructions} onChange={set('specialInstructions')} /></Field>
+          </Section>
+        </div>
+
+        {/* Summary */}
+        <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+          <section className="card space-y-4 p-5">
+            <h2 className="section-title">Order</h2>
+            <Field label="Status">
+              <select className="input" value={form.status} onChange={set('status')}>{STATUS_OPTIONS.map((s) => <option key={s.value}>{s.value}</option>)}</select>
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Order date"><input type="date" className="input" value={form.orderDate} onChange={set('orderDate')} /></Field>
+              <Field label="Delivery date"><input type="date" className="input" value={form.deliveryDate} onChange={set('deliveryDate')} /></Field>
+            </div>
+            <Field label="Reference" hint="How the sale came in">
+              <input className="input" list="refs" value={form.reference} onChange={set('reference')} placeholder="Walkin, Outstation…" />
+              <datalist id="refs">{REFERENCES.map((r) => <option key={r} value={r} />)}</datalist>
+            </Field>
+            <Field label="Shopify order no."><input className="input" value={form.shopifyOrderNumber} onChange={set('shopifyOrderNumber')} placeholder="#1171" /></Field>
+          </section>
+
+          <section className="card space-y-4 p-5">
+            <div className="flex items-center gap-2"><CreditCard size={16} className="text-gold-500" /><h2 className="section-title">Payment</h2></div>
+            <Field label="Order total" error={errors.amount}>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-faint">PKR</span>
+                <input type="number" min="0" className="input pl-11 text-base font-semibold" value={form.amountManual ? form.amount : subtotal || ''}
+                  onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value, amountManual: true }))} />
+              </div>
+              {form.amountManual && subtotal > 0 && Number(form.amount) !== subtotal && (
+                <button type="button" className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-accent" onClick={() => setForm((f) => ({ ...f, amountManual: false }))}>
+                  <RotateCcw size={11} /> Use items total ({money(subtotal)})
+                </button>
+              )}
+            </Field>
+            <Field label="Advance paid">
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-faint">PKR</span>
+                <input type="number" min="0" className="input pl-11" value={form.advancePaid} onChange={set('advancePaid')} placeholder="0" />
+              </div>
+            </Field>
+            <div className="flex items-center justify-between rounded-xl bg-subtle p-3">
+              <span className="text-sm text-muted">Balance due</span>
+              <motion.span key={balance} initial={{ scale: 0.95, opacity: 0.6 }} animate={{ scale: 1, opacity: 1 }}
+                className={`font-display text-2xl font-semibold ${balance > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>{money(balance)}</motion.span>
+            </div>
+            <Field label="Payment notes"><textarea className="input" rows={2} value={form.paymentNotes} onChange={set('paymentNotes')} placeholder="e.g. advance via JazzCash" /></Field>
+          </section>
+        </aside>
+      </div>
+
+      {/* Phone save bar */}
+      <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+56px)] z-30 border-t border-line bg-surface/95 p-3 backdrop-blur lg:hidden">
+        <div className="mx-auto flex max-w-6xl items-center gap-3">
+          <div className="flex-1"><p className="text-[11px] text-muted">Total · balance</p><p className="text-sm font-semibold text-ink">{money(amount)} · <span className={balance > 0 ? 'text-rose-600' : 'text-emerald-700'}>{money(balance)}</span></p></div>
+          <button type="submit" className="btn-primary" disabled={saving}><Save size={15} />{saving ? 'Saving…' : isEdit ? 'Save' : 'Create'}</button>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5 max-w-4xl">
-        {/* Customer */}
-        <Section icon={User} title="Customer Information">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Customer Name *">
-              <input className={`input ${errors.customer ? 'border-red-400' : ''}`} value={form.customer} onChange={set('customer')} placeholder="Full name" />
-              {errors.customer && <p className="mt-1 text-xs text-red-500">{errors.customer}</p>}
-            </Field>
-            <Field label="Email">
-              <input type="email" className="input" value={form.email} onChange={set('email')} placeholder="email@example.com" />
-            </Field>
-            <Field label="Phone">
-              <input type="tel" className="input" value={form.phone} onChange={set('phone')} placeholder="+92300 0000000" />
-            </Field>
-            <Field label="City">
-              <input className="input" value={form.city} onChange={set('city')} placeholder="e.g. Lahore" />
-            </Field>
-          </div>
-          <Field label="Address">
-            <textarea className="input resize-none" rows={2} value={form.address} onChange={set('address')} placeholder="Full delivery address" />
-          </Field>
-        </Section>
-
-        {/* Product */}
-        <Section icon={Package} title="Order Details">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Order Date">
-              <input type="date" className="input" value={form.orderDate} onChange={set('orderDate')} />
-            </Field>
-            <Field label="Delivery Date">
-              <input type="date" className="input" value={form.deliveryDate} onChange={set('deliveryDate')} />
-            </Field>
-            <Field label="Status">
-              <select className="input" value={form.status} onChange={set('status')}>
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Products *</span>
-              <button
-                type="button"
-                onClick={addLine}
-                className="flex items-center gap-1 rounded-md border border-brand-300 bg-plum-50 px-3 py-1 text-xs font-semibold text-accent hover:bg-brand-100"
-              >
-                <Plus size={13} /> Add Product
-              </button>
-            </div>
-            {errors.productLines && <p className="mb-2 text-xs text-red-500">{errors.productLines}</p>}
-            <div className="space-y-2">
-              {form.productLines.map((line, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <ProductInput
-                    value={line.name}
-                    onChange={setLine(idx, 'name')}
-                    placeholder="Search product..."
-                  />
-                  <select
-                    className="input w-32"
-                    value={line.size}
-                    onChange={setLine(idx, 'size')}
-                  >
-                    {SIZE_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    min="1"
-                    className="input w-20"
-                    value={line.qty}
-                    onChange={setLine(idx, 'qty')}
-                    placeholder="Qty"
-                  />
-                  {form.productLines.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeLine(idx)}
-                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-red-200 text-red-400 hover:bg-red-50"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-          <Field label="Special Instructions">
-            <textarea className="input resize-none" rows={2} value={form.specialInstructions} onChange={set('specialInstructions')} placeholder="Any special notes..." />
-          </Field>
-        </Section>
-
-        {/* Measurements */}
-        <Section icon={Tag} title="Measurements">
-          <Field label="Measurements">
-            <textarea
-              className="input resize-y"
-              rows={5}
-              value={form.measurements.additionalNotes}
-              onChange={setMeasurementNotes}
-              placeholder="e.g. Bust: 36, Waist: 30, Length: 54..."
-            />
-          </Field>
-        </Section>
-
-        {/* Payment */}
-        <Section icon={CreditCard} title="Payment">
-          <div className="grid grid-cols-3 gap-4">
-            <Field label="Total Amount (PKR) *">
-              <input type="number" className={`input ${errors.amount ? 'border-red-400' : ''}`} value={form.amount} onChange={set('amount')} placeholder="0" />
-              {errors.amount && <p className="mt-1 text-xs text-red-500">{errors.amount}</p>}
-            </Field>
-            <Field label="Advance Paid (PKR)">
-              <input type="number" className="input" value={form.advancePaid} onChange={set('advancePaid')} placeholder="0" />
-            </Field>
-            <Field label="Balance Due (PKR)">
-              <div className={`input cursor-default select-none font-semibold ${balanceDue > 0 ? 'text-orange-600 bg-orange-50' : 'text-green-600 bg-green-50'}`}>
-                {balanceDue.toLocaleString()}
-              </div>
-            </Field>
-          </div>
-          <Field label="Payment Notes">
-            <textarea className="input resize-none" rows={2} value={form.paymentNotes} onChange={set('paymentNotes')} placeholder="e.g. Upfront 25000/- Received. Remaining during COD" />
-          </Field>
-        </Section>
-
-        <div className="flex justify-end gap-3 pb-6">
-          <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
-          <button type="submit" className="btn-primary" disabled={saving}>
-            <Save size={15} />
-            {saving ? 'Saving...' : isEdit ? 'Update Order' : 'Create Order'}
-          </button>
-        </div>
-      </form>
-    </div>
+      <ProductPicker open={picking} onClose={() => setPicking(false)} onPick={addProduct} />
+    </form>
   )
 }

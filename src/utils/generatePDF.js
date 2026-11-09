@@ -15,19 +15,41 @@ const GOLD  = '#C9A96E'
 const LIGHT = '#F7F6F3'
 const WHITE = '#FFFFFF'
 
+import { MEASUREMENT_FIELDS } from '../data/measurements'
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+
 function buildMeasurementsSection(m) {
   if (!m) return ''
 
+  const fields = MEASUREMENT_FIELDS.filter((f) => m[f.key])
   const rawText = (m.additionalNotes || '').trim()
-  if (!rawText) return ''
+  if (!rawText && !fields.length) return ''
 
-  const html = rawText.replace(/\n/g, '<br/>')
+  const grid = fields.length
+    ? '<table style="width:100%;border-collapse:collapse;margin-bottom:' + (rawText ? 10 : 0) + 'px;"><tr>' +
+      fields.map((f, i) => (i && i % 6 === 0 ? '</tr><tr>' : '') +
+        '<td style="padding:4px 6px 4px 0;vertical-align:top;"><div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;">' + esc(f.label) +
+        '</div><div style="font-size:13px;font-weight:700;color:' + DARK + ';">' + esc(m[f.key]) + '&Prime;</div></td>').join('') + '</tr></table>'
+    : ''
+  const html = grid + esc(rawText).replace(/\n/g, '<br/>')
 
   return `
   <div style="background:${LIGHT};border-radius:10px;padding:20px;border:1px solid #E8E4DC;margin-bottom:18px;">
     <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;color:${GOLD};margin-bottom:12px;">Measurements</div>
     <div style="font-size:11px;color:#374151;line-height:1.6;">${html}</div>
   </div>`
+}
+
+// Item lines: product, size, quantity, line total (falls back to the text summary)
+function buildItemsTable(order) {
+  const items = order.items || []
+  if (!items.length) return '<div style="font-size:13px;font-weight:600;color:' + DARK + ';line-height:1.5;white-space:pre-wrap;">' + (esc(order.product) || '—') + '</div>'
+  return '<table style="width:100%;border-collapse:collapse;">' + items.map((i) =>
+    '<tr><td style="padding:3px 0;font-size:12px;font-weight:600;color:' + DARK + ';">' + esc(i.product) + '</td>' +
+    '<td style="padding:3px 8px;font-size:11px;color:#555;white-space:nowrap;">' + esc(i.size || '') + '</td>' +
+    '<td style="padding:3px 8px;font-size:11px;color:#555;white-space:nowrap;">&times; ' + i.quantity + '</td>' +
+    '<td style="padding:3px 0;font-size:11px;color:#555;text-align:right;white-space:nowrap;">' + (i.unitPrice != null ? pkr(i.unitPrice * i.quantity) : '') + '</td></tr>').join('') + '</table>'
 }
 
 function buildPDFHTML(order, logoDataUrl) {
@@ -100,13 +122,12 @@ function buildPDFHTML(order, logoDataUrl) {
         <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;color:${GOLD};margin-bottom:10px;">Order Details</div>
         <table style="width:100%;border-collapse:collapse;"><tr>
           <td style="vertical-align:top;">
-            <div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Product</div>
-            <div style="font-size:13px;font-weight:600;color:${DARK};line-height:1.5;white-space:pre-wrap;">${order.product || '—'}</div>
+            <div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Items</div>
+            ${buildItemsTable(order)}
           </td>
           <td style="vertical-align:top;width:190px;">
             <table style="border-collapse:collapse;">
-              ${order.size ? `<tr><td style="padding-bottom:10px;"><div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Size</div><div style="font-size:13px;font-weight:600;color:${DARK};">${order.size}</div></td></tr>` : ''}
-              ${order.quantity != null ? `<tr><td style="padding-bottom:10px;"><div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Quantity</div><div style="font-size:13px;font-weight:600;color:${DARK};">${order.quantity}</div></td></tr>` : ''}
+              ${order.quantity != null ? `<tr><td style="padding-bottom:10px;"><div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Pieces</div><div style="font-size:13px;font-weight:600;color:${DARK};">${order.quantity}</div></td></tr>` : ''}
               <tr><td><div style="font-size:8px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Delivery Date</div><div style="font-size:13px;font-weight:600;color:${DARK};">${fmt(order.deliveryDate)}</div></td></tr>
             </table>
           </td>

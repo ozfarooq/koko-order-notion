@@ -1,324 +1,181 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RefreshCw, PlusCircle, Calendar, Link, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
-import { getOrders, updateOrder, FC_STATUSES } from '../data/storage'
+import { motion } from 'framer-motion'
+import { toast } from 'sonner'
+import {
+  DndContext, DragOverlay, PointerSensor, TouchSensor, KeyboardSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners,
+} from '@dnd-kit/core'
+import { RefreshCw, PlusCircle, Calendar, Link2, ArrowUp, ArrowDown, Kanban as KanbanIcon, Shirt } from 'lucide-react'
+import { getOrders, updateOrder, STATUS_OPTIONS } from '../data/storage'
+import { PageHeader, Skeleton, ErrorBanner, money } from '../ui/kit'
+import { ease } from '../ui/motion'
+import { useAuth } from '../auth/AuthContext'
 
-const KANBAN_COLUMNS = [
-  { value: 'New',             label: 'New',             color: 'bg-blue-500',   light: 'bg-blue-50',   border: 'border-blue-200',   text: 'text-blue-700'   },
-  { value: 'In Tailoring',   label: 'In Tailoring',    color: 'bg-amber-500',  light: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-700'  },
-  { value: 'Ready',           label: 'Ready',           color: 'bg-green-500',  light: 'bg-green-50',  border: 'border-green-200',  text: 'text-green-700'  },
-  { value: 'Out for Delivery',label: 'Out for Delivery',color: 'bg-purple-500', light: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
-  { value: 'Payment Pending', label: 'Payment Pending', color: 'bg-orange-500', light: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' },
-  { value: 'Paid',            label: 'Paid',            color: 'bg-teal-500',   light: 'bg-teal-50',   border: 'border-teal-200',   text: 'text-teal-700'   },
-  { value: 'Cancelled',       label: 'Cancelled',       color: 'bg-gray-400',   light: 'bg-subtle',   border: 'border-line',   text: 'text-muted'   },
-  { value: 'Returned',        label: 'Returned',        color: 'bg-rose-500',   light: 'bg-rose-50',   border: 'border-rose-200',   text: 'text-rose-700'   },
-]
+// Board column order follows the tailoring flow
+const COLUMNS = ['New', 'In Tailoring', 'Ready', 'Out for Delivery', 'Payment Pending', 'Paid', 'Cancelled', 'Returned']
+  .map((v) => STATUS_OPTIONS.find((s) => s.value === v))
+const SORTS = [{ value: 'deliveryDate', label: 'Delivery date' }, { value: 'orderDate', label: 'Order date' }, { value: 'customer', label: 'Customer' }]
+const fmtShort = (d) => (d ? new Date(d).toLocaleDateString('en-PK', { day: 'numeric', month: 'short' }) : null)
+const overdue = (o) => o.deliveryDate && o.deliveryDate < new Date().toISOString().slice(0, 10) && !['Paid', 'Cancelled', 'Returned'].includes(o.status)
 
-const fmt = (date) =>
-  date ? new Date(date).toLocaleDateString('en-PK', { day: 'numeric', month: 'short' }) : null
-
-function groupByStatus(orders) {
-  const grouped = {}
-  KANBAN_COLUMNS.forEach((c) => { grouped[c.value] = [] })
-  orders.forEach((o) => { if (grouped[o.status] !== undefined) grouped[o.status].push(o) })
-  return grouped
-}
-
-function OrderCard({ order, onDragStart, onClick, dragging }) {
-  const col = KANBAN_COLUMNS.find((c) => c.value === order.status)
-  const borderColor = col?.border || 'border-line'
-  const accentColor = col?.color  || 'bg-gray-400'
-
+export function BoardCard({ order, dragging, overlay }) {
+  const img = order.items?.find((i) => i.imageUrl)?.imageUrl
   return (
-    <div
-      draggable
-      onDragStart={(e) => onDragStart(e, order)}
-      onClick={() => !dragging && onClick(order.id)}
-      className={`group rounded-xl border ${borderColor} bg-surface p-4 shadow-sm transition
-        cursor-grab active:cursor-grabbing select-none
-        hover:shadow-md hover:-translate-y-0.5
-        ${dragging ? 'opacity-40 scale-95' : ''}`}
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <div className={`h-2 w-2 rounded-full flex-shrink-0 ${accentColor}`} />
-        <span className="font-mono text-xs font-bold text-accent">{order.orderNumber}</span>
+    <div className={`rounded-xl border border-line bg-surface p-3 shadow-soft transition ${overlay ? 'rotate-2 scale-105 shadow-lift ring-2 ring-plum-300' : 'hover:-translate-y-0.5 hover:shadow-lift'} ${dragging ? 'opacity-30' : ''}`}>
+      <div className="flex gap-3">
+        <div className="h-14 w-11 flex-shrink-0 overflow-hidden rounded-md bg-subtle2">
+          {img ? <img src={img} alt="" className="h-full w-full object-cover" loading="lazy" draggable={false} /> : <div className="flex h-full items-center justify-center text-faint"><Shirt size={16} /></div>}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-ink">{order.customer}</p>
+          <p className="line-clamp-2 text-[11px] leading-snug text-muted">{order.items?.map((i) => `${i.product}${i.size ? ` (${i.size})` : ''}`).join(', ') || order.product}</p>
+        </div>
       </div>
-
-      <p className="text-sm font-semibold text-ink leading-tight mb-1">{order.customer}</p>
-
-      {order.product && (
-        <p className="text-xs text-muted leading-snug mb-1 line-clamp-2">{order.product}</p>
-      )}
-      {order.size && (
-        <span className="inline-block rounded-md bg-subtle2 px-2 py-0.5 text-[11px] font-semibold text-ink-soft mb-2">
-          {order.size}
-        </span>
-      )}
-
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-line">
-        {order.deliveryDate ? (
-          <span className="flex items-center gap-1 text-[11px] text-faint">
-            <Calendar size={11} />
-            {fmt(order.deliveryDate)}
-          </span>
-        ) : <span />}
-        {order.amount != null && (
-          <span className="text-[11px] font-semibold text-ink-soft">
-            PKR {Number(order.amount).toLocaleString()}
-          </span>
+      <div className="mt-2 flex items-center justify-between gap-2 border-t border-line pt-2 text-[11px]">
+        <span className="font-mono font-semibold text-accent">{order.orderNumber}</span>
+        {order.deliveryDate && (
+          <span className={`flex items-center gap-1 ${overdue(order) ? 'font-semibold text-rose-600' : 'text-faint'}`}><Calendar size={11} />{fmtShort(order.deliveryDate)}</span>
         )}
       </div>
-
-      {Number(order.balanceDue) > 0 && (
-        <div className="mt-2">
-          <span className="inline-block rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
-            Due: PKR {Number(order.balanceDue).toLocaleString()}
-          </span>
-        </div>
+      {order.balanceDue > 0 && (
+        <span className="mt-1.5 inline-block rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-950/40 dark:text-orange-300">Due {money(order.balanceDue)}</span>
       )}
     </div>
   )
 }
 
-function KanbanColumn({ col, orders, dragOverCol, onDragOver, onDragLeave, onDrop, onDragStart, draggingId, onCardClick, saving }) {
-  const isOver = dragOverCol === col.value
-
+function DraggableCard({ order, onOpen, disabled }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: order.id, data: { order }, disabled })
   return (
-    <div
-      className={`flex w-72 flex-shrink-0 flex-col rounded-2xl overflow-hidden transition-all
-        ${isOver ? `ring-2 ring-offset-1 ${col.color.replace('bg-', 'ring-')} bg-subtle2/80` : 'bg-subtle2/80'}`}
-      onDragOver={(e) => onDragOver(e, col.value)}
-      onDragLeave={onDragLeave}
-      onDrop={(e) => onDrop(e, col.value)}
-    >
-      {/* Header */}
-      <div className="flex items-center gap-2.5 px-4 py-3">
-        <div className={`h-3 w-3 rounded-full flex-shrink-0 ${col.color}`} />
-        <span className="text-sm font-bold text-ink flex-1">{col.label}</span>
-        <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${col.light} ${col.text}`}>
-          {orders.length}
-        </span>
-        {saving === col.value && (
-          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-line-strong border-t-gray-600" />
-        )}
+    <motion.div layout layoutId={order.id} transition={{ duration: 0.3, ease }} ref={setNodeRef} {...attributes} {...listeners}
+      onClick={() => !isDragging && onOpen(order.id)} className={`touch-manipulation ${disabled ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}>
+      <BoardCard order={order} dragging={isDragging} />
+    </motion.div>
+  )
+}
+
+function Column({ col, orders, onOpen, canDrag }) {
+  const { setNodeRef, isOver } = useDroppable({ id: col.value })
+  const total = orders.reduce((s, o) => s + (Number(o.amount) || 0), 0)
+  return (
+    <div ref={setNodeRef}
+      className={`flex w-[78vw] max-w-[300px] flex-shrink-0 snap-start flex-col rounded-2xl border transition sm:w-72 ${isOver ? 'border-plum-300 bg-plum-50/70 dark:bg-plum-900/30' : 'border-transparent bg-subtle/70'}`}>
+      <div className="flex items-center gap-2 px-3 pb-2 pt-3">
+        <span className={`h-2.5 w-2.5 rounded-full ${col.dot}`} />
+        <p className="flex-1 text-sm font-semibold text-ink">{col.label}</p>
+        <span className="rounded-full bg-surface px-2 text-xs font-semibold text-muted">{orders.length}</span>
       </div>
-
-      {/* Drop zone hint */}
-      {isOver && (
-        <div className={`mx-3 mb-2 rounded-xl border-2 border-dashed py-3 text-center text-xs font-semibold ${col.text} ${col.border}`}>
-          Drop to move here
-        </div>
-      )}
-
-      {/* Cards */}
-      <div className="flex-1 overflow-y-auto space-y-2.5 px-3 pb-3 max-h-[calc(100vh-180px)]">
-        {orders.length === 0 && !isOver ? (
-          <div className="rounded-xl border-2 border-dashed border-line py-8 text-center">
-            <p className="text-xs text-faint">No orders</p>
-          </div>
-        ) : (
-          orders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              dragging={draggingId === order.id}
-              onDragStart={onDragStart}
-              onClick={onCardClick}
-            />
-          ))
-        )}
+      {total > 0 && <p className="px-3 pb-2 text-[11px] text-faint">{money(total)}</p>}
+      <div className="flex-1 space-y-2 overflow-y-auto px-2 pb-3" style={{ minHeight: 80 }}>
+        {orders.map((o) => <DraggableCard key={o.id} order={o} onOpen={onOpen} disabled={!canDrag} />)}
+        {orders.length === 0 && <div className={`rounded-xl border-2 border-dashed py-6 text-center text-[11px] ${isOver ? 'border-plum-300 text-accent' : 'border-line text-faint'}`}>Drop here</div>}
       </div>
     </div>
   )
 }
 
 export default function Kanban() {
-  const navigate  = useNavigate()
-  const [orders,     setOrders]     = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState(null)
-  const [draggingId, setDraggingId] = useState(null)
-  const [dragOverCol,setDragOverCol]= useState(null)
-  const [saving,     setSaving]     = useState(null)
-  const [copied,     setCopied]     = useState(false)
-  const [sortBy,     setSortBy]     = useState('orderDate') // orderDate | customer | product
-  const [sortDir,    setSortDir]    = useState('asc')
-  const dragOrder = useRef(null)
+  const navigate = useNavigate()
+  const { can } = useAuth()
+  const canDrag = can('orders:write')
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [activeId, setActiveId] = useState(null)
+  const [sortBy, setSortBy] = useState('deliveryDate')
+  const [sortDir, setSortDir] = useState('asc')
+  const [showClosed, setShowClosed] = useState(false)
 
-  const SORT_OPTIONS = [
-    { value: 'orderDate', label: 'Order Date' },
-    { value: 'customer',  label: 'Customer Name' },
-    { value: 'product',   label: 'Product Name' },
-  ]
-
-  const toggleDir = () => setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
-
-  const sortOrders = (list) => [...list].sort((a, b) => {
-    let va, vb
-    if (sortBy === 'orderDate') {
-      va = a.orderDate || ''
-      vb = b.orderDate || ''
-    } else if (sortBy === 'customer') {
-      va = (a.customer || '').toLowerCase()
-      vb = (b.customer || '').toLowerCase()
-    } else {
-      va = (a.product || '').toLowerCase()
-      vb = (b.product || '').toLowerCase()
-    }
-    if (va < vb) return sortDir === 'asc' ? -1 : 1
-    if (va > vb) return sortDir === 'asc' ?  1 : -1
-    return 0
-  })
-
-  const handleShare = () => {
-    const url = `${window.location.origin}/board`
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
+  // Mouse: drag after 6px; touch: press-and-hold so the board can still scroll sideways
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 6 } }),
+    useSensor(KeyboardSensor),
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
-    try { setOrders(await getOrders()) }
-    catch (err) { setError(err.message) }
-    finally { setLoading(false) }
+    try { setOrders(await getOrders()) } catch (err) { setError(err.message) } finally { setLoading(false) }
   }, [])
-
   useEffect(() => { load() }, [load])
 
-  // ── Drag handlers ─────────────────────────────────────────────────
-  const handleDragStart = (e, order) => {
-    dragOrder.current = order
-    setDraggingId(order.id)
-    e.dataTransfer.effectAllowed = 'move'
-  }
+  const grouped = useMemo(() => {
+    const key = (o) => (sortBy === 'customer' ? (o.customer || '').toLowerCase() : o[sortBy] || '9999')
+    const g = Object.fromEntries(COLUMNS.map((c) => [c.value, []]))
+    orders.forEach((o) => g[o.status]?.push(o))
+    Object.values(g).forEach((list) => list.sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0) * (sortDir === 'asc' ? 1 : -1)))
+    return g
+  }, [orders, sortBy, sortDir])
 
-  const handleDragOver = (e, colValue) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    if (dragOverCol !== colValue) setDragOverCol(colValue)
-  }
+  const visibleColumns = showClosed ? COLUMNS : COLUMNS.filter((c) => !['Paid', 'Cancelled', 'Returned'].includes(c.value))
+  const activeOrder = orders.find((o) => o.id === activeId)
 
-  const handleDragLeave = (e) => {
-    // Only clear when leaving the column entirely (not entering a child)
-    if (!e.currentTarget.contains(e.relatedTarget)) setDragOverCol(null)
-  }
-
-  const handleDrop = async (e, targetStatus) => {
-    e.preventDefault()
-    setDragOverCol(null)
-    setDraggingId(null)
-
-    const order = dragOrder.current
-    dragOrder.current = null
-    if (!order || order.status === targetStatus) return
-
-    // Optimistic update
-    setOrders((prev) =>
-      prev.map((o) => o.id === order.id ? { ...o, status: targetStatus } : o)
-    )
-
-    // Persist to the database
-    setSaving(targetStatus)
+  const handleDragEnd = async ({ active, over }) => {
+    setActiveId(null)
+    if (!over) return
+    const order = orders.find((o) => o.id === active.id)
+    const status = over.id
+    if (!order || order.status === status) return
+    setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status } : o)))
     try {
-      await updateOrder(order.id, { status: targetStatus })
+      await updateOrder(order.id, { status })
+      toast.success(`${order.orderNumber} → ${status}`)
     } catch (err) {
-      // Rollback on failure
-      setOrders((prev) =>
-        prev.map((o) => o.id === order.id ? { ...o, status: order.status } : o)
-      )
-      setError(`Failed to update status: ${err.message}`)
-    } finally {
-      setSaving(null)
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: order.status } : o)))
+      toast.error(`Couldn't move ${order.orderNumber}: ${err.message}`)
     }
   }
 
-  const handleDragEnd = () => {
-    setDraggingId(null)
-    setDragOverCol(null)
-    dragOrder.current = null
-  }
+  const share = () => navigator.clipboard.writeText(`${window.location.origin}/board`)
+    .then(() => toast.success('Public board link copied')).catch(() => toast.error("Couldn't copy the link"))
 
-  const rawGrouped = groupByStatus(orders.filter((o) => !FC_STATUSES.includes(o.status)))
-  const grouped = Object.fromEntries(
-    Object.entries(rawGrouped).map(([k, v]) => [k, sortOrders(v)])
-  )
+  const active = orders.filter((o) => !['Paid', 'Cancelled', 'Returned'].includes(o.status)).length
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      {/* Header */}
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-line bg-surface px-6 py-4">
-        <div>
-          <h1 className="text-xl font-bold text-ink">Order Status Board</h1>
-          <p className="text-sm text-muted">{orders.length} orders · drag cards to change status</p>
+    <div className="flex h-full flex-col">
+      <div className="space-y-4 p-4 pb-2 sm:p-6 sm:pb-3 lg:px-8">
+        <PageHeader
+          eyebrow="Retail" title="Status Board" icon={KanbanIcon}
+          subtitle={`${active} in progress · ${canDrag ? 'drag cards to change status (press and hold on a phone)' : 'view only'}`}
+          actions={
+            <>
+              <button className="btn-secondary" onClick={share}><Link2 size={14} />Share</button>
+              <button className="btn-secondary" onClick={load} disabled={loading}><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /></button>
+              {can('orders:write') && <button className="btn-primary" onClick={() => navigate('/orders/new')}><PlusCircle size={15} />New order</button>}
+            </>
+          }
+        />
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted">Sort</span>
+          <select className="input w-auto py-1.5" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+          <button className="btn-icon border border-line bg-surface" onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))} aria-label="Sort direction">
+            {sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+          </button>
+          <label className="ml-auto flex cursor-pointer items-center gap-2 text-muted">
+            <input type="checkbox" className="accent-plum-600" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} />
+            Show paid, cancelled &amp; returned
+          </label>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Sort controls */}
-          <div className="flex items-center gap-1.5 rounded-lg border border-line bg-subtle px-3 py-1.5">
-            <ArrowUpDown size={13} className="text-faint" />
-            <select
-              className="bg-transparent text-sm text-ink-soft font-medium focus:outline-none cursor-pointer"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <button onClick={toggleDir} className="ml-1 text-faint hover:text-ink-soft">
-              {sortDir === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
-            </button>
-          </div>
-
-          <button className="btn-secondary" onClick={handleShare}>
-            <Link size={14} />
-            {copied ? 'Copied!' : 'Share Board'}
-          </button>
-          <button className="btn-secondary" onClick={load} disabled={loading}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-          <button className="btn-primary" onClick={() => navigate('/orders/new')}>
-            <PlusCircle size={15} />
-            New Order
-          </button>
-        </div>
+        <ErrorBanner onRetry={load}>{error}</ErrorBanner>
       </div>
 
-      {error && (
-        <div className="mx-6 mt-4 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          <span><strong>Error:</strong> {error}</span>
-          <button className="ml-4 text-red-400 hover:text-red-600" onClick={() => setError(null)}>✕</button>
-        </div>
-      )}
-
       {loading ? (
-        <div className="flex flex-1 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
-        </div>
+        <div className="flex gap-3 overflow-hidden px-4 sm:px-6 lg:px-8">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-96 w-72 flex-shrink-0" />)}</div>
       ) : (
-        <div
-          className="flex flex-1 gap-4 overflow-x-auto p-6 pb-4"
-          onDragEnd={handleDragEnd}
-        >
-          {KANBAN_COLUMNS.map((col) => (
-            <KanbanColumn
-              key={col.value}
-              col={col}
-              orders={grouped[col.value] || []}
-              dragOverCol={dragOverCol}
-              draggingId={draggingId}
-              saving={saving}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onCardClick={(id) => navigate(`/orders/${id}`)}
-            />
-          ))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCorners}
+          onDragStart={({ active }) => setActiveId(active.id)} onDragEnd={handleDragEnd} onDragCancel={() => setActiveId(null)}>
+          <div className="flex flex-1 snap-x gap-3 overflow-x-auto px-4 pb-6 sm:px-6 lg:px-8">
+            {visibleColumns.map((c) => (
+              <Column key={c.value} col={c} orders={grouped[c.value]} onOpen={(id) => navigate(`/orders/${id}`)} canDrag={canDrag} />
+            ))}
+          </div>
+          <DragOverlay dropAnimation={{ duration: 220, easing: 'cubic-bezier(0.22,1,0.36,1)' }}>
+            {activeOrder ? <BoardCard order={activeOrder} overlay /> : null}
+          </DragOverlay>
+        </DndContext>
       )}
     </div>
   )
