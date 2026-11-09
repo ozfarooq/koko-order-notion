@@ -1,27 +1,32 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { login } from '../utils/auth'
+import { useNavigate, useLocation, Navigate } from 'react-router-dom'
+import { useAuth, homeFor } from '../auth/AuthContext'
 
 export default function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { user, login } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-    setTimeout(() => {
-      if (login(username, password)) {
-        navigate('/', { replace: true })
-      } else {
-        setError('Invalid username or password.')
-        setLoading(false)
-      }
-    }, 400)
+    try {
+      const u = await login(username, password)
+      // Back to the page they were trying to open, unless their role can't use it
+      const from = location.state?.from
+      navigate(u.role !== 'reseller' && from && from !== '/login' ? from : homeFor(u), { replace: true })
+    } catch (err) {
+      setError(err.message || 'Could not sign in')
+      setLoading(false)
+    }
   }
+
+  if (user) return <Navigate to={homeFor(user)} replace />
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#1a1035]">

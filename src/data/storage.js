@@ -36,16 +36,40 @@ export const groupByStatus = (orders) => {
   return grouped
 }
 
+// Called when the session has expired, so the app can send the user back to the login page
+let onUnauthorized = () => {}
+export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn }
+
 async function api(path, options = {}) {
   const res = await fetch(`/api${path}`, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     ...options,
   })
+  if (res.status === 401 && !path.startsWith('/auth/')) onUnauthorized()
   if (res.status === 204) return null
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || `API error ${res.status}`)
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || `API error ${res.status}`)
+    err.status = res.status
+    throw err
+  }
   return data
 }
+
+// ── Auth & accounts ────────────────────────────────────────────────────
+export const login          = (username, password) => api('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
+export const logout         = () => api('/auth/logout', { method: 'POST', body: '{}' })
+export const getMe          = () => api('/auth/me')
+export const changePassword = (currentPassword, newPassword) =>
+  api('/auth/password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) })
+export const getUsers       = () => api('/users')
+export const addUser        = (user) => api('/users', { method: 'POST', body: JSON.stringify(user) })
+export const updateUser     = (id, upd) => api(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(upd) })
+export const getResellers   = () => api('/resellers')
+
+// Public status board (no login; no contact details or amounts)
+export const getBoard = () => api('/board')
 
 // ── Retail orders ──────────────────────────────────────────────────────
 export const getOrders    = ()         => api('/orders')

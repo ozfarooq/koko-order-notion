@@ -8,6 +8,7 @@ import { getOrderById, deleteOrder, updateOrder, STATUS_OPTIONS } from '../data/
  import ProductInput from '../components/ProductInput'
 import StatusBadge from '../components/StatusBadge'
 import { generateOrderPDF } from '../utils/generatePDF'
+import { useAuth } from '../auth/AuthContext'
 
 const SIZE_OPTIONS = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
 const EMPTY_LINE   = () => ({ name: '', size: 'Small', qty: 1 })
@@ -48,6 +49,7 @@ const fmt = (date) =>
   date ? new Date(date).toLocaleDateString('en-PK', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
 
 export default function OrderDetail() {
+  const { can } = useAuth()
   const navigate  = useNavigate()
   const { id }    = useParams()
   const [order,      setOrder]      = useState(null)
@@ -195,7 +197,7 @@ export default function OrderDetail() {
                   <button className="btn-danger" onClick={handleDelete}>Yes, Delete</button>
                   <button className="btn-secondary" onClick={() => setShowDelete(false)}>No</button>
                 </div>
-              ) : (
+              ) : can('orders:delete') && (
                 <button className="btn-secondary text-red-500 hover:text-red-600" onClick={() => setShowDelete(true)}>
                   <Trash2 size={15} />
                 </button>

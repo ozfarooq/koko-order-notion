@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Lock, Calendar } from 'lucide-react'
-import { getOrders, FC_STATUSES } from '../data/storage'
+import { getBoard, FC_STATUSES } from '../data/storage'
 
 const KANBAN_COLUMNS = [
   { value: 'New',             label: 'New',             color: 'bg-blue-500',   light: 'bg-blue-50',   border: 'border-blue-200',   text: 'text-blue-700'   },
@@ -101,7 +101,7 @@ export default function BoardReadOnly() {
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
-    try { setOrders(await getOrders()) }
+    try { setOrders(await getBoard()) }
     catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }, [])

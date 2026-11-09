@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Store, ArrowUp, ArrowDown, Pencil } from 'lucide-react'
 import { getConsignments, updateConsignmentItem, pieceMoney, FC_STATUS_OPTIONS } from '../data/storage'
 import SaleDetailsModal from '../components/SaleDetailsModal'
+import { useAuth } from '../auth/AuthContext'
 
 // Net payable per piece, as on the reseller's statement (discounts, commission, alteration/laundry)
 const net  = (o) => pieceMoney(o).netPayable
@@ -31,6 +32,10 @@ function SummaryCard({ label, value, sub, color = 'text-gray-900' }) {
 }
 
 export default function FashionCollage() {
+  const { user, can } = useAuth()
+  const canEdit   = can('fc:write')   // owner / manager
+  const showMoney = can('fc:money')   // staff see stock only
+  const isReseller = user?.role === 'reseller'
   const [orders, setOrders] = useState([])
   const [reseller, setReseller] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -128,8 +133,11 @@ export default function FashionCollage() {
             <Store size={20} className="text-sky-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{reseller?.name || 'Fashion Collage Dubai'}</h1>
-            <p className="text-sm text-gray-500">B2B consignment stock · {pct}% commission</p>
+            <h1 className="text-2xl font-bold text-gray-900">{isReseller ? 'My Stock' : reseller?.name || 'Fashion Collage Dubai'}</h1>
+            <p className="text-sm text-gray-500">
+              {isReseller ? `Koko Atelier pieces with ${reseller?.name || 'you'}` : 'B2B consignment stock'}
+              {showMoney && ` · ${pct}% commission`}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -153,11 +161,11 @@ export default function FashionCollage() {
         <SummaryCard label="Total Outfits"  value={total}    sub={`${atStore} at store · ${returned} returned`} />
         <SummaryCard label="Sold"           value={sold}     sub="Awaiting payment"   color="text-violet-700" />
         <SummaryCard label="Paid"           value={paid}     sub="Payment received"   color="text-emerald-700" />
-        <SummaryCard label="AED Receivable" value={`AED ${pendingAED.toLocaleString(undefined,{maximumFractionDigits:0})}`} sub="Sold, awaiting payment" color="text-orange-600" />
+        {showMoney && <SummaryCard label={isReseller ? 'Payable to Koko' : 'AED Receivable'} value={`AED ${pendingAED.toLocaleString(undefined,{maximumFractionDigits:0})}`} sub="Sold, awaiting payment" color="text-orange-600" />}
       </div>
 
       {/* Financial summary */}
-      {totalAED > 0 && (
+      {showMoney && totalAED > 0 && (
         <div className="card p-5">
           <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-4">Financial Summary (Sold + Paid)</h2>
           <div className="grid grid-cols-3 gap-6">
@@ -201,7 +209,7 @@ export default function FashionCollage() {
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-50">
                   <StatusPill status={statusMeta.value} />
                   <span className="text-xs text-gray-400 font-semibold">{items.length} outfits</span>
-                  {isRevenue && groupTotal > 0 && (
+                  {showMoney && isRevenue && groupTotal > 0 && (
                     <span className="ml-auto text-xs font-semibold text-gray-600">
                       AED {groupTotal.toLocaleString()} total · Net AED {fmtAED(items.reduce((s, o) => s + net(o), 0))}
                     </span>
@@ -210,7 +218,9 @@ export default function FashionCollage() {
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50/80">
-                      {['Product', 'Size', 'Gross', 'Discount', 'Commission', 'Alt/Laundry', 'Net payable', 'Status', 'Date / Invoice', ''].map((h, i) => (
+                      {(showMoney
+                        ? ['Product', 'Size', 'Gross', 'Discount', 'Commission', 'Alt/Laundry', 'Net payable', 'Status', 'Date / Invoice', '']
+                        : ['Product', 'Size', 'Status', 'Date / Invoice', '']).map((h, i) => (
                         <th key={i} className={`py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400 ${i === 0 ? 'pl-4 pr-2' : 'px-2'}`}>{h}</th>
                       ))}
                     </tr>
@@ -227,6 +237,7 @@ export default function FashionCollage() {
                             {order.resellerCode && <p className="font-mono text-[11px] text-gray-400">{order.resellerCode}</p>}
                           </td>
                           <td className="px-2 py-3 text-sm text-gray-600">{order.size || '—'}</td>
+                          {showMoney && (canEdit ? (
                           <td className="px-2 py-3">
                             <div className="flex items-center gap-1">
                               <span className="text-xs text-gray-400">AED</span>
@@ -241,6 +252,10 @@ export default function FashionCollage() {
                               {savingId === order.id && <span className="text-xs text-gray-400">saving…</span>}
                             </div>
                           </td>
+                          ) : (
+                          <td className="px-2 py-3 text-sm font-semibold text-gray-800">{aed ? `AED ${fmtAED(aed)}` : '—'}</td>
+                          ))}
+                          {showMoney && (<>
                           <td className="px-2 py-3 text-sm text-gray-600" title={`Designer ${order.designerDiscount || 0} · Collage ${order.resellerDiscount || 0}`}>
                             {dash((order.designerDiscount || 0) + (order.resellerDiscount || 0))}
                           </td>
@@ -251,6 +266,8 @@ export default function FashionCollage() {
                           <td className="px-2 py-3 text-sm text-emerald-700 font-semibold">
                             {draftAed > 0 ? `AED ${fmtAED(pieceMoney(order, draftAed).netPayable)}` : '—'}
                           </td>
+                          </>)}
+                          {canEdit ? (
                           <td className="px-2 py-3">
                             <select
                               className="rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700 focus:outline-none focus:border-brand-400"
@@ -262,6 +279,9 @@ export default function FashionCollage() {
                               ))}
                             </select>
                           </td>
+                          ) : (
+                            <td className="px-2 py-3"><StatusPill status={order.status} /></td>
+                          )}
                           <td className="px-2 py-3 text-xs text-gray-500">
                             {order.status === 'FC - Returned' ? <>Returned {fmtDate(order.returnedOn)}</>
                               : ['FC - Sold', 'FC - Paid'].includes(order.status) ? (
@@ -272,6 +292,7 @@ export default function FashionCollage() {
                               ) : <>Handed over {fmtDate(order.handoverDate)}</>}
                           </td>
                           <td className="py-3 pl-2 pr-4">
+                            {canEdit && (
                             <button
                               className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-brand-50 hover:text-brand-600"
                               onClick={() => setDetailsId(order.id)}
@@ -279,6 +300,7 @@ export default function FashionCollage() {
                             >
                               <Pencil size={14} />
                             </button>
+                            )}
                           </td>
                         </tr>
                       )
@@ -289,7 +311,7 @@ export default function FashionCollage() {
             )
           })}
 
-          {detailsId && orders.find((o) => o.id === detailsId) && (
+          {canEdit && detailsId && orders.find((o) => o.id === detailsId) && (
             <SaleDetailsModal
               piece={orders.find((o) => o.id === detailsId)}
               onClose={() => setDetailsId(null)}
