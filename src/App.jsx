@@ -9,6 +9,7 @@ import { MotionProvider } from './ui/motion'
 import { useTheme } from './ui/theme'
 
 // Each page loads on demand, so the first visit only downloads what it needs
+const Dashboard       = lazy(() => import('./pages/Dashboard'))
 const Orders          = lazy(() => import('./pages/Orders'))
 const Kanban          = lazy(() => import('./pages/Kanban'))
 const OrderForm       = lazy(() => import('./pages/OrderForm'))
@@ -88,6 +89,7 @@ export default function App() {
               <Route path="/board" element={<BoardReadOnly />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Home />} />
+                <Route path="/dashboard" element={<Require permission="orders:read"><Dashboard /></Require>} />
                 <Route path="/orders" element={<Require permission="orders:read"><Orders /></Require>} />
                 <Route path="/kanban" element={<Require permission="orders:read"><Kanban /></Require>} />
                 <Route path="/orders/new" element={<Require permission="orders:write"><OrderForm /></Require>} />

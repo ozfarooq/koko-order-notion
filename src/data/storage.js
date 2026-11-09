@@ -76,6 +76,8 @@ export const getResellers = () => (resellersPromise ??= api('/resellers').catch(
 export const RESELLERS_CHANGED = 'koko:resellers-changed'
 export const refreshResellers = () => { resellersPromise = null; window.dispatchEvent(new Event(RESELLERS_CHANGED)); return getResellers() }
 
+export const getDashboard = () => api('/dashboard')
+
 export const search = (q) => api(`/search?q=${encodeURIComponent(q)}`)
 
 // Public status board (no login; no contact details or amounts)
