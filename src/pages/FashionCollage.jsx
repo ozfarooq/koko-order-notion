@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, Store, ArrowUp, ArrowDown } from 'lucide-react'
+import { RefreshCw, Store, ArrowUp, ArrowDown, Pencil } from 'lucide-react'
 import { getConsignments, updateConsignmentItem, pieceMoney, FC_STATUS_OPTIONS } from '../data/storage'
+import SaleDetailsModal from '../components/SaleDetailsModal'
 
 // Net payable per piece, as on the reseller's statement (discounts, commission, alteration/laundry)
 const net  = (o) => pieceMoney(o).netPayable
 const fmtAED = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
+const dash = (n) => (Number(n) ? `AED ${fmtAED(Number(n))}` : '—')
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
 function StatusPill({ status }) {
@@ -36,6 +38,7 @@ export default function FashionCollage() {
   const [editingPrice, setEditingPrice] = useState({})
   const [savingId, setSavingId] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
+  const [detailsId, setDetailsId] = useState(null)
 
   const sortItems = (list) => [...list].sort((a, b) => {
     const va = (a.product || '').toLowerCase()
@@ -85,6 +88,15 @@ export default function FashionCollage() {
     } finally {
       setSavingId(null)
     }
+  }
+
+  const handleDetailsSave = async (order, changes) => {
+    const saved = await updateConsignmentItem(order.id, changes)
+    setOrders((prev) => prev.map((o) => {
+      if (o.id === order.id) return saved
+      if (o.productId === saved.productId) return { ...o, resellerCode: saved.resellerCode }
+      return o
+    }))
   }
 
   // ── Stats ──────────────────────────────────────────────────────────
@@ -141,7 +153,7 @@ export default function FashionCollage() {
         <SummaryCard label="Total Outfits"  value={total}    sub={`${atStore} at store · ${returned} returned`} />
         <SummaryCard label="Sold"           value={sold}     sub="Awaiting payment"   color="text-violet-700" />
         <SummaryCard label="Paid"           value={paid}     sub="Payment received"   color="text-emerald-700" />
-        <SummaryCard label="AED Receivable" value={`AED ${pendingAED.toLocaleString(undefined,{maximumFractionDigits:0})}`} sub={`${100 - pct}% of sold items`} color="text-orange-600" />
+        <SummaryCard label="AED Receivable" value={`AED ${pendingAED.toLocaleString(undefined,{maximumFractionDigits:0})}`} sub="Sold, awaiting payment" color="text-orange-600" />
       </div>
 
       {/* Financial summary */}
@@ -158,7 +170,7 @@ export default function FashionCollage() {
               <p className="text-xl font-bold text-rose-600">− AED {commission.toLocaleString(undefined,{maximumFractionDigits:0})}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Net to Koko ({100 - pct}%)</p>
+              <p className="text-xs text-gray-500">Net payable to Koko</p>
               <p className="text-xl font-bold text-emerald-700">AED {netReceivable.toLocaleString(undefined,{maximumFractionDigits:0})}</p>
               {deductions > 0.5 && <p className="text-xs text-gray-400 mt-0.5">after AED {fmtAED(deductions)} discounts &amp; alterations</p>}
               {paidNet > 0 && <p className="text-xs text-gray-400 mt-0.5">AED {fmtAED(paidNet)} already received</p>}
@@ -198,13 +210,9 @@ export default function FashionCollage() {
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50/80">
-                      <th className="py-2 pl-4 pr-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Product</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Size</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">AED Price</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Commission</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Net to Koko</th>
-                      <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Status</th>
-                      <th className="py-2 pl-2 pr-4 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400">Handed over</th>
+                      {['Product', 'Size', 'Gross', 'Discount', 'Commission', 'Alt/Laundry', 'Net payable', 'Status', 'Date / Invoice', ''].map((h, i) => (
+                        <th key={i} className={`py-2 text-left text-[10px] font-bold uppercase tracking-wide text-gray-400 ${i === 0 ? 'pl-4 pr-2' : 'px-2'}`}>{h}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -214,8 +222,9 @@ export default function FashionCollage() {
                       const draftAed  = isDrafting ? Number(editingPrice[order.id]) || 0 : aed
                       return (
                         <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                          <td className="py-3 pl-4 pr-2 text-sm text-gray-800 max-w-xs truncate">
-                            {order.product || '—'}
+                          <td className="py-3 pl-4 pr-2 max-w-xs">
+                            <p className="truncate text-sm text-gray-800">{order.product || '—'}</p>
+                            {order.resellerCode && <p className="font-mono text-[11px] text-gray-400">{order.resellerCode}</p>}
                           </td>
                           <td className="px-2 py-3 text-sm text-gray-600">{order.size || '—'}</td>
                           <td className="px-2 py-3">
@@ -232,9 +241,13 @@ export default function FashionCollage() {
                               {savingId === order.id && <span className="text-xs text-gray-400">saving…</span>}
                             </div>
                           </td>
+                          <td className="px-2 py-3 text-sm text-gray-600" title={`Designer ${order.designerDiscount || 0} · Collage ${order.resellerDiscount || 0}`}>
+                            {dash((order.designerDiscount || 0) + (order.resellerDiscount || 0))}
+                          </td>
                           <td className="px-2 py-3 text-sm text-rose-600 font-medium">
                             {draftAed > 0 ? `AED ${fmtAED(pieceMoney(order, draftAed).commission)}` : '—'}
                           </td>
+                          <td className="px-2 py-3 text-sm text-gray-600">{dash(order.alterationCharge)}</td>
                           <td className="px-2 py-3 text-sm text-emerald-700 font-semibold">
                             {draftAed > 0 ? `AED ${fmtAED(pieceMoney(order, draftAed).netPayable)}` : '—'}
                           </td>
@@ -249,8 +262,23 @@ export default function FashionCollage() {
                               ))}
                             </select>
                           </td>
-                          <td className="py-3 pl-2 pr-4 text-xs text-gray-500">
-                            {fmtDate(order.handoverDate)}
+                          <td className="px-2 py-3 text-xs text-gray-500">
+                            {order.status === 'FC - Returned' ? <>Returned {fmtDate(order.returnedOn)}</>
+                              : ['FC - Sold', 'FC - Paid'].includes(order.status) ? (
+                                <>
+                                  <p>Sold {fmtDate(order.soldOn)}</p>
+                                  {order.resellerInvoiceNo && <p className="font-mono text-[11px] text-gray-400">{order.resellerInvoiceNo}</p>}
+                                </>
+                              ) : <>Handed over {fmtDate(order.handoverDate)}</>}
+                          </td>
+                          <td className="py-3 pl-2 pr-4">
+                            <button
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-brand-50 hover:text-brand-600"
+                              onClick={() => setDetailsId(order.id)}
+                              title="Sale details"
+                            >
+                              <Pencil size={14} />
+                            </button>
                           </td>
                         </tr>
                       )
@@ -260,6 +288,14 @@ export default function FashionCollage() {
               </div>
             )
           })}
+
+          {detailsId && orders.find((o) => o.id === detailsId) && (
+            <SaleDetailsModal
+              piece={orders.find((o) => o.id === detailsId)}
+              onClose={() => setDetailsId(null)}
+              onSave={(changes) => handleDetailsSave(orders.find((o) => o.id === detailsId), changes)}
+            />
+          )}
 
           {orders.length === 0 && (
             <div className="card flex flex-col items-center gap-3 py-16 text-center">

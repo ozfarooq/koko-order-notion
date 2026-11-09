@@ -69,7 +69,7 @@ export async function getConsignments() {
   return { ...data, items: data.items.map(toPiece) }
 }
 
-const PIECE_FIELDS = ['notes', 'designerDiscount', 'resellerDiscount', 'alterationCharge', 'resellerInvoiceNo', 'resellerCode']
+const PIECE_FIELDS = ['notes', 'designerDiscount', 'resellerDiscount', 'alterationCharge', 'resellerInvoiceNo', 'resellerCode', 'soldOn', 'paidOn']
 
 export async function updateConsignmentItem(id, upd) {
   const body = {}
