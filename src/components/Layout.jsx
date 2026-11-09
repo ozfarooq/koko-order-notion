@@ -19,8 +19,8 @@ const readCollapsed = () => { try { return localStorage.getItem(COLLAPSE_KEY) ==
 function Logo({ collapsed }) {
   return (
     <Link to="/" className="flex items-center gap-3 px-1">
-      <img src="/brand/emblem-white.png" alt={collapsed ? 'Koko Atelier' : ''} className="h-11 w-auto flex-shrink-0 opacity-90" />
-      {!collapsed && <img src="/brand/wordmark-white.png" alt="Koko Atelier" className="h-8 w-auto opacity-90" />}
+      <img src="/brand/emblem.png" alt={collapsed ? 'Koko Atelier' : ''} className="h-11 w-auto flex-shrink-0" />
+      {!collapsed && <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-8 w-auto" />}
     </Link>
   )
 }
@@ -153,10 +153,10 @@ export default function Layout() {
         animate={{ width: collapsed ? 76 : 256 }} transition={{ duration: 0.3, ease }}
         className="relative hidden flex-shrink-0 flex-col bg-sidebar text-[#EAE7DC] md:flex"
       >
-        <div className="relative flex items-center justify-between px-4 pb-4 pt-5">
+        <div className={`relative flex items-center bg-white py-4 ${collapsed ? 'justify-center px-2' : 'px-4'}`}>
           <Logo collapsed={collapsed} />
         </div>
-        <div className="relative mx-4 h-px bg-gradient-to-r from-plum-500/40 via-white/10 to-transparent" />
+        <div className="relative h-[2px] bg-gradient-to-r from-brand-primary via-plum-300/60 to-transparent" />
         <nav className="relative flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 pb-4">
           <NavSections sections={sections} collapsed={collapsed} pathname={pathname} />
         </nav>
@@ -238,9 +238,9 @@ export default function Layout() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/20" />
-              <div className="flex items-center justify-between px-1 pb-2">
+              <div className="-mx-3 mb-2 flex items-center justify-between bg-white px-4 py-3">
                 <Logo />
-                <button className="rounded-lg p-2 text-white/60" onClick={() => setMoreOpen(false)}><X size={18} /></button>
+                <button className="rounded-lg p-2 text-[#8E8D8A]" onClick={() => setMoreOpen(false)}><X size={18} /></button>
               </div>
               <NavSections sections={sections} pathname={pathname} />
               <div className="mt-4 border-t border-white/10 pt-3"><UserBlock /></div>
