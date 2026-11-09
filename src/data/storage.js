@@ -69,12 +69,24 @@ export async function getConsignments() {
   return { ...data, items: data.items.map(toPiece) }
 }
 
+const PIECE_FIELDS = ['notes', 'designerDiscount', 'resellerDiscount', 'alterationCharge', 'resellerInvoiceNo', 'resellerCode']
+
 export async function updateConsignmentItem(id, upd) {
   const body = {}
   if (upd.status !== undefined)   body.status = upd.status.replace(/^FC\s*-\s*/, '')
   if (upd.aedPrice !== undefined) body.price  = upd.aedPrice
-  if (upd.notes !== undefined)    body.notes  = upd.notes
+  PIECE_FIELDS.forEach((k) => { if (upd[k] !== undefined) body[k] = upd[k] })
   return toPiece(await api(`/consignment-items/${id}`, { method: 'PATCH', body: JSON.stringify(body) }))
+}
+
+// Same formula as the reseller's statement (and the database view):
+//   net price = gross − designer discount − reseller discount
+//   commission = net price × commission %;  net payable = net price − commission − alteration/laundry
+// `gross` lets the FC page preview a price that is still being typed.
+export function pieceMoney(p, gross = p.aedPrice) {
+  const netPrice   = (Number(gross) || 0) - (Number(p.designerDiscount) || 0) - (Number(p.resellerDiscount) || 0)
+  const commission = netPrice * (Number(p.commissionPct) || 0) / 100
+  return { netPrice, commission, netPayable: netPrice - commission - (Number(p.alterationCharge) || 0) }
 }
 
 export const addConsignment = (handover) =>

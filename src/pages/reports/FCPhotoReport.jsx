@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Printer } from 'lucide-react'
-import { getConsignments } from '../../data/storage'
+import { getConsignments, pieceMoney } from '../../data/storage'
 
 // Each piece carries the commission rate locked in at its handover
 const rate = (o) => (Number(o.commissionPct) || 0) / 100
-const netOf = (o) => (Number(o.aedPrice) || 0) * (1 - rate(o))
 const SIZE_ORDER = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
 const IMG_EXTS = ['.jpg', '.JPG', '.jpeg', '.png', '.PNG']
 
@@ -83,8 +82,7 @@ function buildSold(orders) {
     .sort((a, b) => (a.product || '').localeCompare(b.product || ''))
     .map((o) => {
       const aed        = Number(o.aedPrice) || 0
-      const commission = aed * rate(o)
-      const koko       = aed - commission
+      const { commission, netPayable: koko } = pieceMoney(o)
       return {
         id:         o.id,
         product:    o.product || '—',

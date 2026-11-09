@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Printer, ArrowUp, ArrowDown } from 'lucide-react'
-import { getConsignments } from '../../data/storage'
+import { getConsignments, pieceMoney } from '../../data/storage'
 
-// Each piece carries the commission rate locked in at its handover
-const rate = (o) => (Number(o.commissionPct) || 0) / 100
-const netOf = (o) => (Number(o.aedPrice) || 0) * (1 - rate(o))
+// Net payable per piece, as on the reseller's statement (discounts, commission, alteration/laundry)
+const netOf = (o) => pieceMoney(o).netPayable
 const SIZE_ORDER = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
 
 const STATUS_KEYS = [
@@ -80,6 +79,7 @@ export default function FCInventoryReport() {
   const grandRevenue  = orders.filter((o) => ['FC - Sold','FC - Paid'].includes(o.status))
                               .reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
   const grandNet      = orders.filter((o) => ['FC - Sold','FC - Paid'].includes(o.status)).reduce((s, o) => s + netOf(o), 0)
+  const grandCommission = orders.filter((o) => ['FC - Sold','FC - Paid'].includes(o.status)).reduce((s, o) => s + pieceMoney(o).commission, 0)
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6">
@@ -135,7 +135,7 @@ export default function FCInventoryReport() {
           </div>
           <div>
             <p className="text-xs text-gray-500 mb-1">Commission {pct}%</p>
-            <p className="text-xl font-bold text-rose-600">− AED {(grandRevenue - grandNet).toLocaleString(undefined,{maximumFractionDigits:0})}</p>
+            <p className="text-xl font-bold text-rose-600">− AED {grandCommission.toLocaleString(undefined,{maximumFractionDigits:0})}</p>
           </div>
           <div>
             <p className="text-xs text-gray-500 mb-1">Net to Koko {100 - pct}%</p>

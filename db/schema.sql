@@ -5,6 +5,10 @@
 --
 -- Retail and B2B consignment are deliberately separate: a consignment is stock handed to a
 -- reseller in advance at a price we set, paid out later minus the reseller's commission.
+--
+-- This file is the BASELINE. Later changes live in db/migrations/ and are applied with
+-- `node scripts/migrate.js` (production) — never edit this file to change the live database.
+--   002: discounts, alteration/laundry, reseller invoice no. & product codes (reseller_products)
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (

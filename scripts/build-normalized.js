@@ -8,6 +8,7 @@
 import 'dotenv/config'
 import fs from 'fs'
 import { Pool, neonConfig } from '@neondatabase/serverless'
+import { applyPending } from './migrate.js'
 
 neonConfig.webSocketConstructor = globalThis.WebSocket
 const pool = new Pool({ connectionString: process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL })
@@ -104,11 +105,12 @@ try {
   await q('BEGIN')
   if (exists) {
     await q(`DROP VIEW IF EXISTS consignment_items_detail;
-             DROP TABLE IF EXISTS consignment_items, consignments, resellers, order_items, orders, customers, products, collections CASCADE;
+             DROP TABLE IF EXISTS reseller_products, consignment_items, consignments, resellers, order_items, orders, customers, products, collections, schema_migrations CASCADE;
              DROP SEQUENCE IF EXISTS order_number_seq;
              DROP FUNCTION IF EXISTS touch_updated_at CASCADE;`)
   }
   await q(fs.readFileSync(new URL('../db/schema.sql', import.meta.url), 'utf8'))
+  await applyPending(db)   // baseline + every migration, so a rebuild matches production
 
   // ── Catalog ──────────────────────────────────────────────────────────
   await q(`INSERT INTO collections (name) SELECT DISTINCT collection FROM staging.shopify_collection_map ORDER BY 1`)

@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCw, Store, ArrowUp, ArrowDown } from 'lucide-react'
-import { getConsignments, updateConsignmentItem, FC_STATUS_OPTIONS } from '../data/storage'
+import { getConsignments, updateConsignmentItem, pieceMoney, FC_STATUS_OPTIONS } from '../data/storage'
 
-// Each piece carries the commission rate locked in at its handover
-const rate = (o) => (Number(o.commissionPct) || 0) / 100
-const net  = (o) => (Number(o.aedPrice) || 0) * (1 - rate(o))
+// Net payable per piece, as on the reseller's statement (discounts, commission, alteration/laundry)
+const net  = (o) => pieceMoney(o).netPayable
 const fmtAED = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
@@ -98,7 +97,8 @@ export default function FashionCollage() {
   const soldOrders   = orders.filter((o) => ['FC - Sold', 'FC - Paid'].includes(o.status))
   const totalAED     = soldOrders.reduce((s, o) => s + (Number(o.aedPrice) || 0), 0)
   const netReceivable= soldOrders.reduce((s, o) => s + net(o), 0)
-  const commission   = totalAED - netReceivable
+  const commission   = soldOrders.reduce((s, o) => s + pieceMoney(o).commission, 0)
+  const deductions   = totalAED - commission - netReceivable   // discounts + alteration/laundry
   const paidNet      = orders.filter((o) => o.status === 'FC - Paid').reduce((s, o) => s + net(o), 0)
   const pct          = reseller?.commissionPct ?? 0
   const pendingAED   = orders.filter((o) => o.status === 'FC - Sold').reduce((s, o) => s + net(o), 0)
@@ -160,6 +160,7 @@ export default function FashionCollage() {
             <div>
               <p className="text-xs text-gray-500">Net to Koko ({100 - pct}%)</p>
               <p className="text-xl font-bold text-emerald-700">AED {netReceivable.toLocaleString(undefined,{maximumFractionDigits:0})}</p>
+              {deductions > 0.5 && <p className="text-xs text-gray-400 mt-0.5">after AED {fmtAED(deductions)} discounts &amp; alterations</p>}
               {paidNet > 0 && <p className="text-xs text-gray-400 mt-0.5">AED {fmtAED(paidNet)} already received</p>}
             </div>
           </div>
@@ -232,10 +233,10 @@ export default function FashionCollage() {
                             </div>
                           </td>
                           <td className="px-2 py-3 text-sm text-rose-600 font-medium">
-                            {draftAed > 0 ? `AED ${fmtAED(draftAed * rate(order))}` : '—'}
+                            {draftAed > 0 ? `AED ${fmtAED(pieceMoney(order, draftAed).commission)}` : '—'}
                           </td>
                           <td className="px-2 py-3 text-sm text-emerald-700 font-semibold">
-                            {draftAed > 0 ? `AED ${fmtAED(draftAed * (1 - rate(order)))}` : '—'}
+                            {draftAed > 0 ? `AED ${fmtAED(pieceMoney(order, draftAed).netPayable)}` : '—'}
                           </td>
                           <td className="px-2 py-3">
                             <select
