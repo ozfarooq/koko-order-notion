@@ -1,5 +1,5 @@
 // Local development API server (Express v4).
-// Runs the same router Vercel runs from api/[...route].js, so dev and production behave identically.
+// Runs the same router Vercel runs from api/index.js, so dev and production behave identically.
 import 'dotenv/config'
 import express from 'express'
 import { handleApi } from './lib/router.js'
