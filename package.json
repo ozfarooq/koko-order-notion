@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dnd-kit/core": "6.1.0",
+    "@dnd-kit/utilities": "3.2.2",
     "@neondatabase/serverless": "^1.2.0",
     "@notionhq/client": "^2.3.0",
     "cmdk": "1.0.4",

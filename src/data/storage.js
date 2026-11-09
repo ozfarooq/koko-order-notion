@@ -82,6 +82,7 @@ export const getBoard = () => api('/board')
 // ── Retail orders ──────────────────────────────────────────────────────
 export const getOrders    = ()         => api('/orders')
 export const getOrderById = (id)       => api(`/orders/${id}`)
+export const getOrderHistory = (id)    => api(`/orders/${id}/history`)
 export const addOrder     = (order)    => api('/orders',      { method: 'POST',  body: JSON.stringify(order) })
 export const updateOrder  = (id, upd)  => api(`/orders/${id}`,{ method: 'PATCH', body: JSON.stringify(upd) })
 export const deleteOrder  = (id)       => api(`/orders/${id}`,{ method: 'DELETE' })

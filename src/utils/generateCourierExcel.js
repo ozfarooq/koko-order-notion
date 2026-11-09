@@ -58,8 +58,11 @@ export function generateCourierExcel(orders) {
   ]
 
   const rows = orders.map((order) => {
-    const { name: productName, size } = parseProduct(order.product, order.size)
-    const itemDescription = `${order.orderNumber} - ${productName}${size ? ' ' + size : ''}`
+    // One line per order: "SO-000231 - Neel MEDIUM, Aatish LARGE x2"
+    const lines = (order.items || []).length
+      ? order.items.map((i) => i.product + (i.size ? ' ' + i.size.toUpperCase() : '') + (i.quantity > 1 ? ' x' + i.quantity : ''))
+      : [(({ name, size }) => name + (size ? ' ' + size : ''))(parseProduct(order.product, order.size))]
+    const itemDescription = `${order.orderNumber} - ${lines.join(', ')}`
     const orderDate = order.orderDate || ''
     const productValue = Number(order.amount) || 0
     const collectionAmount = Number(order.balanceDue) || 0
@@ -80,7 +83,7 @@ export function generateCourierExcel(orders) {
       orderDate,                   // Order Date
       1,                           // Item Product Type ID
       itemDescription,             // Item Description
-      1,                           // Item Quantity
+      order.quantity || 1,         // Item Quantity
       'No',                        // Item Insurance
       productValue,                // Product Value
       '',                          // Special Instructions
@@ -90,7 +93,7 @@ export function generateCourierExcel(orders) {
       collectionAmount,            // Collection Amount
       1,                           // Mode of Payment ID
       4,                           // Charges Mode ID
-      1,                           // Pieces
+      order.quantity || 1,         // Pieces
       '',                          // Shipper Reference Number 1
       '',                          // Shipper Reference Number 2
       '',                          // Shipper Reference Number 3
