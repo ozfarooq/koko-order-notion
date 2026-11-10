@@ -37,9 +37,11 @@ export default function Login() {
       {/* Brand panel */}
       <div className="relative flex flex-col justify-between overflow-hidden bg-sidebar px-8 py-10 text-[#EAE7DC] sm:px-12 lg:py-14">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_60%_at_100%_100%,rgba(233,128,116,0.16),transparent_60%)]" />
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }} className="relative -mx-8 -mt-10 flex items-center gap-4 border-b-2 border-brand-primary bg-[#EAE7DC] px-8 py-6 sm:-mx-12 sm:px-12 lg:-mt-14">
-          <img src="/brand/emblem.png" alt="" className="h-16 w-auto" />
-          <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-11 w-auto" />
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }} className="relative -mx-8 -mt-10 flex items-center gap-4 border-b border-brand-primary bg-[#EAE7DC] px-8 py-6 dark:bg-surface sm:-mx-12 sm:px-12 lg:-mt-14">
+          <img src="/brand/emblem.png" alt="" className="h-16 w-auto dark:hidden" />
+          <img src="/brand/emblem-white.png" alt="" className="hidden h-16 w-auto opacity-90 dark:block" />
+          <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-11 w-auto dark:hidden" />
+          <img src="/brand/wordmark-white.png" alt="" className="hidden h-11 w-auto opacity-90 dark:block" />
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.1, ease }} className="relative my-10 hidden lg:block">

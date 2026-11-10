@@ -19,8 +19,12 @@ const readCollapsed = () => { try { return localStorage.getItem(COLLAPSE_KEY) ==
 function Logo({ collapsed }) {
   return (
     <Link to="/" className="flex items-center gap-3 px-1">
-      <img src="/brand/emblem.png" alt={collapsed ? 'Koko Atelier' : ''} className="h-11 w-auto flex-shrink-0" />
-      {!collapsed && <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-8 w-auto" />}
+      <img src="/brand/emblem.png" alt={collapsed ? 'Koko Atelier' : ''} className="h-10 w-auto flex-shrink-0 dark:hidden" />
+      <img src="/brand/emblem-white.png" alt="" className="hidden h-10 w-auto flex-shrink-0 opacity-90 dark:block" />
+      {!collapsed && <>
+        <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-7 w-auto dark:hidden" />
+        <img src="/brand/wordmark-white.png" alt="" className="hidden h-7 w-auto opacity-90 dark:block" />
+      </>}
     </Link>
   )
 }
@@ -153,10 +157,9 @@ export default function Layout() {
         animate={{ width: collapsed ? 76 : 256 }} transition={{ duration: 0.3, ease }}
         className="relative hidden flex-shrink-0 flex-col bg-sidebar text-[#EAE7DC] md:flex"
       >
-        <div className={`relative flex items-center bg-[#EAE7DC] py-4 ${collapsed ? 'justify-center px-2' : 'px-4'}`}>
+        <div className={`relative flex h-16 flex-shrink-0 items-center border-b border-brand-primary bg-[#EAE7DC] dark:bg-surface ${collapsed ? 'justify-center px-2' : 'px-4'}`}>
           <Logo collapsed={collapsed} />
         </div>
-        <div className="relative h-[2px] bg-gradient-to-r from-brand-primary via-plum-300/60 to-transparent" />
         <nav className="relative flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 pb-4">
           <NavSections sections={sections} collapsed={collapsed} pathname={pathname} />
         </nav>
@@ -238,7 +241,7 @@ export default function Layout() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/20" />
-              <div className="-mx-3 mb-2 flex items-center justify-between bg-[#EAE7DC] px-4 py-3">
+              <div className="-mx-3 mb-2 flex h-16 items-center justify-between border-b border-brand-primary bg-[#EAE7DC] px-4 dark:bg-surface">
                 <Logo />
                 <button className="rounded-lg p-2 text-[#8E8D8A]" onClick={() => setMoreOpen(false)}><X size={18} /></button>
               </div>
