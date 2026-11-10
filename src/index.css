@@ -98,6 +98,20 @@
   .gold-rule { @apply h-px bg-gradient-to-r from-plum-300/70 via-gold-400/40 to-transparent; }
 }
 
+/* ── Login showcase motion ── */
+@keyframes marquee-up { from { transform: translateY(0) } to { transform: translateY(-50%) } }
+@keyframes ticker-left { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+@keyframes stitch-flow { to { stroke-dashoffset: -190 } }
+.marquee-col { animation: marquee-up var(--dur, 60s) linear infinite; will-change: transform; }
+.marquee-col.marquee-down { animation-direction: reverse; }
+.marquee-col:hover { animation-play-state: paused; }
+.ticker-track { animation: ticker-left 48s linear infinite; }
+.stitch-flow { animation: stitch-flow 6s linear infinite; }
+.ticker-outline { color: transparent; -webkit-text-stroke: 1px rgba(234, 231, 220, 0.22); }
+@media (prefers-reduced-motion: reduce) {
+  .marquee-col, .ticker-track, .stitch-flow { animation: none !important; }
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }

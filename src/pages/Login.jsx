@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
 import { useAuth, homeFor } from '../auth/AuthContext'
+import { Lookbook, Headline, StitchThread, CollectionTicker, usePointerParallax } from './login/Showcase'
 import { ease } from '../ui/motion'
 
 export default function Login() {
@@ -14,6 +15,7 @@ export default function Login() {
   const [show, setShow] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const parallax = usePointerParallax()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -35,22 +37,28 @@ export default function Login() {
   return (
     <div className="grid min-h-[100dvh] bg-canvas lg:grid-cols-[1.1fr_1fr]">
       {/* Brand panel */}
-      <div className="relative flex flex-col justify-between overflow-hidden bg-sidebar px-8 py-10 text-[#EAE7DC] sm:px-12 lg:py-14">
+      <div {...parallax.handlers} className="relative flex flex-col justify-between overflow-hidden bg-sidebar px-8 py-10 text-[#EAE7DC] sm:px-12 lg:py-14">
+        {/* Animated lookbook, running stitch and legibility fades (desktop only) */}
+        <div className="absolute inset-0 hidden lg:block">
+          <Lookbook mx={parallax.mx} my={parallax.my} />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-sidebar via-sidebar/80 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-sidebar to-transparent" />
+          <StitchThread />
+        </div>
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_60%_at_100%_100%,rgba(233,128,116,0.16),transparent_60%)]" />
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }} className="relative -mx-8 -mt-10 flex items-center gap-4 border-b border-brand-primary bg-[#EAE7DC] px-8 py-6 dark:bg-surface sm:-mx-12 sm:px-12 lg:-mt-14">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }} className="relative z-20 -mx-8 -mt-10 flex items-center gap-4 border-b border-brand-primary bg-[#EAE7DC] px-8 py-6 dark:bg-surface sm:-mx-12 sm:px-12 lg:-mt-14">
           <img src="/brand/emblem.png" alt="" className="h-16 w-auto dark:hidden" />
           <img src="/brand/emblem-white.png" alt="" className="hidden h-16 w-auto opacity-90 dark:block" />
           <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-11 w-auto dark:hidden" />
           <img src="/brand/wordmark-white.png" alt="" className="hidden h-11 w-auto opacity-90 dark:block" />
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.1, ease }} className="relative my-10 hidden lg:block">
-          <div className="mb-6 h-px w-24 bg-gradient-to-r from-brand-primary to-transparent" />
-          <p className="max-w-md font-display text-4xl font-semibold leading-[1.15] tracking-tight">Every order, every stitch, in one place.</p>
-          <p className="mt-5 max-w-sm text-sm leading-relaxed text-[#8E8D8A]">Orders, customers and reseller stock for the Koko Atelier studio.</p>
-        </motion.div>
+        <div className="pointer-events-none relative my-10 hidden lg:block"><Headline /></div>
 
-        <p className="relative hidden text-xs text-[#8E8D8A]/70 lg:block">Koko Atelier © {new Date().getFullYear()}</p>
+        <div className="pointer-events-none relative z-10 hidden space-y-6 lg:block">
+          <CollectionTicker />
+          <p className="text-xs text-[#8E8D8A]/70">Koko Atelier © {new Date().getFullYear()}</p>
+        </div>
       </div>
 
       {/* Form */}
