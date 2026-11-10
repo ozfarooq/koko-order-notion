@@ -64,7 +64,7 @@ function StatementView({ reseller, pieces, payments }) {
                   <tr key={p.id} className="text-ink">
                     <td className="border border-line px-2 py-1.5 whitespace-nowrap">{p.soldOn || '—'}</td>
                     <td className="border border-line px-2 py-1.5 text-xs">{p.resellerInvoiceNo || '—'}</td>
-                    <td className="border border-line px-2 py-1.5 text-center font-mono text-xs">{p.resellerCode || '—'}</td>
+                    <td className="border border-line px-2 py-1.5 text-center tabular-nums font-medium text-xs">{p.resellerCode || '—'}</td>
                     <td className="border border-line px-2 py-1.5 uppercase">{p.product} <span className="text-faint">({p.size})</span></td>
                     <td className="border border-line px-2 py-1.5 text-right">{f2(p.aedPrice)}</td>
                     <td className="border border-line px-2 py-1.5 text-right">{p.designerDiscount ? f2(p.designerDiscount) : ''}</td>
@@ -155,7 +155,7 @@ function EnterSales({ reseller, pieces, onSaved }) {
               <Field label="Collage disc." className="md:col-span-2"><input type="number" min="0" className="input" value={l.resellerDiscount} onChange={(e) => set(l.key, { resellerDiscount: e.target.value })} placeholder="0" /></Field>
               <Field label="Alt / Laundry" className="md:col-span-2"><input type="number" min="0" className="input" value={l.alterationCharge} onChange={(e) => set(l.key, { alterationCharge: e.target.value })} placeholder="0" /></Field>
               <div className="flex items-end justify-between gap-3 md:col-span-5">
-                <div className="text-sm">{m ? <><p className="text-xs text-muted">Net price {f2(m.netPrice)} · commission {f2(m.commission)}</p><p className="font-display text-xl font-semibold text-emerald-700 dark:text-emerald-400">Net payable {reseller.currency} {f2(m.netPayable)}</p></> : <p className="text-xs text-faint">Choose a piece</p>}</div>
+                <div className="text-sm">{m ? <><p className="text-xs text-muted">Net price {f2(m.netPrice)} · commission {f2(m.commission)}</p><p className="font-display text-[17px] font-semibold text-emerald-700 dark:text-emerald-400">Net payable {reseller.currency} {f2(m.netPayable)}</p></> : <p className="text-xs text-faint">Choose a piece</p>}</div>
                 {lines.length > 1 && <button className="btn-icon hover:text-rose-600" onClick={() => setLines((x) => x.filter((y) => y.key !== l.key))} aria-label="Remove"><Trash2 size={15} /></button>}
               </div>
             </motion.div>
@@ -164,7 +164,7 @@ function EnterSales({ reseller, pieces, onSaved }) {
       </AnimatePresence>
       <div className="flex flex-wrap items-center gap-3">
         <button className="btn-secondary" onClick={() => setLines((l) => [...l, blankLine()])} disabled={lines.length >= available.length}><Plus size={15} />Another line</button>
-        <p className="ml-auto text-sm text-muted">Total net payable <span className="font-display text-xl font-semibold text-ink">{reseller.currency} {f2(total)}</span></p>
+        <p className="ml-auto text-sm text-muted">Total net payable <span className="font-display text-[17px] font-semibold text-ink">{reseller.currency} {f2(total)}</span></p>
         <button className="btn-primary" onClick={save} disabled={saving}><ReceiptText size={15} />{saving ? 'Saving…' : 'Record sales'}</button>
       </div>
     </div>

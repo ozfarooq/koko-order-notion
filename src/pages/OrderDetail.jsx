@@ -105,7 +105,7 @@ export default function OrderDetail() {
         <button className="btn-icon w-fit border border-line bg-surface" onClick={() => navigate('/orders')} aria-label="Back"><ArrowLeft size={16} /></button>
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-mono text-2xl font-bold tracking-tight text-ink sm:text-3xl">{order.orderNumber}</h1>
+            <h1 className="tabular-nums font-medium text-2xl font-bold tracking-tight text-ink sm:text-3xl">{order.orderNumber}</h1>
             <StatusBadge status={order.status} />
             {order.shopifyOrderNumber && <span className="rounded-full bg-subtle2 px-2 py-0.5 text-xs font-semibold text-muted">Shopify {order.shopifyOrderNumber}</span>}
           </div>
@@ -150,7 +150,7 @@ export default function OrderDetail() {
             <Card icon={Ruler} title="Measurements">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {MEASUREMENT_FIELDS.filter((f) => m[f.key]).map((f) => (
-                  <div key={f.key} className="rounded-lg bg-subtle p-2.5"><p className="text-[10px] uppercase tracking-wider text-faint">{f.label}</p><p className="font-display text-xl font-semibold text-ink">{m[f.key]}″</p></div>
+                  <div key={f.key} className="rounded-lg bg-subtle p-2.5"><p className="text-[10px] uppercase tracking-wider text-faint">{f.label}</p><p className="font-display text-[17px] font-semibold text-ink">{m[f.key]}″</p></div>
                 ))}
               </div>
               {m.additionalNotes && <p className="mt-3 whitespace-pre-wrap text-sm text-ink-soft">{m.additionalNotes}</p>}

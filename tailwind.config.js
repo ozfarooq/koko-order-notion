@@ -78,10 +78,12 @@ export default {
         sky: taupe, blue: taupe,
       },
       fontFamily: {
-        sans: ['Poppins', 'system-ui', 'sans-serif'],
-        display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
-        serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
-        label: ['Montserrat', 'Poppins', 'sans-serif'],
+        // Inter throughout; headings differ by size, weight and tracking rather than typeface
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'system-ui', 'sans-serif'],
+        serif: ['Inter', 'system-ui', 'sans-serif'],
+        label: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['Inter', 'system-ui', 'sans-serif'],   // kbd/code too
       },
       boxShadow: {
         soft: '0 1px 2px rgb(44 44 42 / 0.04), 0 4px 16px -6px rgb(44 44 42 / 0.08)',

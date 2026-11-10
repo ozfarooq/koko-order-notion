@@ -65,7 +65,7 @@ export default function CommandPalette({ open, setOpen, destinations }) {
                     {results.orders.map((o) => (
                       <Command.Item key={o.id} value={`order-${o.id}`} onSelect={() => go(`/orders/${o.id}`)} className={itemCls}>
                         <ClipboardList size={16} className="text-faint" />
-                        <span className="font-mono text-xs font-semibold text-accent">{o.orderNumber}</span>
+                        <span className="tabular-nums font-medium text-xs font-semibold text-accent">{o.orderNumber}</span>
                         <span className="flex-1 truncate">{o.customer}</span>
                         <span className="text-xs text-faint">{o.status}</span>
                       </Command.Item>

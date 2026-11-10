@@ -46,7 +46,7 @@ export default function Login() {
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.1, ease }} className="relative my-10 hidden lg:block">
           <div className="mb-6 h-px w-24 bg-gradient-to-r from-brand-primary to-transparent" />
-          <p className="max-w-md font-display text-5xl font-medium leading-[1.1]">Every order, every stitch, in one place.</p>
+          <p className="max-w-md font-display text-4xl font-semibold leading-[1.15] tracking-tight">Every order, every stitch, in one place.</p>
           <p className="mt-5 max-w-sm text-sm leading-relaxed text-[#8E8D8A]">Orders, customers and reseller stock for the Koko Atelier studio.</p>
         </motion.div>
 
@@ -62,7 +62,7 @@ export default function Login() {
         >
           <div>
             <p className="eyebrow">Welcome back</p>
-            <h1 className="mt-1 text-4xl text-ink">Sign in</h1>
+            <h1 className="mt-1 text-3xl text-ink">Sign in</h1>
             <p className="mt-1 text-sm text-muted">Use the username and password from your studio account.</p>
           </div>
 

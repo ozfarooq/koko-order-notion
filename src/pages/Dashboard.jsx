@@ -19,7 +19,7 @@ function Panel({ title, sub, children, className = '', action }) {
   return (
     <motion.section variants={listItem} className={`card p-4 sm:p-5 ${className}`}>
       <div className="mb-4 flex items-start justify-between gap-3">
-        <div><h2 className="font-display text-xl font-semibold text-ink">{title}</h2>{sub && <p className="text-xs text-muted">{sub}</p>}</div>
+        <div><h2 className="font-display text-[17px] font-semibold text-ink">{title}</h2>{sub && <p className="text-xs text-muted">{sub}</p>}</div>
         {action}
       </div>
       {children}
@@ -197,9 +197,9 @@ export default function Dashboard() {
                   <Link key={r.id} to={`/resellers/${r.id}`} className="rounded-xl border border-line p-4 transition hover:border-plum-300 hover:shadow-sm">
                     <div className="mb-3 flex items-center gap-2"><Store size={16} className="text-gold-600" /><p className="font-display text-lg font-semibold text-ink">{r.name}</p></div>
                     <dl className="grid grid-cols-3 gap-2 text-xs">
-                      <div><dt className="text-muted">At store</dt><dd className="font-display text-xl font-semibold text-ink">{r.atStore}</dd>{r.stockValue != null && <dd className="text-faint">{r.currency} {r.stockValue.toLocaleString()}</dd>}</div>
-                      <div><dt className="text-muted">Sold, unpaid</dt><dd className="font-display text-xl font-semibold text-orange-600">{r.unpaid}</dd>{r.owed != null && <dd className="text-faint">{r.currency} {Math.round(r.owed).toLocaleString()}</dd>}</div>
-                      <div><dt className="text-muted">Sold this month</dt><dd className="font-display text-xl font-semibold text-emerald-700 dark:text-emerald-400">{r.soldThisMonth}</dd>{r.netThisMonth != null && <dd className="text-faint">{r.currency} {Math.round(r.netThisMonth).toLocaleString()}</dd>}</div>
+                      <div><dt className="text-muted">At store</dt><dd className="font-display text-[17px] font-semibold text-ink">{r.atStore}</dd>{r.stockValue != null && <dd className="text-faint">{r.currency} {r.stockValue.toLocaleString()}</dd>}</div>
+                      <div><dt className="text-muted">Sold, unpaid</dt><dd className="font-display text-[17px] font-semibold text-orange-600">{r.unpaid}</dd>{r.owed != null && <dd className="text-faint">{r.currency} {Math.round(r.owed).toLocaleString()}</dd>}</div>
+                      <div><dt className="text-muted">Sold this month</dt><dd className="font-display text-[17px] font-semibold text-emerald-700 dark:text-emerald-400">{r.soldThisMonth}</dd>{r.netThisMonth != null && <dd className="text-faint">{r.currency} {Math.round(r.netThisMonth).toLocaleString()}</dd>}</div>
                     </dl>
                   </Link>
                 ))}

@@ -165,7 +165,7 @@ export default function Users() {
             {users.map((u) => (
               <tr key={u.id} className={`border-b border-line ${u.isActive ? '' : 'opacity-50'}`}>
                 <td className="px-4 py-3 text-sm font-semibold text-ink">{u.name}{u.id === me?.id && <span className="ml-2 text-xs font-normal text-faint">(you)</span>}</td>
-                <td className="px-4 py-3 font-mono text-sm text-ink-soft">{u.username}</td>
+                <td className="px-4 py-3 tabular-nums font-medium text-sm text-ink-soft">{u.username}</td>
                 <td className="px-4 py-3 text-sm text-ink-soft">
                   {roleLabel(u.role)}
                   {u.resellerName && <p className="text-xs text-faint">{u.resellerName}</p>}

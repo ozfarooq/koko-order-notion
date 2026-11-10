@@ -32,7 +32,7 @@ export function BoardCard({ order, dragging, overlay }) {
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2 border-t border-line pt-2 text-[11px]">
-        <span className="font-mono font-semibold text-accent">{order.orderNumber}</span>
+        <span className="tabular-nums font-medium font-semibold text-accent">{order.orderNumber}</span>
         {order.deliveryDate && (
           <span className={`flex items-center gap-1 ${overdue(order) ? 'font-semibold text-rose-600' : 'text-faint'}`}><Calendar size={11} />{fmtShort(order.deliveryDate)}</span>
         )}

@@ -25,7 +25,7 @@ export function StatusPill({ status }) {
 function PieceDate({ o }) {
   if (o.status === 'FC - Returned') return <><p>Returned {fmtDate(o.returnedOn)}</p>{o.returnReason && <p className="text-[11px] text-faint">{o.returnReason}</p>}</>
   if (['FC - Sold', 'FC - Paid'].includes(o.status))
-    return <><p>Sold {fmtDate(o.soldOn)}</p>{o.resellerInvoiceNo && <p className="font-mono text-[11px] text-faint">{o.resellerInvoiceNo}</p>}</>
+    return <><p>Sold {fmtDate(o.soldOn)}</p>{o.resellerInvoiceNo && <p className="tabular-nums font-medium text-[11px] text-faint">{o.resellerInvoiceNo}</p>}</>
   return <>Handed over {fmtDate(o.handoverDate)}</>
 }
 
@@ -194,7 +194,7 @@ export default function ResellerStock() {
                       <td className="td">
                         <div className="flex items-center gap-3">
                           {o.imageUrl && <img src={o.imageUrl} alt="" className="h-9 w-9 rounded-md object-cover" loading="lazy" />}
-                          <div className="min-w-0"><p className="truncate font-medium text-ink">{o.product}</p>{o.resellerCode && <p className="font-mono text-[11px] text-faint">{o.resellerCode}</p>}</div>
+                          <div className="min-w-0"><p className="truncate font-medium text-ink">{o.product}</p>{o.resellerCode && <p className="tabular-nums font-medium text-[11px] text-faint">{o.resellerCode}</p>}</div>
                         </div>
                       </td>
                       <td className="td">{o.size || '—'}</td>

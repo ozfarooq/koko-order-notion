@@ -58,7 +58,7 @@ function buildPDFHTML(order, logoDataUrl) {
   const hasMeasurements = measurementsHTML.trim() !== ''
 
   return `
-  <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;width:794px;background:${WHITE};color:${DARK};margin:0;box-sizing:border-box;">
+  <div style="font-family:Inter,'Helvetica Neue',Arial,sans-serif;width:794px;background:${WHITE};color:${DARK};margin:0;box-sizing:border-box;">
 
     <!-- Header — table layout avoids html2canvas flex issues -->
     <div style="background:linear-gradient(135deg,${DARK} 0%,${MID} 100%);padding:22px 40px;">
@@ -74,7 +74,7 @@ function buildPDFHTML(order, logoDataUrl) {
               </div>
             </td>
             <td style="vertical-align:middle;">
-              <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:600;color:#EAE7DC;letter-spacing:5px;">KOKO ATELIER</div>
+              <div style="font-family:Inter,Arial,sans-serif;font-size:20px;font-weight:600;color:#EAE7DC;letter-spacing:5px;">KOKO ATELIER</div>
               <div style="font-size:9px;color:${GOLD};letter-spacing:4px;text-transform:uppercase;margin-top:3px;">Order Receipt</div>
             </td>
           </tr></table>
@@ -250,11 +250,11 @@ function buildSummaryHTML(orders) {
   const today = new Date().toLocaleDateString('en-PK', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return `
-  <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;width:1100px;background:${WHITE};color:${DARK};">
+  <div style="font-family:Inter,'Helvetica Neue',Arial,sans-serif;width:1100px;background:${WHITE};color:${DARK};">
     <!-- Header -->
     <div style="background:linear-gradient(135deg,${DARK} 0%,${MID} 100%);padding:24px 36px;display:flex;align-items:center;justify-content:space-between;">
       <div>
-        <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:600;color:#EAE7DC;letter-spacing:5px;">KOKO ATELIER</div>
+        <div style="font-family:Inter,Arial,sans-serif;font-size:18px;font-weight:600;color:#EAE7DC;letter-spacing:5px;">KOKO ATELIER</div>
         <div style="font-size:9px;color:${GOLD};letter-spacing:4px;text-transform:uppercase;margin-top:3px;">Order Summary</div>
       </div>
       <div style="text-align:right;">

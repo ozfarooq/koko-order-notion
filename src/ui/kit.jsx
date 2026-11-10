@@ -16,7 +16,7 @@ export function PageHeader({ eyebrow, title, subtitle, actions, icon: Icon }) {
         )}
         <div className="min-w-0">
           {eyebrow && <p className="eyebrow mb-1">{eyebrow}</p>}
-          <h1 className="text-3xl leading-tight text-ink sm:text-[2.1rem]">{title}</h1>
+          <h1 className="text-2xl leading-tight text-ink sm:text-[1.75rem]">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
         </div>
       </div>
@@ -47,7 +47,7 @@ export function AnimatedNumber({ value, format = (n) => Math.round(n).toLocaleSt
 const TONES = {
   default: 'text-ink',
   plum: 'text-plum-700 dark:text-plum-300',
-  gold: 'text-gold-600 dark:text-gold-300',
+  gold: 'text-plum-800 dark:text-plum-300',
   green: 'text-emerald-700 dark:text-emerald-400',
   red: 'text-rose-600 dark:text-rose-400',
   orange: 'text-orange-600 dark:text-orange-400',
@@ -64,7 +64,7 @@ export function StatCard({ label, value, prefix = '', sub, tone = 'default', ico
         <p className="text-xs font-medium text-muted">{label}</p>
         {Icon && <Icon size={16} className="text-faint" />}
       </div>
-      <p className={`mt-1 font-display text-3xl font-semibold leading-none ${TONES[tone]}`}>
+      <p className={`mt-1.5 font-display text-[1.65rem] font-semibold leading-none ${TONES[tone]}`}>
         {prefix}{numeric ? <AnimatedNumber value={value} format={format} /> : value}
       </p>
       {sub && <p className="mt-1.5 text-xs text-faint">{sub}</p>}

@@ -27,7 +27,7 @@ function Section({ icon: Icon, title, hint, children, action }) {
     <motion.section layout className="card p-5">
       <div className="mb-4 flex items-center gap-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-plum-50 text-plum-600 dark:bg-plum-900/40 dark:text-plum-300"><Icon size={16} /></div>
-        <div className="flex-1"><h2 className="font-display text-xl font-semibold text-ink">{title}</h2>{hint && <p className="text-xs text-muted">{hint}</p>}</div>
+        <div className="flex-1"><h2 className="font-display text-[17px] font-semibold text-ink">{title}</h2>{hint && <p className="text-xs text-muted">{hint}</p>}</div>
         {action}
       </div>
       {children}

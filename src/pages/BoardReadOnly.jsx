@@ -30,7 +30,7 @@ function OrderCard({ order }) {
     <div className={`rounded-xl border ${col?.border || 'border-line'} bg-surface p-4 shadow-sm`}>
       <div className="flex items-center gap-2 mb-2">
         <div className={`h-2 w-2 rounded-full flex-shrink-0 ${col?.color || 'bg-gray-400'}`} />
-        <span className="font-mono text-xs font-bold text-accent">{order.orderNumber}</span>
+        <span className="tabular-nums font-medium text-xs font-bold text-accent">{order.orderNumber}</span>
       </div>
 
       <p className="text-sm font-semibold text-ink leading-tight mb-1">{order.customer}</p>

@@ -114,7 +114,7 @@ export default function CustomerProfile() {
         <Avatar name={c.name} size="lg" />
         <div className="flex-1">
           <p className="eyebrow">Customer{c.references.length ? ` · ${c.references.join(', ')}` : ''}</p>
-          <h1 className="text-3xl text-ink sm:text-4xl">{c.name}</h1>
+          <h1 className="text-2xl text-ink sm:text-[1.9rem]">{c.name}</h1>
           <p className="text-sm text-muted">Customer since {fmtDate(c.firstOrder || c.createdAt, { month: 'long', year: 'numeric' })}</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -142,7 +142,7 @@ export default function CustomerProfile() {
                   <Link to={`/orders/${o.id}`} className="flex items-center gap-4 px-5 py-3 transition hover:bg-subtle/60">
                     <div className="h-14 w-11 flex-shrink-0 overflow-hidden rounded-md bg-subtle2">{o.items[0]?.imageUrl && <img src={o.items[0].imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />}</div>
                     <div className="min-w-0 flex-1">
-                      <p className="flex items-center gap-2 text-sm"><span className="font-mono font-semibold text-accent">{o.orderNumber}</span><span className="text-faint">{fmtDate(o.orderDate)}</span></p>
+                      <p className="flex items-center gap-2 text-sm"><span className="tabular-nums font-medium font-semibold text-accent">{o.orderNumber}</span><span className="text-faint">{fmtDate(o.orderDate)}</span></p>
                       <p className="truncate text-sm text-ink-soft">{o.items.map((i) => i.product).join(', ')}</p>
                     </div>
                     <div className="text-right">

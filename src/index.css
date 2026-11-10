@@ -53,9 +53,10 @@
     @apply bg-canvas font-sans text-ink antialiased;
     font-feature-settings: 'cv11', 'ss01';
   }
-  h1 { @apply font-display font-semibold tracking-tight; }
-  /* Cormorant defaults to old-style numerals ("1" looks like "I"); use lining figures for amounts */
-  .font-display, h1 { font-variant-numeric: lining-nums; }
+  /* Type scale (all Inter): page titles semibold & tight, section titles semibold, numbers tabular */
+  h1 { @apply font-display font-semibold; letter-spacing: -0.025em; }
+  h2, h3 { letter-spacing: -0.015em; }
+  .font-display { letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
   ::selection { @apply bg-plum-100 text-plum-900; }
   :focus-visible { outline: 2px solid rgb(var(--accent) / 0.6); outline-offset: 2px; }
 }

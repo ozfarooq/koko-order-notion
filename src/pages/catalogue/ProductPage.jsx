@@ -47,9 +47,9 @@ export default function ProductPage() {
             {p.collection
               ? <Link to={`/catalogue/collections/${p.collectionId}`} className="eyebrow hover:underline">{p.collection}</Link>
               : <p className="eyebrow">Separates</p>}
-            <h1 className="mt-1 text-4xl text-ink sm:text-5xl">{p.name}</h1>
+            <h1 className="mt-1 text-3xl text-ink sm:text-[2.1rem]">{p.name}</h1>
             <div className="mt-3 flex flex-wrap items-baseline gap-3">
-              <span className="font-display text-3xl font-semibold text-accent">{money(p.pricePkr)}</span>
+              <span className="font-display text-[1.65rem] font-semibold text-accent">{money(p.pricePkr)}</span>
               {p.compareAtPkr > p.pricePkr && <span className="text-sm text-faint line-through">{money(p.compareAtPkr)}</span>}
               {!p.isActive && <span className="rounded-full bg-subtle2 px-2 py-0.5 text-xs font-semibold text-muted">Hidden on Shopify</span>}
             </div>
@@ -89,7 +89,7 @@ export default function ProductPage() {
                   {p.sales.recent.map((r) => (
                     <li key={r.orderId + r.size}>
                       <Link to={`/orders/${r.orderId}`} className="flex items-center gap-3 py-2.5 text-sm hover:text-accent">
-                        <span className="font-mono text-xs font-semibold text-accent">{r.orderNumber}</span>
+                        <span className="tabular-nums font-medium text-xs font-semibold text-accent">{r.orderNumber}</span>
                         <span className="flex-1 truncate text-ink-soft">{r.customer}</span>
                         <span className="text-xs text-faint">{r.size} · {fmtDate(r.orderDate, { day: 'numeric', month: 'short' })}</span>
                         <StatusBadge status={r.status} />

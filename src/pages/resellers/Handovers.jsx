@@ -131,7 +131,7 @@ export default function Handovers() {
                 <button className="flex w-full flex-wrap items-center gap-4 p-4 text-left transition hover:bg-subtle/50" onClick={() => setOpen(isOpen ? null : c.id)}>
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold-50 text-gold-600 dark:bg-gold-700/20 dark:text-gold-300"><Truck size={18} /></div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-display text-xl font-semibold text-ink">{fmtDate(c.handoverDate, { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <p className="font-display text-[17px] font-semibold text-ink">{fmtDate(c.handoverDate, { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                     <p className="text-xs text-muted">{items.length} pieces{showMoney ? ` · ${cur} ${fmt(value)} · ${c.commissionPct}% commission` : ''}{c.notes ? ` · ${c.notes}` : ''}</p>
                   </div>
                   <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
