@@ -41,9 +41,13 @@ async function parseShopifyCsv(file) {
     if (r.Title) Object.assign(p, { title: r.Title, tags: r.Tags, status: r.Status || 'active' })
     if (p.pricePkr == null && r['Variant Price'] !== '') Object.assign(p, { pricePkr: Number(r['Variant Price']) || null, compareAtPkr: Number(r['Variant Compare At Price']) || null })
     if (!p.imageUrl && r['Image Src'] && (r['Image Position'] === 1 || r['Image Position'] === '1' || !p.imageUrl)) p.imageUrl = r['Image Src']
+    if (r['Image Src']) (p.photos ||= []).push([Number(r['Image Position']) || 99, r['Image Src']])
+    if (r['Body (HTML)']) p.description = r['Body (HTML)']
     byHandle.set(r.Handle, p)
   }
-  return [...byHandle.values()].filter((p) => p.title)
+  return [...byHandle.values()].filter((p) => p.title).map(({ photos = [], ...p }) => ({
+    ...p, images: [...new Set(photos.sort((a, b) => a[0] - b[0]).map((x) => x[1]))].slice(0, 4),
+  }))
 }
 
 function ImportModal({ open, onClose, onDone }) {

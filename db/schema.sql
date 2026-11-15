@@ -25,6 +25,8 @@ CREATE TABLE products (
   price_pkr       NUMERIC(12,2),               -- Shopify retail price
   compare_at_pkr  NUMERIC(12,2),
   image_url       TEXT,                        -- Shopify main product image
+  images          TEXT[] NOT NULL DEFAULT '{}', -- up to 4 Shopify photos, shown on receipts
+  tagline         TEXT,                        -- one-line description (first sentence on Shopify, editable)
   is_active       BOOLEAN NOT NULL DEFAULT true,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );

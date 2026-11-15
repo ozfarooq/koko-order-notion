@@ -17,9 +17,12 @@ const CHIP = {
   Ready: ['#FBE3DF', '#C2554A'], 'Out for Delivery': ['#EFE9DF', '#6B5E4B'], Cancelled: ['#FEE2E2', '#E85A4F'],
   Returned: ['#EFEDE8', '#6E6D6A'], New: ['#F3ECE0', '#6B5E4B'],
 }
+// html2canvas draws text ~5px lower than the browser, so a half-height line-height centres it in the PDF
+const pill = (text, bg, fg, extra = '') =>
+  `<span style="display:inline-block;height:20px;line-height:10px;padding:0 11px;border-radius:10px;background:${bg};color:${fg};font-size:10px;${extra}">${text}</span>`
 const chip = (status) => {
   const [bg, fg] = CHIP[status] || CHIP.New
-  return `<span style="display:inline-block;padding:4px 12px;border-radius:999px;background:${bg};color:${fg};font-size:10px;font-weight:600;letter-spacing:.3px;">${esc(status || '—')}</span>`
+  return pill(esc(status || '—'), bg, fg, 'font-weight:600;letter-spacing:.3px;')
 }
 const FONT = `font-family:Inter,'Helvetica Neue',Arial,sans-serif;`
 const label = (t, extra = '') => `<div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1.6px;color:${C.muted};${extra}">${t}</div>`
@@ -93,7 +96,31 @@ function itemsTable(order) {
   </table>`
 }
 
-export function buildPDFHTML(order, logos) {
+// Each piece with its website photos and one-line description, so the client sees what they ordered.
+// `photos` maps an item index to its photos as data URLs (see loadPhotos); pieces without photos are left out.
+function outfit(order, photos = {}) {
+  const items = (order.items || []).map((i, k) => ({ ...i, pics: photos[k] || [] })).filter((i) => i.pics.length)
+  if (!items.length) return ''
+  // Smaller photos when there are several pieces, so the receipt stays on one page
+  const [w, h] = items.length === 1 ? [150, 200] : items.length === 2 ? [112, 150] : [84, 112]
+  const rows = items.map((i, k) => `
+    <table style="width:100%;border-collapse:collapse;${k ? `margin-top:14px;padding-top:14px;border-top:1px solid ${C.line};` : ''}"><tr>
+      <td style="vertical-align:top;padding-right:18px;">
+        ${i.collection ? label(esc(i.collection), 'margin-bottom:4px;') : ''}
+        <div style="font-size:${items.length === 1 ? 18 : 15}px;font-weight:600;color:${C.ink};letter-spacing:-.2px;">${esc(i.product)}</div>
+        ${i.tagline ? `<div style="font-size:11px;font-style:italic;color:${C.muted};line-height:1.6;margin-top:6px;">${esc(i.tagline)}</div>` : ''}
+        <div style="margin-top:10px;font-size:10px;color:${C.ink};">
+          ${i.size ? pill(`Size · ${esc(i.size)}`, C.canvas, C.ink, 'margin-right:4px;') : ''}
+          ${i.quantity > 1 ? pill(`× ${i.quantity}`, C.canvas, C.ink) : ''}
+        </div>
+      </td>
+      ${i.pics.map((src) => `<td style="vertical-align:top;width:${w}px;padding-left:10px;">
+        <div style="width:${w}px;height:${h}px;border-radius:8px;background:${C.canvas} url('${src}') center top / cover no-repeat;"></div></td>`).join('')}
+    </tr></table>`).join('')
+  return card(items.length === 1 ? 'Your outfit' : 'Your outfits', rows, 'margin-top:16px;')
+}
+
+export function buildPDFHTML(order, logos, photos) {
   const balance = Number(order.balanceDue) || 0
   const right = `
     ${label('Order receipt', 'margin-bottom:4px;')}
@@ -137,6 +164,8 @@ export function buildPDFHTML(order, logos) {
         <td style="vertical-align:top;width:220px;">${card('Dates', dates)}</td>
       </tr></table>
 
+      ${outfit(order, photos)}
+
       <table style="width:100%;border-collapse:collapse;margin-top:16px;"><tr>
         <td style="vertical-align:top;padding-right:16px;">${card('Order details', itemsTable(order) +
           (order.specialInstructions ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid ${C.line};">${label('Special instructions')}<div style="font-size:11px;color:${C.ink};line-height:1.6;margin-top:4px;">${esc(order.specialInstructions).replace(/\n/g, '<br/>')}</div></div>` : ''))}</td>
@@ -168,6 +197,24 @@ export const loadLogos = async () => {
   return { emblem, wordmark }
 }
 
+// Product photos as data URLs (3 per piece, resized by Shopify's CDN). A photo that fails is skipped.
+async function photoData(url) {
+  try {
+    const sized = url.includes('cdn.shopify.com') ? `${url}${url.includes('?') ? '&' : '?'}width=480` : url
+    const res = await Promise.race([fetch(sized), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 8000))])
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => resolve(null); r.readAsDataURL(blob) })
+  } catch { return null }
+}
+export async function loadPhotos(order) {
+  const entries = await Promise.all((order.items || []).map(async (i, k) => {
+    const urls = (i.images?.length ? i.images : i.imageUrl ? [i.imageUrl] : []).slice(0, 3)
+    return [k, (await Promise.all(urls.map(photoData))).filter(Boolean)]
+  }))
+  return Object.fromEntries(entries)
+}
+
 // Renders HTML off-screen and saves it as a PDF, slicing onto extra pages when it's taller than one
 async function renderPDF(html, { width, orientation, filename, scale = 3 }) {
   if (document.fonts?.ready) await document.fonts.ready
@@ -181,6 +228,13 @@ async function renderPDF(html, { width, orientation, filename, scale = 3 }) {
 
   const pdf = new jsPDF({ orientation, unit: 'px', format: 'a4', hotfixes: ['px_scaling'] })
   const pdfW = pdf.internal.pageSize.getWidth(), pdfH = pdf.internal.pageSize.getHeight()
+  // Slightly too tall (e.g. several pieces with photos): shrink onto one page rather than spill a sliver
+  const fit = pdfH / ((canvas.height / canvas.width) * pdfW)
+  if (fit < 1 && fit > 0.8) {
+    pdf.setFillColor(C.canvas); pdf.rect(0, 0, pdfW, pdfH, 'F')
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', (pdfW - pdfW * fit) / 2, 0, pdfW * fit, pdfH)
+    return pdf.save(filename)
+  }
   const ratio = pdfW / (canvas.width / scale)
   const sliceH = Math.floor((pdfH / ratio) * scale)
   for (let y = 0, page = 0; y < canvas.height; y += sliceH, page++) {
@@ -197,7 +251,8 @@ async function renderPDF(html, { width, orientation, filename, scale = 3 }) {
 }
 
 export async function generateOrderPDF(order) {
-  const html = buildPDFHTML(order, await loadLogos())
+  const [logos, photos] = await Promise.all([loadLogos(), loadPhotos(order)])
+  const html = buildPDFHTML(order, logos, photos)
   await renderPDF(html, { width: PAGE_W, orientation: 'portrait', filename: `${order.orderNumber}-${(order.customer || 'order').replace(/\s+/g, '-')}.pdf` })
 }
 

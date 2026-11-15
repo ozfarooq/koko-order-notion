@@ -17,10 +17,12 @@ export default function ProductPage() {
   const { can } = useAuth()
   const [p, setP] = useState(null)
   const [collections, setCollections] = useState([])
+  const [photo, setPhoto] = useState(0)
+  const [line, setLine] = useState('')
 
   useEffect(() => {
-    setP(null)
-    getProduct(id).then(setP).catch(() => { toast.error('Product not found'); navigate('/catalogue') })
+    setP(null); setPhoto(0)
+    getProduct(id).then((r) => { setP(r); setLine(r.tagline || '') }).catch(() => { toast.error('Product not found'); navigate('/catalogue') })
     if (can('catalog:write')) getCollections().then(setCollections).catch(() => {})
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -38,8 +40,20 @@ export default function ProductPage() {
       <button className="btn-ghost -ml-2" onClick={() => navigate(-1)}><ArrowLeft size={15} />Back</button>
       <div className="grid gap-8 lg:grid-cols-[380px_1fr]">
         <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, ease }}
-          className="overflow-hidden rounded-2xl bg-subtle2 shadow-soft lg:sticky lg:top-6 lg:self-start">
-          {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="aspect-[3/4] w-full object-cover" /> : <div className="flex aspect-[3/4] items-center justify-center text-faint"><Shirt size={48} /></div>}
+          className="space-y-2 lg:sticky lg:top-6 lg:self-start">
+          <div className="overflow-hidden rounded-2xl bg-subtle2 shadow-soft">
+            {p.images.length ? <img src={p.images[photo] || p.images[0]} alt={p.name} className="aspect-[3/4] w-full object-cover" /> : <div className="flex aspect-[3/4] items-center justify-center text-faint"><Shirt size={48} /></div>}
+          </div>
+          {p.images.length > 1 && (
+            <div className="grid grid-cols-4 gap-2">
+              {p.images.map((src, i) => (
+                <button key={src} type="button" onClick={() => setPhoto(i)} aria-label={`Photo ${i + 1}`}
+                  className={`overflow-hidden rounded-lg ring-2 transition ${i === photo ? 'ring-brand-primary' : 'ring-transparent opacity-70 hover:opacity-100'}`}>
+                  <img src={src} alt="" className="aspect-[3/4] w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </motion.div>
 
         <motion.div variants={listParent} initial="hidden" animate="show" className="space-y-5">
@@ -48,6 +62,7 @@ export default function ProductPage() {
               ? <Link to={`/catalogue/collections/${p.collectionId}`} className="eyebrow hover:underline">{p.collection}</Link>
               : <p className="eyebrow">Separates</p>}
             <h1 className="mt-1 text-3xl text-ink sm:text-[2.1rem]">{p.name}</h1>
+            {p.tagline && <p className="mt-2 max-w-xl text-[15px] italic leading-relaxed text-muted">{p.tagline}</p>}
             <div className="mt-3 flex flex-wrap items-baseline gap-3">
               <span className="font-display text-[1.65rem] font-semibold text-accent">{money(p.pricePkr)}</span>
               {p.compareAtPkr > p.pricePkr && <span className="text-sm text-faint line-through">{money(p.compareAtPkr)}</span>}
@@ -64,6 +79,13 @@ export default function ProductPage() {
                   <option value="none">Separates (no collection)</option>
                   {collections.filter((c) => c.id !== 'none').map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
+              </div>
+              <div className="w-full">
+                <label className="label">Receipt description</label>
+                <input className="input" value={line} maxLength={200} placeholder="One line that describes the piece"
+                  onChange={(e) => setLine(e.target.value)}
+                  onBlur={() => line.trim() !== (p.tagline || '') && save({ tagline: line }, 'Description updated')} />
+                <p className="mt-1 text-xs text-faint">Printed under the piece's photos on the order receipt.</p>
               </div>
             </motion.section>
           )}
