@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { PlusCircle, ChevronDown, Package, TrendingUp, RefreshCw, FileDown, X, Sheet, Search, ClipboardList, Wallet, CalendarClock } from 'lucide-react'
+import { Globe, PlusCircle, ChevronDown, Package, TrendingUp, RefreshCw, FileDown, X, Sheet, Search, ClipboardList, Wallet, CalendarClock } from 'lucide-react'
 import { getOrders, groupByStatus, STATUS_OPTIONS } from '../data/storage'
 import StatusBadge from '../components/StatusBadge'
 import { PageHeader, StatCard, SkeletonCards, SkeletonRows, EmptyState, ErrorBanner, money, fmtDate } from '../ui/kit'
 import { ease } from '../ui/motion'
 import { useAuth } from '../auth/AuthContext'
+import WebsiteImport from './orders/WebsiteImport'
 
 const ACTIVE = (o) => !['Cancelled', 'Returned', 'Paid'].includes(o.status)
 const DEFAULT_OPEN = ['New', 'In Tailoring', 'Ready', 'Payment Pending', 'Out for Delivery']
@@ -92,6 +93,7 @@ function StatusGroup({ statusMeta, orders, onOpen, selectedIds, onToggle, defaul
 export default function Orders() {
   const navigate = useNavigate()
   const { can } = useAuth()
+  const [importingWeb, setImportingWeb] = useState(false)
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -153,6 +155,7 @@ export default function Orders() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+      <WebsiteImport open={importingWeb} onClose={() => setImportingWeb(false)} onDone={load} />
       <PageHeader
         eyebrow="Retail"
         title="Orders"
@@ -161,6 +164,7 @@ export default function Orders() {
         actions={
           <>
             <button className="btn-secondary" onClick={load} disabled={loading}><RefreshCw size={14} className={loading ? 'animate-spin' : ''} />Refresh</button>
+            {can('orders:write') && <button className="btn-secondary" onClick={() => setImportingWeb(true)}><Globe size={14} />Import from website</button>}
             {can('orders:write') && <button className="btn-primary" onClick={() => navigate('/orders/new')}><PlusCircle size={16} />New order</button>}
           </>
         }
