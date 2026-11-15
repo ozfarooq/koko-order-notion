@@ -52,7 +52,10 @@ function StatusGroup({ statusMeta, orders, onOpen, selectedIds, onToggle, defaul
                   <tr key={o.id} onClick={() => onOpen(o.id)}
                       className={`cursor-pointer transition hover:bg-plum-50/50 dark:hover:bg-plum-900/20 ${selectedIds.has(o.id) ? 'bg-plum-50/70 dark:bg-plum-900/30' : ''}`}>
                     <td className="py-3 pl-4"><Checkbox checked={selectedIds.has(o.id)} onChange={() => onToggle(o.id, !selectedIds.has(o.id))} /></td>
-                    <td className="td tabular-nums font-medium text-xs font-semibold text-accent">{o.orderNumber}</td>
+                    <td className="td whitespace-nowrap text-xs">
+                      <span className="tabular-nums font-semibold text-accent">{o.orderNumber}</span>
+                      {(o.shopifyOrderNumber || o.channel) && <span className="block text-[11px] text-faint">{o.shopifyOrderNumber ? `Shopify ${o.shopifyOrderNumber}` : o.channel}</span>}
+                    </td>
                     <td className="td font-medium text-ink">{o.customer}{o.reference && <span className="ml-2 text-[11px] text-faint">{o.reference}</span>}</td>
                     <td className="td max-w-xs truncate">{o.product}</td>
                     <td className="td whitespace-nowrap">{fmtDate(o.deliveryDate)}</td>
@@ -121,7 +124,7 @@ export default function Orders() {
     const q = query.trim().toLowerCase()
     return orders.filter((o) =>
       (statusFilter === 'all' || (statusFilter === 'active' ? ACTIVE(o) : o.status === statusFilter)) &&
-      (!q || [o.orderNumber, o.customer, o.product, o.phone, o.reference, o.shopifyOrderNumber].some((v) => (v || '').toLowerCase().includes(q))))
+      (!q || [o.orderNumber, o.customer, o.product, o.phone, o.reference, o.shopifyOrderNumber, o.channel].some((v) => (v || '').toLowerCase().includes(q))))
   }, [orders, query, statusFilter])
   const grouped = groupByStatus(filtered)
 
@@ -183,7 +186,7 @@ export default function Orders() {
       <div className="space-y-3">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
-          <input className="input pl-9" placeholder="Search by order no., customer, product, phone or reference" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input className="input pl-9" placeholder="Search by order no., Shopify no., customer, product, phone or channel" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
           {chips.map((c) => (

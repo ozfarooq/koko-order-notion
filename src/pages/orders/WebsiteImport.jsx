@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Globe, Check, AlertTriangle } from 'lucide-react'
+import { Globe, Check, AlertTriangle, ChevronDown, ExternalLink } from 'lucide-react'
 import { getWebsiteOrders, importWebsiteOrders } from '../../data/storage'
 import { Modal, Skeleton, money, fmtDate } from '../../ui/kit'
 import StatusBadge from '../../components/StatusBadge'
@@ -18,6 +18,7 @@ export default function WebsiteImport({ open, onClose, onDone }) {
   const [error, setError] = useState('')
   const [picked, setPicked] = useState(new Set())
   const [showAll, setShowAll] = useState(false)
+  const [openId, setOpenId] = useState(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
 
@@ -78,7 +79,33 @@ export default function WebsiteImport({ open, onClose, onDone }) {
                       <span key={k}>{k > 0 && ', '}<span className={i.matched ? '' : 'text-[#B45309]'} title={i.matched ? '' : 'Not found in the catalogue; saved as text'}>{i.product}</span>{i.size ? ` (${i.size})` : ''}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span>
                     ))}
                   </p>
-                  <div className="flex items-center gap-2 text-xs text-muted">Imports as <StatusBadge status={o.order.status} />{o.order.advancePaid > 0 && <span>· {money(o.order.advancePaid)} paid</span>}</div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                    Imports as <StatusBadge status={o.order.status} />{o.order.advancePaid > 0 && <span>· {money(o.order.advancePaid)} paid</span>}
+                    <button type="button" className="ml-auto inline-flex items-center gap-1 font-medium text-accent hover:underline"
+                      onClick={(e) => { e.preventDefault(); setOpenId((v) => (v === o.shopifyId ? null : o.shopifyId)) }}>
+                      Details <ChevronDown size={13} className={`transition ${openId === o.shopifyId ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+                  {openId === o.shopifyId && (
+                    <div className="mt-2 space-y-2 rounded-lg bg-subtle p-3 text-xs" onClick={(e) => e.preventDefault()}>
+                      <table className="w-full">
+                        <tbody>
+                          {o.order.items.map((i, k) => (
+                            <tr key={k}>
+                              <td className="py-0.5 text-ink">{i.product}{i.size ? ` · ${i.size}` : ''}{!i.matched && <span className="ml-1 text-[#B45309]">(not in catalogue)</span>}</td>
+                              <td className="py-0.5 text-right tabular-nums text-muted">{i.quantity} × {money(i.unitPrice)}</td>
+                            </tr>
+                          ))}
+                          <tr className="border-t border-line"><td className="pt-1 font-semibold text-ink">Order total</td><td className="pt-1 text-right font-semibold tabular-nums text-ink">{money(o.order.amount)}</td></tr>
+                        </tbody>
+                      </table>
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                        {[['Email', o.order.email], ['Address', [o.order.address, o.order.city].filter(Boolean).join(', ')], ['Payment', o.order.paymentNotes.replace(/^Shopify: /, '')], ['Customer note', o.order.specialInstructions]]
+                          .filter(([, v]) => v).flatMap(([k, v]) => [<dt key={k + "t"} className="text-faint">{k}</dt>, <dd key={k + "d"} className="text-ink">{v}</dd>])}
+                      </dl>
+                      <a href={o.adminUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-accent hover:underline">Open in Shopify <ExternalLink size={12} /></a>
+                    </div>
+                  )}
                 </div>
               </label>
             )

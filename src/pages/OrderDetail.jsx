@@ -107,7 +107,10 @@ export default function OrderDetail() {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="tabular-nums font-medium text-2xl font-bold tracking-tight text-ink sm:text-3xl">{order.orderNumber}</h1>
             <StatusBadge status={order.status} />
-            {order.shopifyOrderNumber && <span className="rounded-full bg-subtle2 px-2 py-0.5 text-xs font-semibold text-muted">Shopify {order.shopifyOrderNumber}</span>}
+            {order.channel && order.channel !== 'Shopify' && <span className="rounded-full bg-subtle2 px-2 py-0.5 text-xs font-semibold text-muted">{order.channel}</span>}
+            {order.shopifyOrderNumber && (order.shopifyAdminUrl
+              ? <a href={order.shopifyAdminUrl} target="_blank" rel="noreferrer" className="rounded-full bg-subtle2 px-2 py-0.5 text-xs font-semibold text-muted hover:text-accent">Shopify {order.shopifyOrderNumber} ↗</a>
+              : <span className="rounded-full bg-subtle2 px-2 py-0.5 text-xs font-semibold text-muted">Shopify {order.shopifyOrderNumber}</span>)}
           </div>
           <p className="mt-1 text-sm text-muted">
             {order.customer} · ordered {fmtDate(order.orderDate)}{order.reference && ` · ${order.reference}`}

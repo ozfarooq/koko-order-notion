@@ -49,6 +49,8 @@ CREATE TABLE orders (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_number          TEXT NOT NULL UNIQUE,  -- SO-000123
   shopify_order_number  TEXT,                  -- e.g. #1151 when the order came from the website
+  shopify_order_id      BIGINT UNIQUE,         -- Shopify's internal order id (imported orders)
+  channel               TEXT CHECK (channel IN ('Studio','WhatsApp','Instagram','Shopify','Other')),  -- NULL = not recorded (older orders)
   customer_id           UUID NOT NULL REFERENCES customers(id),
   reference             TEXT,                  -- how the sale came in, e.g. Walkin, Outstation, Usman Ahmed
   status                TEXT NOT NULL DEFAULT 'New' CHECK (status IN

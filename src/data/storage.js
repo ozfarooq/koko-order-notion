@@ -87,6 +87,8 @@ export const getBoard = () => api('/board')
 export const getOrders    = ()         => api('/orders')
 export const getOrderById = (id)       => api(`/orders/${id}`)
 export const getNextNumbers = ()       => api('/orders/next-numbers')
+// Where an order came from. Our SO number is the ID everywhere; Shopify orders also carry Shopify's number.
+export const CHANNELS = ['Studio', 'WhatsApp', 'Instagram', 'Shopify', 'Other']
 export const getWebsiteOrders = ()     => api('/orders/website')
 export const importWebsiteOrders = (ids) => api('/orders/website/import', { method: 'POST', body: JSON.stringify({ ids }) })
 export const getOrderHistory = (id)    => api(`/orders/${id}/history`)

@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { ArrowLeft, Save, Plus, Trash2, Shirt, User, Ruler, CreditCard, Truck, StickyNote, RotateCcw, Minus } from 'lucide-react'
-import { addOrder, updateOrder, getOrderById, getNextNumbers, getCustomer, STATUS_OPTIONS } from '../data/storage'
+import { addOrder, updateOrder, getOrderById, getNextNumbers, getCustomer, STATUS_OPTIONS, CHANNELS } from '../data/storage'
 import { MEASUREMENT_FIELDS, SIZE_OPTIONS } from '../data/measurements'
 import CustomerPicker from './orders/CustomerPicker'
 import ProductPicker from './orders/ProductPicker'
@@ -11,13 +11,13 @@ import { Field, money, Skeleton } from '../ui/kit'
 import { ease } from '../ui/motion'
 
 const today = () => new Date().toISOString().slice(0, 10)
-const REFERENCES = ['Walkin', 'Outstation', 'Website', 'Instagram', 'WhatsApp', 'Usman Ahmed']
+const REFERENCES = ['Walkin', 'Outstation', 'Usman Ahmed']
 let keySeq = 0
 const lineKey = () => `l${++keySeq}`
 
 const EMPTY = {
   customerId: null, customer: '', phone: '', email: '', address: '', city: '',
-  items: [], status: 'New', orderDate: today(), deliveryDate: '', reference: '', shopifyOrderNumber: '',
+  items: [], status: 'New', orderDate: today(), deliveryDate: '', channel: '', reference: '', shopifyOrderNumber: '',
   amount: '', amountManual: false, advancePaid: '', paymentNotes: '', specialInstructions: '',
   measurements: {},
 }
@@ -60,10 +60,7 @@ export default function OrderForm() {
   // New orders: show the number they'll get and continue the Shopify numbering
   useEffect(() => {
     if (isEdit) return
-    getNextNumbers().then((n) => {
-      setNext(n)
-      if (n.nextShopify) setForm((f) => (f.shopifyOrderNumber ? f : { ...f, shopifyOrderNumber: n.nextShopify }))
-    }).catch(() => {})
+    getNextNumbers().then(setNext).catch(() => {})
   }, [isEdit])
 
   useEffect(() => {
@@ -79,7 +76,7 @@ export default function OrderForm() {
         ...EMPTY,
         customerId: o.customerId, customer: o.customer, phone: o.phone, email: o.email, address: o.address, city: o.city,
         items, status: o.status, orderDate: o.orderDate || today(), deliveryDate: o.deliveryDate || '',
-        reference: o.reference || '', shopifyOrderNumber: o.shopifyOrderNumber || '',
+        channel: o.channel || '', reference: o.reference || '', shopifyOrderNumber: o.shopifyOrderNumber || '',
         amount: o.amount ?? '', amountManual: Number(o.amount) !== subtotal, advancePaid: o.advancePaid ?? '',
         paymentNotes: o.paymentNotes, specialInstructions: o.specialInstructions, measurements: o.measurements || {},
       })
@@ -106,6 +103,7 @@ export default function OrderForm() {
     if (!form.customer.trim()) e.customer = 'Choose or add a customer'
     if (!form.items.some((l) => l.productId || l.product.trim())) e.items = 'Add at least one product'
     if (!amount) e.amount = 'Enter the order amount'
+    if (!form.channel && !isEdit) e.channel = 'Choose where the order came from'
     setErrors(e)
     if (Object.keys(e).length) toast.error(Object.values(e)[0])
     return !Object.keys(e).length
@@ -122,7 +120,8 @@ export default function OrderForm() {
         unitPrice: l.unitPrice === '' ? null : Number(l.unitPrice), note: l.note,
       })),
       status: form.status, orderDate: form.orderDate, deliveryDate: form.deliveryDate,
-      reference: form.reference, shopifyOrderNumber: form.shopifyOrderNumber,
+      reference: form.reference,
+      ...(form.channel ? { channel: form.channel, shopifyOrderNumber: form.channel === 'Shopify' ? form.shopifyOrderNumber : '' } : {}),
       amount, advancePaid: Number(form.advancePaid) || 0,
       paymentNotes: form.paymentNotes, specialInstructions: form.specialInstructions, measurements: form.measurements,
     }
@@ -254,6 +253,21 @@ export default function OrderForm() {
         <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
           <section className="card space-y-4 p-5">
             <h2 className="section-title">Order</h2>
+            <Field label="Sales channel" error={errors.channel}>
+              <div className="flex flex-wrap gap-1.5">
+                {CHANNELS.map((c) => (
+                  <button key={c} type="button" onClick={() => setForm((f) => ({ ...f, channel: c }))}
+                    className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${form.channel === c ? 'border-brand-primary bg-brand-primary text-white' : 'border-line bg-surface text-ink hover:border-plum-300'}`}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            {form.channel === 'Shopify' && (
+              <Field label="Shopify order no." hint={isEdit ? undefined : 'Website orders are best brought in with Orders › Import from website, which fills this in.'}>
+                <input className="input" value={form.shopifyOrderNumber} onChange={set('shopifyOrderNumber')} placeholder={next?.lastShopify ? `Last saved: ${next.lastShopify}` : '#1195'} />
+              </Field>
+            )}
             <Field label="Status">
               <select className="input" value={form.status} onChange={set('status')}>{STATUS_OPTIONS.map((s) => <option key={s.value}>{s.value}</option>)}</select>
             </Field>
@@ -261,12 +275,9 @@ export default function OrderForm() {
               <Field label="Order date"><input type="date" className="input" value={form.orderDate} onChange={set('orderDate')} /></Field>
               <Field label="Delivery date"><input type="date" className="input" value={form.deliveryDate} onChange={set('deliveryDate')} /></Field>
             </div>
-            <Field label="Reference" hint="How the sale came in">
-              <input className="input" list="refs" value={form.reference} onChange={set('reference')} placeholder="Walkin, Outstation…" />
+            <Field label="Reference" hint="Optional: who referred them, or a note like Outstation">
+              <input className="input" list="refs" value={form.reference} onChange={set('reference')} placeholder="Usman Ahmed, Outstation…" />
               <datalist id="refs">{REFERENCES.map((r) => <option key={r} value={r} />)}</datalist>
-            </Field>
-            <Field label="Shopify order no." hint={!isEdit && next?.lastShopify ? `Next after ${next.lastShopify}, the last one saved. Clear it if the order isn't from the website.` : undefined}>
-              <input className="input" value={form.shopifyOrderNumber} onChange={set('shopifyOrderNumber')} placeholder={next?.nextShopify || '#1171'} />
             </Field>
           </section>
 
