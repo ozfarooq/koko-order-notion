@@ -86,6 +86,7 @@ export const getBoard = () => api('/board')
 // ── Retail orders ──────────────────────────────────────────────────────
 export const getOrders    = ()         => api('/orders')
 export const getOrderById = (id)       => api(`/orders/${id}`)
+export const getNextNumbers = ()       => api('/orders/next-numbers')
 export const getOrderHistory = (id)    => api(`/orders/${id}/history`)
 export const addOrder     = (order)    => api('/orders',      { method: 'POST',  body: JSON.stringify(order) })
 export const updateOrder  = (id, upd)  => api(`/orders/${id}`,{ method: 'PATCH', body: JSON.stringify(upd) })
@@ -105,6 +106,8 @@ export const addCollection    = (name) => api('/collections', { method: 'POST', 
 export const getProduct       = (id) => api(`/products/${id}`)
 export const updateProduct    = (id, upd) => api(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(upd) }).then((p) => { productsPromise = null; return p })
 export const importCatalogue  = (products) => api('/catalogue/import', { method: 'POST', body: JSON.stringify({ products }) }).then((r) => { productsPromise = null; return r })
+export const previewStoreSync = () => api('/catalogue/store-sync')
+export const runStoreSync     = (include) => api('/catalogue/store-sync', { method: 'POST', body: JSON.stringify({ include }) }).then((r) => { productsPromise = null; return r })
 
 // ── B2B consignment (Fashion Collage) ──────────────────────────────────
 // Pieces are returned in the shape the FC pages use: `status` carries the FC_STATUS_OPTIONS

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Shirt, Search, Upload, ArrowLeft, FileSpreadsheet } from 'lucide-react'
-import { getCollections, getProducts, importCatalogue } from '../../data/storage'
+import { Shirt, Search, Upload, ArrowLeft, FileSpreadsheet, RefreshCw, Check } from 'lucide-react'
+import { getCollections, getProducts, importCatalogue, previewStoreSync, runStoreSync } from '../../data/storage'
 import { PageHeader, Skeleton, EmptyState, Modal, money } from '../../ui/kit'
 import { listParent, listItem } from '../../ui/motion'
 import { useAuth } from '../../auth/AuthContext'
@@ -90,6 +90,71 @@ function ImportModal({ open, onClose, onDone }) {
   )
 }
 
+// Pulls collections, pieces, prices and photos straight from kokoatelier.com
+function StoreSyncModal({ open, onClose, onDone }) {
+  const [preview, setPreview] = useState(null)
+  const [error, setError] = useState('')
+  const [picked, setPicked] = useState(new Set())
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+  useEffect(() => {
+    if (!open) return
+    setPreview(null); setResult(null); setError('')
+    previewStoreSync().then((p) => {
+      setPreview(p)
+      setPicked(new Set(p.collections.filter((c) => c.suggested && (!c.inApp || c.toAdd?.length)).map((c) => c.handle)))
+    }).catch((err) => setError(err.message))
+  }, [open])
+  const toggle = (h) => setPicked((s) => { const n = new Set(s); n.has(h) ? n.delete(h) : n.add(h); return n })
+  const run = async () => {
+    setBusy(true)
+    try {
+      const r = await runStoreSync([...picked])
+      setResult(r)
+      toast.success('Catalogue synced with the website')
+      onDone()
+    } catch (err) { toast.error(err.message) } finally { setBusy(false) }
+  }
+  const fresh = preview?.collections.filter((c) => !c.inApp) || []
+  const growing = preview?.collections.filter((c) => c.inApp && c.toAdd?.length) || []
+  const Row = ({ c }) => (
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 hover:bg-subtle">
+      <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#E98074]" checked={picked.has(c.handle)} onChange={() => toggle(c.handle)} />
+      <span className="min-w-0 flex-1">
+        <span className="font-semibold text-ink">{c.title}</span> <span className="text-xs text-muted">· {c.products} pieces</span>
+        {c.toAdd?.length > 0 && <span className="block truncate text-xs text-muted">Adds {c.toAdd.join(', ')}</span>}
+        {!c.toAdd && <span className="block text-xs text-faint">Website grouping (sale, category). Pieces stay in their own collections.</span>}
+      </span>
+    </label>
+  )
+  return (
+    <Modal open={open} onClose={onClose} title="Sync from website" subtitle="Collections, pieces, prices and photos from kokoatelier.com" size="md"
+      footer={result || error ? <button className="btn-primary" onClick={onClose}>Done</button>
+        : <><button className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" onClick={run} disabled={!preview || busy}><RefreshCw size={15} className={busy ? 'animate-spin' : ''} />{busy ? 'Syncing…' : 'Sync'}</button></>}>
+      <div className="space-y-4 p-5 text-sm">
+        {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">{error}</p>}
+        {!preview && !error && <div className="space-y-2"><Skeleton className="h-10" /><Skeleton className="h-10" /><Skeleton className="h-10" /><p className="text-xs text-muted">Reading the website…</p></div>}
+        {preview && !result && (<>
+          {growing.length > 0 && <div><p className="eyebrow mb-1">New pieces in existing collections</p>{growing.map((c) => <Row key={c.handle} c={c} />)}</div>}
+          <div>
+            <p className="eyebrow mb-1">Collections not in the app yet</p>
+            {fresh.length ? fresh.map((c) => <Row key={c.handle} c={c} />) : <p className="px-3 text-muted">None, the app has every collection.</p>}
+          </div>
+          <p className="text-xs text-muted">{preview.updates.length ? `Prices or photos changed for ${preview.updates.length} pieces (${preview.updates.slice(0, 6).join(', ')}${preview.updates.length > 6 ? '…' : ''}); these refresh too.` : 'All prices and photos already match the website.'} Pieces already in a collection are never moved. Hidden (unpublished) pieces aren't visible on the website, so use Import CSV for those.</p>
+        </>)}
+        {result && (
+          <div className="space-y-2">
+            {result.collectionsCreated.length > 0 && <p className="flex items-center gap-2 text-ink"><Check size={15} className="text-emerald-600" />New collections: {result.collectionsCreated.join(', ')}</p>}
+            <p className="text-ink">{result.added.length} pieces added · {result.placed.length} placed in a collection · {result.updated} refreshed</p>
+            {result.added.length + result.placed.length > 0 && <p className="text-muted">{[...result.added, ...result.placed].join(', ')}</p>}
+            {result.skipped.length > 0 && <p className="text-rose-600">Skipped: {result.skipped.join('; ')}</p>}
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
 export default function Catalogue() {
   const { collectionId } = useParams()
   const navigate = useNavigate()
@@ -98,6 +163,7 @@ export default function Catalogue() {
   const [products, setProducts] = useState(null)
   const [query, setQuery] = useState('')
   const [importing, setImporting] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   const load = () => {
     getCollections().then(setCollections).catch(() => setCollections([]))
@@ -125,7 +191,10 @@ export default function Catalogue() {
         icon={Shirt}
         actions={<>
           {collectionId && <button className="btn-secondary" onClick={() => navigate('/catalogue')}><ArrowLeft size={14} />All collections</button>}
-          {can('catalog:write') && !collectionId && <button className="btn-secondary" onClick={() => setImporting(true)}><Upload size={14} />Refresh from Shopify</button>}
+          {can('catalog:write') && !collectionId && <>
+            <button className="btn-secondary" onClick={() => setImporting(true)}><Upload size={14} />Import CSV</button>
+            <button className="btn-primary" onClick={() => setSyncing(true)}><RefreshCw size={14} />Sync from website</button>
+          </>}
         </>}
       />
 
@@ -161,6 +230,7 @@ export default function Catalogue() {
         )}
 
       <ImportModal open={importing} onClose={() => setImporting(false)} onDone={load} />
+      <StoreSyncModal open={syncing} onClose={() => setSyncing(false)} onDone={load} />
     </div>
   )
 }

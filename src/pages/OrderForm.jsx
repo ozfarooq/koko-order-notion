@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { ArrowLeft, Save, Plus, Trash2, Shirt, User, Ruler, CreditCard, Truck, StickyNote, RotateCcw, Minus } from 'lucide-react'
-import { addOrder, updateOrder, getOrderById, getCustomer, STATUS_OPTIONS } from '../data/storage'
+import { addOrder, updateOrder, getOrderById, getNextNumbers, getCustomer, STATUS_OPTIONS } from '../data/storage'
 import { MEASUREMENT_FIELDS, SIZE_OPTIONS } from '../data/measurements'
 import CustomerPicker from './orders/CustomerPicker'
 import ProductPicker from './orders/ProductPicker'
@@ -41,6 +41,7 @@ export default function OrderForm() {
   const isEdit = Boolean(id)
   const [form, setForm] = useState(EMPTY)
   const [orderNumber, setOrderNumber] = useState('')
+  const [next, setNext] = useState(null)
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
@@ -55,6 +56,15 @@ export default function OrderForm() {
       measurements: c.latestMeasurements ? Object.fromEntries(Object.entries(c.latestMeasurements).filter(([k]) => !['orderId', 'orderNumber'].includes(k))) : f.measurements,
     }))).catch(() => {})
   }, [state?.customerId, isEdit])
+
+  // New orders: show the number they'll get and continue the Shopify numbering
+  useEffect(() => {
+    if (isEdit) return
+    getNextNumbers().then((n) => {
+      setNext(n)
+      if (n.nextShopify) setForm((f) => (f.shopifyOrderNumber ? f : { ...f, shopifyOrderNumber: n.nextShopify }))
+    }).catch(() => {})
+  }, [isEdit])
 
   useEffect(() => {
     if (!isEdit) return
@@ -141,7 +151,7 @@ export default function OrderForm() {
       <div className="flex items-center gap-3">
         <button type="button" className="btn-icon border border-line bg-surface" onClick={() => navigate(-1)} aria-label="Back"><ArrowLeft size={16} /></button>
         <div className="flex-1">
-          <p className="eyebrow">{isEdit ? 'Edit order' : 'New order'}</p>
+          <p className="eyebrow">{isEdit ? 'Edit order' : next ? `New order · ${next.orderNumber}` : 'New order'}</p>
           <h1 className="text-3xl text-ink">{isEdit ? orderNumber : 'Create an order'}</h1>
         </div>
         <button type="submit" className="btn-primary hidden lg:inline-flex" disabled={saving}><Save size={15} />{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create order'}</button>
@@ -255,7 +265,9 @@ export default function OrderForm() {
               <input className="input" list="refs" value={form.reference} onChange={set('reference')} placeholder="Walkin, Outstation…" />
               <datalist id="refs">{REFERENCES.map((r) => <option key={r} value={r} />)}</datalist>
             </Field>
-            <Field label="Shopify order no."><input className="input" value={form.shopifyOrderNumber} onChange={set('shopifyOrderNumber')} placeholder="#1171" /></Field>
+            <Field label="Shopify order no." hint={!isEdit && next?.lastShopify ? `Next after ${next.lastShopify}, the last one saved. Clear it if the order isn't from the website.` : undefined}>
+              <input className="input" value={form.shopifyOrderNumber} onChange={set('shopifyOrderNumber')} placeholder={next?.nextShopify || '#1171'} />
+            </Field>
           </section>
 
           <section className="card space-y-4 p-5">
