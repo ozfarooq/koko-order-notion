@@ -39,13 +39,13 @@ function SideLink({ item, collapsed, nested }) {
       title={collapsed ? item.label : undefined}
       className={({ isActive }) =>
         `group relative flex items-center gap-3 rounded-lg ${nested ? 'py-1.5 pl-3 text-[13px]' : 'py-2 pl-3 text-sm'} pr-3 font-medium transition
-         ${isActive ? 'bg-plum-900 text-[#EAE7DC]' : 'text-[#EAE7DC]/55 hover:bg-white/5 hover:text-[#EAE7DC]'}`
+         ${isActive ? 'bg-plum-900 text-[#F4EFF2]' : 'text-[#F4EFF2]/55 hover:bg-white/5 hover:text-[#F4EFF2]'}`
       }
     >
       {({ isActive }) => (
         <>
-          {isActive && <motion.span layoutId="nav-active" className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-brand-primary" transition={{ duration: 0.3, ease }} />}
-          <Icon size={nested ? 15 : 17} className={isActive ? 'text-plum-400' : ''} />
+          {isActive && <motion.span layoutId="nav-active" className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-gold-400" transition={{ duration: 0.3, ease }} />}
+          <Icon size={nested ? 15 : 17} className={isActive ? 'text-gold-400' : ''} />
           {!collapsed && <span className="truncate">{item.label}</span>}
         </>
       )}
@@ -61,7 +61,7 @@ function ResellerGroup({ group, collapsed, defaultOpen }) {
     <div>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-[#EAE7DC]/85 transition hover:bg-white/5 hover:text-[#EAE7DC]"
+        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-[#F4EFF2]/85 transition hover:bg-white/5 hover:text-[#F4EFF2]"
       >
         <span className="flex-1 truncate">{group.label}</span>
         {group.badge > 0 && <span className="rounded-full bg-plum-500/20 px-1.5 text-[10px] font-bold text-plum-300">{group.badge}</span>}
@@ -87,7 +87,7 @@ function NavSections({ sections, collapsed, pathname }) {
   return sections.map((s) => (
     <div key={s.title} className="space-y-0.5">
       {!collapsed ? (
-        <p className="px-3 pb-1 pt-4 font-label text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8E8D8A]">{s.title}</p>
+        <p className="px-3 pb-1 pt-4 font-label text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8F8894]">{s.title}</p>
       ) : <div className="mx-3 my-3 h-px bg-white/10" />}
       {(s.items || []).map((i) => <SideLink key={i.to} item={i} collapsed={collapsed} />)}
       {(s.groups || []).map((g) => (
@@ -138,8 +138,8 @@ export default function Layout() {
     <div className="space-y-0.5">
       {!compact && (
         <div className="px-3 pb-2">
-          <p className="truncate text-sm font-semibold text-[#EAE7DC]">{user?.name}</p>
-          <p className="font-label text-[10px] uppercase tracking-[0.2em] text-[#8E8D8A]">{ROLE_LABELS[user?.role]}</p>
+          <p className="truncate text-sm font-semibold text-[#F4EFF2]">{user?.name}</p>
+          <p className="font-label text-[10px] uppercase tracking-[0.2em] text-[#8F8894]">{ROLE_LABELS[user?.role]}</p>
         </div>
       )}
       <button onClick={() => setChangingPassword(true)} title="Change password" className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/55 transition hover:bg-white/5 hover:text-white">
@@ -156,9 +156,9 @@ export default function Layout() {
       {/* ── Desktop sidebar ── */}
       <motion.aside
         animate={{ width: collapsed ? 76 : 256 }} transition={{ duration: 0.3, ease }}
-        className="relative hidden flex-shrink-0 flex-col bg-sidebar text-[#EAE7DC] md:flex"
+        className="relative hidden flex-shrink-0 flex-col bg-sidebar text-[#F4EFF2] md:flex"
       >
-        <div className={`relative flex h-16 flex-shrink-0 items-center border-b border-brand-primary bg-[#EAE7DC] dark:bg-surface ${collapsed ? 'justify-center px-2' : 'px-4'}`}>
+        <div className={`relative flex h-16 flex-shrink-0 items-center border-b border-line bg-white dark:bg-surface ${collapsed ? 'justify-center px-2' : 'px-4'}`}>
           <Logo collapsed={collapsed} />
         </div>
         <nav className="relative flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 pb-4">
@@ -238,14 +238,14 @@ export default function Layout() {
         {moreOpen && (
           <motion.div className="fixed inset-0 z-50 bg-plum-950/50 md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMoreOpen(false)}>
             <motion.div
-              className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-sidebar px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 text-[#EAE7DC]"
+              className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-sidebar px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 text-[#F4EFF2]"
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ duration: 0.3, ease }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/20" />
-              <div className="-mx-3 mb-2 flex h-16 items-center justify-between border-b border-brand-primary bg-[#EAE7DC] px-4 dark:bg-surface">
+              <div className="-mx-3 mb-2 flex h-16 items-center justify-between border-b border-line bg-white px-4 dark:bg-surface">
                 <Logo />
-                <button className="rounded-lg p-2 text-[#8E8D8A]" onClick={() => setMoreOpen(false)}><X size={18} /></button>
+                <button className="rounded-lg p-2 text-[#8F8894]" onClick={() => setMoreOpen(false)}><X size={18} /></button>
               </div>
               <NavSections sections={sections} pathname={pathname} />
               <div className="mt-4 border-t border-white/10 pt-3"><UserBlock /></div>

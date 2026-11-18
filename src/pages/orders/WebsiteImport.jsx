@@ -63,7 +63,7 @@ export default function WebsiteImport({ open, onClose, onDone }) {
             const on = picked.has(o.shopifyId)
             return (
               <label key={o.shopifyId} className={`flex cursor-pointer gap-3 rounded-xl border p-3 transition ${on ? 'border-brand-primary/60 bg-plum-50/40 dark:bg-plum-900/10' : 'border-line hover:bg-subtle'}`}>
-                <input type="checkbox" className="mt-1 h-4 w-4 accent-[#E98074]" checked={on} onChange={() => toggle(o.shopifyId)} />
+                <input type="checkbox" className="mt-1 h-4 w-4 accent-[#7B2D45]" checked={on} onChange={() => toggle(o.shopifyId)} />
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="font-semibold text-ink">{o.shopifyOrderNumber}</span>

@@ -9,8 +9,8 @@ import { listParent, listItem } from '../ui/motion'
 import StatusBadge from '../components/StatusBadge'
 
 const STATUS_HEX = {
-  New: '#B8A487', 'In Tailoring': '#E39B2B', Ready: '#E98074', 'Payment Pending': '#B45309',
-  Paid: '#15803D', 'Out for Delivery': '#8E8D8A', Returned: '#A8A29E', Cancelled: '#E85A4F',
+  New: '#C9A96E', 'In Tailoring': '#E39B2B', Ready: '#7B2D45', 'Payment Pending': '#B45309',
+  Paid: '#15803D', 'Out for Delivery': '#7A7480', Returned: '#A8A29E', Cancelled: '#D9473A',
 }
 const compact = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n))
 const monthShort = (k) => new Date(`${k}-01`).toLocaleDateString('en-PK', { month: 'short' })
@@ -100,15 +100,15 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={d.months} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E98074" stopOpacity={0.35} /><stop offset="100%" stopColor="#E98074" stopOpacity={0} /></linearGradient>
-                      <linearGradient id="col" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#D8C3A5" stopOpacity={0.45} /><stop offset="100%" stopColor="#D8C3A5" stopOpacity={0} /></linearGradient>
+                      <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7B2D45" stopOpacity={0.35} /><stop offset="100%" stopColor="#7B2D45" stopOpacity={0} /></linearGradient>
+                      <linearGradient id="col" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#C9A96E" stopOpacity={0.45} /><stop offset="100%" stopColor="#C9A96E" stopOpacity={0} /></linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-line" vertical={false} />
                     <XAxis dataKey="month" tickFormatter={monthShort} tick={{ fontSize: 11, fill: 'currentColor' }} className="text-faint" axisLine={false} tickLine={false} />
                     <YAxis tickFormatter={compact} tick={{ fontSize: 11, fill: 'currentColor' }} className="text-faint" axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip content={<ChartTip showMoney={d.showMoney} />} />
                     {d.showMoney && <Area type="monotone" dataKey="collected" stroke="#B8A487" strokeWidth={2} fill="url(#col)" />}
-                    <Area type="monotone" dataKey={d.showMoney ? 'revenue' : 'orders'} stroke="#E98074" strokeWidth={2.5} fill="url(#rev)" />
+                    <Area type="monotone" dataKey={d.showMoney ? 'revenue' : 'orders'} stroke="#7B2D45" strokeWidth={2.5} fill="url(#rev)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>

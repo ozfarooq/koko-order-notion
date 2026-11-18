@@ -123,7 +123,7 @@ function StoreSyncModal({ open, onClose, onDone }) {
   const growing = preview?.collections.filter((c) => c.inApp && c.toAdd?.length) || []
   const Row = ({ c }) => (
     <label className="flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 hover:bg-subtle">
-      <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#E98074]" checked={picked.has(c.handle)} onChange={() => toggle(c.handle)} />
+      <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#7B2D45]" checked={picked.has(c.handle)} onChange={() => toggle(c.handle)} />
       <span className="min-w-0 flex-1">
         <span className="font-semibold text-ink">{c.title}</span> <span className="text-xs text-muted">· {c.products} pieces</span>
         {c.toAdd?.length > 0 && <span className="block truncate text-xs text-muted">Adds {c.toAdd.join(', ')}</span>}

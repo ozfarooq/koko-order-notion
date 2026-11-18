@@ -7,15 +7,15 @@ const fmt = (date) =>
 const pkr = (val) => `PKR ${Number(val || 0).toLocaleString()}`
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 
-// "Minimal Yet Warm" palette, same as the website
+// "Porcelain & Wine" palette, same as the website
 const C = {
-  canvas: '#EAE7DC', sand: '#D8C3A5', line: '#E6DFD1', ink: '#2C2C2A', muted: '#8E8D8A',
-  coral: '#E98074', alert: '#E85A4F', white: '#FFFFFF', obsidian: '#1F1F1E',
+  canvas: '#FAF8F9', sand: '#F3E9EC', line: '#ECE6E9', ink: '#1C1A1F', muted: '#7A7480',
+  coral: '#7B2D45', alert: '#D9473A', white: '#FFFFFF', obsidian: '#1C1A1F',
 }
 const CHIP = {
   Paid: ['#DCFCE7', '#15803D'], 'Payment Pending': ['#FEF3C7', '#B45309'], 'In Tailoring': ['#FEF3C7', '#B45309'],
-  Ready: ['#FBE3DF', '#C2554A'], 'Out for Delivery': ['#EFE9DF', '#6B5E4B'], Cancelled: ['#FEE2E2', '#E85A4F'],
-  Returned: ['#EFEDE8', '#6E6D6A'], New: ['#F3ECE0', '#6B5E4B'],
+  Ready: ['#F6E6EB', '#7B2D45'], 'Out for Delivery': ['#F0EDF1', '#4B4651'], Cancelled: ['#FDECEA', '#D9473A'],
+  Returned: ['#F0EDF1', '#625C68'], New: ['#F5EEDF', '#7A5A22'],
 }
 // html2canvas draws text ~5px lower than the browser, so a half-height line-height centres it in the PDF
 const pill = (text, bg, fg, extra = '') =>
@@ -30,7 +30,7 @@ const label = (t, extra = '') => `<div style="font-size:9px;font-weight:600;text
 // A card with a sand header strip, like the website's tables
 const card = (title, body, extra = '') => `
   <div style="background:${C.white};border:1px solid ${C.line};border-radius:12px;overflow:hidden;${extra}">
-    <div style="background:${C.sand};padding:8px 16px;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1.8px;color:${C.ink};">${title}</div>
+    <div style="background:${C.sand};padding:8px 16px;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1.8px;color:${C.coral};">${title}</div>
     <div style="padding:14px 16px;">${body}</div>
   </div>`
 

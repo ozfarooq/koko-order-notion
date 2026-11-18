@@ -1,39 +1,39 @@
 /** @type {import('tailwindcss').Config} */
-// Koko Atelier design tokens — "Minimal Yet Warm".
-//   Canvas #EAE7DC eggshell · cards #FFFFFF · accent surfaces #D8C3A5 dark vanilla · sidebar #1F1F1E obsidian
-//   Text #2C2C2A charcoal / #8E8D8A taupe · primary #E98074 coral · alert #E85A4F jelly-bean red
+// Koko Atelier design tokens — "Porcelain & Wine" (Nov 2026).
+//   Page #FBFAFB porcelain · cards #FFFFFF · table headers #F6F1F3 blush tint · sidebar #1C1A1F ink
+//   Text #1C1A1F ink / #7A7480 grey · primary #7B2D45 wine · highlight #C9A96E champagne · alert #D9473A
 // Neutral surfaces come from CSS variables (src/index.css) so the same classes work in light and dark mode.
-// The `plum` and `gold` scale names are kept so existing classes recolour everywhere: plum = coral/terracotta
-// brand scale (900/950 = charcoal/obsidian), gold = vanilla/sand → taupe. Other utility hues are pulled into
-// the palette below so status chips and charts stay harmonious on every page.
+// The `plum` and `gold` scale names are kept so existing classes recolour everywhere: plum = wine brand scale
+// (900/950 = deep ink), gold = champagne. Other utility hues are pulled into the palette below so status
+// chips and charts stay harmonious on every page.
 const v = (name) => `rgb(var(--${name}) / <alpha-value>)`
 
-const coral = {
-  50:  '#FDF4F2',
-  100: '#FAE3DF',
-  200: '#F5C8C1',
-  300: '#EFA99F',
-  400: '#EC9488',
-  500: '#E98074',   // brand primary
-  600: '#D96A5D',
-  700: '#B9544A',
-  800: '#8F3F36',
-  900: '#2C2C2A',   // charcoal
-  950: '#1F1F1E',   // obsidian
+const wine = {
+  50:  '#FBF4F6',
+  100: '#F6E6EB',
+  200: '#EBC9D3',
+  300: '#D99DB0',
+  400: '#A9506B',
+  500: '#7B2D45',   // brand primary
+  600: '#6A263B',
+  700: '#5B2034',
+  800: '#451828',
+  900: '#2C2830',   // raised ink (active menu item)
+  950: '#1C1A1F',   // ink
 }
-const sand = {
-  50:  '#F6F2EA',
-  100: '#EFE7DA',
-  200: '#E5D7C2',
-  300: '#DDCCB2',
-  400: '#D8C3A5',   // dark vanilla
-  500: '#B8A487',
-  600: '#8E8D8A',   // taupe gray
-  700: '#6E6C68',
+const champagne = {
+  50:  '#FBF8F2',
+  100: '#F5EEDF',
+  200: '#EBDDC0',
+  300: '#DDC79C',
+  400: '#C9A96E',   // champagne
+  500: '#B08F55',
+  600: '#7A7480',   // grey text
+  700: '#5E5862',
 }
 const alert = {
-  50:  '#FEE2E2', 100: '#FDD5D0', 200: '#F9B9B1', 300: '#F29589', 400: '#EC7468',
-  500: '#E85A4F', 600: '#E85A4F', 700: '#D04A3F', 800: '#A33B33', 900: '#7A2C26', 950: '#3D1613',
+  50:  '#FDECEA', 100: '#FBDAD6', 200: '#F6B8B1', 300: '#EE9086', 400: '#E46A5E',
+  500: '#D9473A', 600: '#C93C30', 700: '#B13328', 800: '#8C2920', 900: '#651E18', 950: '#360F0C',
 }
 const sage = {
   50:  '#DCFCE7', 100: '#DCFCE7', 200: '#BBF7D0', 300: '#86EFAC', 400: '#4ADE80',
@@ -43,9 +43,9 @@ const warm = {   // pending / in production
   50:  '#FEF3C7', 100: '#FEF3C7', 200: '#FDE68A', 300: '#FCD34D', 400: '#F5B544',
   500: '#E39B2B', 600: '#B45309', 700: '#B45309', 800: '#92400E', 900: '#78350F', 950: '#451A03',
 }
-const taupe = {  // neutral informational chips
-  50:  '#F3EFE7', 100: '#E9E2D5', 200: '#DDD3C3', 300: '#C4B79F', 400: '#A9A08F', 500: '#8E8D8A',
-  600: '#76736D', 700: '#5F5D59', 800: '#45443F', 900: '#2C2C2A', 950: '#1F1F1E',
+const slate = {  // neutral informational chips (cool grey with a wine bias)
+  50:  '#F5F3F6', 100: '#ECE8EE', 200: '#DCD6DF', 300: '#C2BAC6', 400: '#A39BA8', 500: '#7A7480',
+  600: '#625C68', 700: '#4B4651', 800: '#36323B', 900: '#24212A', 950: '#1C1A1F',
 }
 
 export default {
@@ -59,23 +59,23 @@ export default {
         card: v('surface'),
         subtle: v('subtle'),          // hovers, quiet fills
         subtle2: v('subtle2'),        // stronger fills
-        'surface-accent': v('surface-accent'), // table headers (dark vanilla)
+        'surface-accent': v('surface-accent'), // table headers (blush tint)
         line: v('line'),              // borders / row dividers
         'line-strong': v('line-strong'),
         ink: v('ink'),                // primary text (charcoal)
         'ink-soft': v('ink-soft'),
-        muted: v('muted'),            // secondary text (taupe)
+        muted: v('muted'),            // secondary text (grey)
         faint: v('faint'),            // hints, placeholders
-        accent: v('accent'),          // readable coral for links/active text
-        sidebar: '#1F1F1E',
-        plum: coral,
-        brand: { ...coral, primary: '#E98074', alert: '#E85A4F' },
-        gold: sand,
+        accent: v('accent'),          // readable wine for links/active text
+        sidebar: '#1C1A1F',
+        plum: wine,
+        brand: { ...wine, primary: '#7B2D45', alert: '#D9473A' },
+        gold: champagne,
         rose: alert, red: alert,
         emerald: sage, green: sage, teal: sage,
         amber: warm, orange: warm,
-        violet: coral, purple: coral,
-        sky: taupe, blue: taupe,
+        violet: wine, purple: wine,
+        sky: slate, blue: slate,
       },
       fontFamily: {
         // Inter throughout; headings differ by size, weight and tracking rather than typeface

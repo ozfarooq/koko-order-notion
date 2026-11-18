@@ -296,7 +296,7 @@ function OverviewTab({ data, onOpen }) {
           <option value="all">All collections</option>
         </select>
         <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
-          <input type="checkbox" className="h-4 w-4 accent-[#E98074]" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />Show outfits with no stock
+          <input type="checkbox" className="h-4 w-4 accent-[#7B2D45]" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />Show outfits with no stock
         </label>
       </div>
       {rows.length === 0 ? (
@@ -394,7 +394,7 @@ function PiecesTab({ product, clearProduct, version, onChanged, canWrite, onOpen
             return (
               <div key={p.id} role="button" tabIndex={0} onClick={() => onOpenPiece(p)} onKeyDown={(e) => e.key === 'Enter' && onOpenPiece(p)}
                 className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-subtle/60 sm:px-4 ${picked.has(p.id) ? 'bg-plum-50/50 dark:bg-plum-900/10' : ''}`}>
-                <input type="checkbox" className="h-4 w-4 flex-shrink-0 accent-[#E98074] disabled:opacity-30" disabled={!selectable} checked={picked.has(p.id)}
+                <input type="checkbox" className="h-4 w-4 flex-shrink-0 accent-[#7B2D45] disabled:opacity-30" disabled={!selectable} checked={picked.has(p.id)}
                   onClick={(e) => e.stopPropagation()} onChange={() => toggle(p.id)} aria-label={`Select ${p.product} ${p.size}`} />
                 <Thumb src={p.imageUrl} className="h-12 w-9" />
                 <div className="min-w-0 flex-1">
