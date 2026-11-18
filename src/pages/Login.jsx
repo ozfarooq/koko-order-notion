@@ -5,7 +5,7 @@ import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { useAuth, homeFor } from '../auth/AuthContext'
 import { getLookbook } from '../data/storage'
 import { LOOKBOOK } from '../data/lookbook'
-import { Lookbook, Headline, Featured, PhotoStrip, usePointerParallax } from './login/Showcase'
+import { Runway } from './login/Showcase'
 import { ease } from '../ui/motion'
 
 // Opening sequence: logo, then the welcome, then each field, then the button
@@ -22,7 +22,6 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [pieces, setPieces] = useState(LOOKBOOK)   // replaced by the newest collections once loaded
-  const parallax = usePointerParallax()
 
   useEffect(() => { getLookbook().then((r) => { if (r?.length >= 6) setPieces(r) }).catch(() => {}) }, [])
 
@@ -55,7 +54,7 @@ export default function Login() {
           <span className="rounded border border-line-strong px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-muted">CRM</span>
         </motion.div>
 
-        <motion.div variants={rise} className="mt-8 lg:hidden"><PhotoStrip items={pieces} /></motion.div>
+        <motion.div variants={rise} className="mt-6 h-64 overflow-hidden rounded-2xl sm:h-80 lg:hidden"><Runway items={pieces} compact /></motion.div>
 
         <div className="flex flex-1 items-center py-10">
           <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-5">
@@ -103,16 +102,10 @@ export default function Login() {
 
       {/* Lookbook side (desktop) */}
       <div className="hidden p-4 pl-0 lg:block">
-        <div {...parallax.handlers} className="relative h-full overflow-hidden rounded-[28px] bg-sidebar">
-          <Lookbook items={pieces} mx={parallax.mx} my={parallax.my} />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-sidebar via-sidebar/70 to-sidebar/10" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_0%_100%,rgba(123,45,69,0.55),transparent_70%)]" />
-          <div className="absolute inset-x-0 bottom-0 space-y-7 p-10 xl:p-12">
-            <motion.div className="h-px bg-gradient-to-r from-gold-400 to-transparent" initial={{ width: 0 }} animate={{ width: 96 }} transition={{ duration: 1, delay: 0.4, ease }} />
-            <Headline delay={0.5} />
-            <Featured items={pieces} delay={1.2} />
-          </div>
-        </div>
+        <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, ease }}
+          className="relative h-full overflow-hidden rounded-[28px] bg-sidebar shadow-lift">
+          <Runway items={pieces} />
+        </motion.div>
       </div>
     </div>
   )

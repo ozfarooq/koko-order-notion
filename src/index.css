@@ -100,19 +100,16 @@
 }
 
 /* ── Login showcase motion ── */
-@keyframes marquee-up { from { transform: translateY(0) } to { transform: translateY(-50%) } }
-@keyframes ticker-left { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-.marquee-col { animation: marquee-up var(--dur, 60s) linear infinite; will-change: transform; }
-.marquee-col.marquee-down { animation-direction: reverse; }
-.marquee-col:hover { animation-play-state: paused; }
-.ticker-track { animation: ticker-left 48s linear infinite; }
+/* Story-style progress bar on the sign-in slideshow (duration set inline) */
+@keyframes runway-fill { from { width: 0 } to { width: 100% } }
+.runway-fill { animation: runway-fill linear forwards; }
 /* A soft highlight sweeps across a button on hover */
 .btn-shine { position: relative; overflow: hidden; isolation: isolate; }
 .btn-shine::after { content: ''; position: absolute; inset: 0; z-index: -1; transform: translateX(-120%);
   background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%); transition: transform 0.8s ease; }
 .btn-shine:hover::after { transform: translateX(120%); }
 @media (prefers-reduced-motion: reduce) {
-  .marquee-col, .ticker-track { animation: none !important; }
+  .runway-fill { animation: none !important; width: 100%; }
 }
 
 /* Scrollbars */
