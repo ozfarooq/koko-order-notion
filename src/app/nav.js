@@ -1,10 +1,10 @@
 import {
   LayoutDashboard, ClipboardList, Kanban, PlusCircle, Users, Store, FileText, Images, Contact, Shirt,
-  Truck, ReceiptText, Settings, Building2,
+  Truck, ReceiptText, Settings, Building2, Boxes,
 } from 'lucide-react'
 
 // Screens switched on as each phase ships
-export const FEATURES = { dashboard: true, customers: true, catalogue: true }
+export const FEATURES = { dashboard: true, customers: true, catalogue: true, inventory: true }
 
 // One navigation model, used by the sidebar, the phone "More" sheet and the command palette.
 // Items are filtered by permission; reseller sections are built from the resellers in the database.
@@ -24,6 +24,10 @@ export function buildNav({ can, user, resellers = [] }) {
         { to: '/catalogue', label: 'Catalogue', icon: Shirt, when: FEATURES.catalogue && can('products:read') },
       ].filter((i) => i.when !== false),
     })
+  }
+
+  if (!isReseller && FEATURES.inventory && can('inventory:read')) {
+    sections.push({ title: 'Studio', items: [{ to: '/inventory', label: 'Inventory', icon: Boxes }] })
   }
 
   if (can('fc:read') && resellers.length) {
