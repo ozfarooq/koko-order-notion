@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Plus, Trash2, Shirt, User, Ruler, CreditCard, Truck, StickyNote, RotateCcw, Minus, Gift } from 'lucide-react'
-import { addOrder, updateOrder, getOrderById, getNextNumbers, getCustomer, STATUS_OPTIONS, CHANNELS } from '../data/storage'
+import { ArrowLeft, Save, Plus, Trash2, Shirt, User, Ruler, CreditCard, Truck, StickyNote, RotateCcw, Minus, Gift, Warehouse } from 'lucide-react'
+import { addOrder, updateOrder, getOrderById, getNextNumbers, getCustomer, getPiecesForOrder, STATUS_OPTIONS, CHANNELS } from '../data/storage'
 import { MEASUREMENT_FIELDS, SIZE_OPTIONS } from '../data/measurements'
 import CustomerPicker from './orders/CustomerPicker'
 import ProductPicker from './orders/ProductPicker'
@@ -68,7 +68,8 @@ export default function OrderForm() {
     getOrderById(id).then((o) => {
       const items = o.items.map((i) => ({
         key: lineKey(), productId: i.productId, product: i.product, imageUrl: i.imageUrl, collection: i.collection,
-        size: i.size || '', quantity: i.quantity, unitPrice: i.unitPrice ?? '', note: i.note || '',
+        size: i.size || '', quantity: i.quantity, unitPrice: i.unitPrice ?? '', note: i.note || '', listPrice: i.listPrice != null ? Number(i.listPrice) : null,
+        useStock: (o.stockPieces || []).some((s) => s.productId === i.productId && s.size === i.size && s.status === 'At Studio'),
       }))
       const subtotal = items.reduce((s, i) => s + (Number(i.unitPrice) || 0) * i.quantity, 0)
       setOrderNumber(o.orderNumber)
@@ -90,10 +91,31 @@ export default function OrderForm() {
   const removeLine = (key) => setForm((f) => ({ ...f, items: f.items.filter((l) => l.key !== key) }))
   const addProduct = (p) => {
     setPicking(false)
-    setForm((f) => ({ ...f, items: [...f.items, { key: lineKey(), productId: p.id, product: p.name, imageUrl: p.imageUrl, collection: p.collection, size: 'Medium', quantity: 1, unitPrice: p.pricePkr ?? '' }] }))
+    setForm((f) => ({ ...f, items: [...f.items, { key: lineKey(), productId: p.id, product: p.name, imageUrl: p.imageUrl, collection: p.collection, size: 'Medium', quantity: 1, unitPrice: p.pricePkr ?? '', listPrice: p.pricePkr ?? null }] }))
     setErrors((e) => ({ ...e, items: undefined }))
   }
   const addCustomLine = () => setForm((f) => ({ ...f, items: [...f.items, { key: lineKey(), productId: null, product: '', size: 'Custom', quantity: 1, unitPrice: '' }] }))
+
+  // Studio pieces (shoot samples, reseller returns) that could fill a line instead of stitching a new one
+  const [studio, setStudio] = useState([])
+  const productKey = [...new Set(form.items.map((l) => l.productId).filter(Boolean))].sort().join(',')
+  useEffect(() => {
+    if (!productKey) { setStudio([]); return }
+    getPiecesForOrder(productKey, isEdit ? id : null).then(setStudio).catch(() => setStudio([]))
+  }, [productKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Hand out pieces line by line; pieces already reserved for this order come first
+  const stock = useMemo(() => {
+    const pool = [...studio].sort((a, b) => Number(b.reserved) - Number(a.reserved))
+    const byLine = {}
+    for (const l of form.items) {
+      const match = pool.filter((p) => p.productId === l.productId && p.size === l.size)
+      const take = l.useStock ? match.slice(0, Number(l.quantity) || 1) : []
+      byLine[l.key] = { available: match, taken: take }
+      take.forEach((p) => pool.splice(pool.indexOf(p), 1))
+    }
+    return byLine
+  }, [studio, form.items])
+  const stockPieceIds = Object.values(stock).flatMap((x) => x.taken.map((p) => p.id))
 
   const subtotal = useMemo(() => form.items.reduce((s, l) => s + (Number(l.unitPrice) || 0) * (Number(l.quantity) || 0), 0), [form.items])
   const isPR = form.orderType === 'PR'
@@ -125,6 +147,7 @@ export default function OrderForm() {
       reference: form.reference,
       ...(form.channel ? { channel: form.channel, shopifyOrderNumber: form.channel === 'Shopify' ? form.shopifyOrderNumber : '' } : {}),
       orderType: form.orderType, prHandle: isPR ? form.prHandle : '',
+      stockPieceIds,
       amount, advancePaid: isPR ? 0 : Number(form.advancePaid) || 0,
       paymentNotes: form.paymentNotes, specialInstructions: form.specialInstructions, measurements: form.measurements,
     }
@@ -188,7 +211,7 @@ export default function OrderForm() {
                 <AnimatePresence initial={false}>
                   {form.items.map((l) => (
                     <motion.li key={l.key} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.22, ease }}
-                      className="flex flex-col gap-3 rounded-xl border border-line p-3 sm:flex-row sm:items-center">
+                      className="flex flex-col gap-3 rounded-xl border border-line p-3 sm:flex-row sm:flex-wrap sm:items-center">
                       <div className="flex min-w-0 flex-1 items-center gap-3">
                         <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-subtle2">
                           {l.imageUrl ? <img src={l.imageUrl} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-faint"><Shirt size={18} /></div>}
@@ -214,6 +237,28 @@ export default function OrderForm() {
                         </div>
                         <button type="button" className="btn-icon hover:text-rose-600" onClick={() => removeLine(l.key)} aria-label="Remove"><Trash2 size={15} /></button>
                       </div>
+                      {isPR && l.productId && !Number(l.unitPrice) && l.listPrice > 0 && (
+                        <button type="button" onClick={() => setLine(l.key, { unitPrice: l.listPrice })}
+                          className="flex w-full items-center gap-2 rounded-lg bg-pink-50 px-3 py-2 text-left text-xs text-pink-800 transition hover:bg-pink-100 dark:bg-pink-950/40 dark:text-pink-200">
+                          <Gift size={14} className="flex-shrink-0" />The price is 0, so this gift's value won't be recorded. <b className="underline">Use website price ({money(l.listPrice)})</b>
+                        </button>
+                      )}
+                      {stock[l.key]?.available.length > 0 && (() => {
+                        const { available, taken } = stock[l.key]
+                        const samples = available.filter((p) => p.kind === 'Sample').length
+                        const what = samples === available.length ? `shoot sample${samples > 1 ? 's' : ''}` : samples ? 'pieces, incl. a shoot sample' : `piece${available.length > 1 ? 's' : ''}`
+                        return (
+                          <label className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs transition ${l.useStock ? 'bg-plum-50 text-plum-800 dark:bg-plum-900/30 dark:text-plum-200' : 'bg-subtle text-muted hover:text-ink'}`}>
+                            <input type="checkbox" className="h-4 w-4 accent-[#7B2D45]" checked={!!l.useStock} onChange={(e) => setLine(l.key, { useStock: e.target.checked })} />
+                            <Warehouse size={14} className="flex-shrink-0" />
+                            <span>
+                              {available.length} {l.size} {what} at the studio. {l.useStock
+                                ? <b>Using {taken.length} from stock{taken.length < (Number(l.quantity) || 1) ? '; the rest will be stitched' : ''}.</b>
+                                : 'Tick to send it instead of stitching a new one.'}
+                            </span>
+                          </label>
+                        )
+                      })()}
                     </motion.li>
                   ))}
                 </AnimatePresence>
@@ -221,8 +266,9 @@ export default function OrderForm() {
             )}
             <div className="mt-3 flex items-center justify-between text-sm">
               <button type="button" className="text-xs font-semibold text-muted hover:text-accent" onClick={addCustomLine}>+ Custom item</button>
-              {form.items.length > 0 && <p className="text-muted">Items total <span className="ml-2 font-semibold text-ink">{money(subtotal)}</span></p>}
+              {form.items.length > 0 && <p className="text-muted">{isPR ? 'Value given' : 'Items total'} <span className="ml-2 font-semibold text-ink">{money(subtotal)}</span></p>}
             </div>
+            {isPR && form.items.length > 0 && <p className="mt-2 text-[11px] text-faint">PR / gift: keep each outfit's website price. It's recorded as the value given; nothing is charged.</p>}
           </Section>
 
           <Section icon={Truck} title="Delivery">

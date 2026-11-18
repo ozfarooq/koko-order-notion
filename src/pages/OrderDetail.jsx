@@ -3,9 +3,9 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
-  ArrowLeft, Pencil, Trash2, FileDown, Phone, Mail, MapPin, MessageCircle, Shirt, CreditCard, Ruler, Clock, Truck, StickyNote, User, Gift,
+  ArrowLeft, Pencil, Trash2, FileDown, Phone, Mail, MapPin, MessageCircle, Shirt, CreditCard, Ruler, Clock, Truck, StickyNote, User, Gift, Warehouse,
 } from 'lucide-react'
-import { getOrderById, getOrderHistory, deleteOrder, updateOrder, STATUS_OPTIONS } from '../data/storage'
+import { getOrderById, getOrderHistory, deleteOrder, updateOrder, addStockPieces, STATUS_OPTIONS, STOCK_SIZES } from '../data/storage'
 import { MEASUREMENT_FIELDS, hasMeasurements } from '../data/measurements'
 import StatusBadge from '../components/StatusBadge'
 import { Modal, Skeleton, money, fmtDate } from '../ui/kit'
@@ -65,13 +65,18 @@ export default function OrderDetail() {
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [load])
 
+  const [restocking, setRestocking] = useState(false)
+
   const changeStatus = async (status) => {
     const prev = order.status
     setOrder((o) => ({ ...o, status }))
     try {
-      setOrder(await updateOrder(id, { status }))
+      const saved = await updateOrder(id, { status })
+      setOrder(saved)
       setHistory(await getOrderHistory(id))
       toast.success(`Moved to ${status}`)
+      // A returned outfit can go back into studio stock to be sold again
+      if (status === 'Returned' && can('inventory:write') && restockable(saved).length) setRestocking(true)
     } catch (err) { setOrder((o) => ({ ...o, status: prev })); toast.error(err.message) }
   }
 
@@ -142,6 +147,11 @@ export default function OrderDetail() {
                     <p className="font-display text-lg font-semibold text-ink">{i.product}</p>
                     <p className="text-xs text-muted">{[i.collection, i.size && `Size ${i.size}`, `Qty ${i.quantity}`].filter(Boolean).join(' · ')}</p>
                     {i.note && i.productId && <p className="mt-0.5 truncate text-[11px] text-faint">{i.note}</p>}
+                    {(order.stockPieces || []).filter((s) => s.productId === i.productId && s.size === i.size).slice(0, 1).map((s) => (
+                      <span key={s.id} className="mt-1 inline-flex items-center gap-1 rounded-full bg-gold-50 px-2 py-0.5 text-[11px] font-semibold text-gold-700 dark:bg-gold-700/20 dark:text-gold-200">
+                        <Warehouse size={11} />From studio stock{s.kind === 'Sample' ? ' · shoot sample' : ''} · {s.status === 'At Studio' ? 'reserved' : s.status.toLowerCase()}
+                      </span>
+                    ))}
                   </div>
                   {i.unitPrice != null && <p className="text-sm font-semibold text-ink">{money(i.unitPrice * i.quantity)}</p>}
                 </li>
@@ -228,10 +238,52 @@ export default function OrderDetail() {
         </div>
       </motion.div>
 
+      <RestockModal open={restocking} order={order} onClose={() => setRestocking(false)} />
+
       <Modal open={confirmDelete} onClose={() => setConfirmDelete(false)} title={`Delete ${order.orderNumber}?`} size="sm"
         footer={<><button className="btn-secondary" onClick={() => setConfirmDelete(false)}>Cancel</button><button className="btn-danger" onClick={handleDelete} disabled={busy === 'delete'}>{busy === 'delete' ? 'Deleting…' : 'Delete order'}</button></>}>
         <p className="p-5 text-sm text-ink-soft">This removes the order and its items for good. The customer record stays.</p>
       </Modal>
     </div>
+  )
+}
+
+// Items of a returned order that can go back on the studio rail (studio pieces it was filled from are put back automatically)
+const restockable = (order) => order.items.filter((i) => i.productId && STOCK_SIZES.includes(i.size)
+  && !(order.stockPieces || []).some((s) => s.productId === i.productId && s.size === i.size))
+
+function RestockModal({ open, order, onClose }) {
+  const items = order ? restockable(order) : []
+  const [picked, setPicked] = useState(new Set())
+  const [saving, setSaving] = useState(false)
+  useEffect(() => { if (open) setPicked(new Set(items.map((i) => i.id))) }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  const save = async () => {
+    setSaving(true)
+    try {
+      let n = 0
+      for (const i of items.filter((x) => picked.has(x.id))) {
+        const r = await addStockPieces({ productId: i.productId, sizes: { [i.size]: i.quantity }, status: 'At Studio', source: 'Customer return', notes: `Returned from ${order.orderNumber}` })
+        n += r.created
+      }
+      toast.success(`${n} piece${n === 1 ? '' : 's'} back in studio stock`)
+      onClose()
+    } catch (err) { toast.error(err.message) } finally { setSaving(false) }
+  }
+  return (
+    <Modal open={open} onClose={onClose} size="sm" title="Back into studio stock?" subtitle={`${order?.orderNumber} was returned. Add the outfits to the studio so they can be sold again.`}
+      footer={<><button className="btn-secondary" onClick={onClose}>Not now</button><button className="btn-primary" onClick={save} disabled={saving || !picked.size}><Warehouse size={15} />{saving ? 'Adding…' : 'Add to stock'}</button></>}>
+      <ul className="space-y-2 p-5">
+        {items.map((i) => (
+          <li key={i.id}>
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line p-2.5 transition hover:bg-subtle">
+              <input type="checkbox" className="h-4 w-4 accent-[#7B2D45]" checked={picked.has(i.id)}
+                onChange={() => setPicked((p) => { const n = new Set(p); n.has(i.id) ? n.delete(i.id) : n.add(i.id); return n })} />
+              {i.imageUrl && <img src={i.imageUrl} alt="" className="h-12 w-9 rounded object-cover" />}
+              <span className="text-sm text-ink">{i.product} <span className="text-muted">· {i.size}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span></span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </Modal>
   )
 }

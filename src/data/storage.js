@@ -176,3 +176,6 @@ export const getStockHistory   = (id) => api(`/inventory/pieces/${id}/history`)
 export const deleteStockPiece  = (id) => api(`/inventory/pieces/${id}`, { method: 'DELETE', body: '{}' })
 export const getAvailableStock = () => api('/inventory/available')
 export const getLookbook = () => api('/lookbook')
+
+// Studio pieces an order could be filled from (shoot samples, reseller returns)
+export const getPiecesForOrder = (productIds, orderId) => api(`/inventory/for-order?productIds=${productIds}${orderId ? `&orderId=${orderId}` : ''}`)

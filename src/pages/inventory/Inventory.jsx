@@ -41,6 +41,7 @@ function Thumb({ src, className = 'h-14 w-11' }) {
 // Where a piece is, in a few words: the reseller, the order it went to, or the location note
 function whereabouts(p) {
   if (p.status === 'With Reseller' && p.reseller) return <Link to={`/resellers/${p.resellerId}/stock`} className="hover:text-accent hover:underline" onClick={(e) => e.stopPropagation()}>{p.reseller}</Link>
+  if (p.status === 'At Studio' && p.orderId) return <Link to={`/orders/${p.orderId}`} className="hover:text-accent hover:underline" onClick={(e) => e.stopPropagation()}>Reserved for {p.orderNumber}</Link>
   if ((p.status === 'Sold' || p.status === 'Gifted') && p.orderId) return <Link to={`/orders/${p.orderId}`} className="hover:text-accent hover:underline" onClick={(e) => e.stopPropagation()}>{p.orderNumber}</Link>
   if (p.status === 'Sold' && p.reseller) return `Sold by ${p.reseller}`
   if (p.source === 'Reseller return' || (p.status === 'At Studio' && p.reseller)) return `Returned by ${p.reseller}`
