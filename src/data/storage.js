@@ -153,3 +153,24 @@ export const recordReturns    = (id, r) => api(`/resellers/${id}/returns`, { met
 
 export const addConsignment = (handover) =>
   api('/consignments', { method: 'POST', body: JSON.stringify(handover) })
+
+// ── Studio inventory (pieces made ahead of an order) ───────────────────
+export const STOCK_SIZES = ['X-Small', 'Small', 'Medium', 'Large', 'X-Large']
+export const STOCK_STATUS_OPTIONS = [
+  { value: 'In Production', color: 'bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200/70 dark:bg-amber-900/30 dark:text-amber-300 dark:ring-white/10', dot: 'bg-amber-500' },
+  { value: 'At Studio',     color: 'bg-gold-100 text-gold-700 ring-1 ring-inset ring-gold-300/60 dark:bg-gold-700/25 dark:text-gold-200 dark:ring-white/10',       dot: 'bg-gold-500' },
+  { value: 'At Shoot',      color: 'bg-plum-100 text-plum-700 ring-1 ring-inset ring-plum-200/70 dark:bg-plum-800/30 dark:text-plum-300 dark:ring-white/10',       dot: 'bg-plum-500' },
+  { value: 'With Reseller', color: 'bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-200/70 dark:bg-sky-800/40 dark:text-sky-200 dark:ring-white/10',            dot: 'bg-sky-500' },
+  { value: 'Sold',          color: 'bg-green-100 text-green-700 ring-1 ring-inset ring-green-200/70 dark:bg-green-900/30 dark:text-green-300 dark:ring-white/10', dot: 'bg-green-600' },
+  { value: 'Archived',      color: 'bg-stone-100 text-stone-600 ring-1 ring-inset ring-stone-200/70 dark:bg-stone-800/40 dark:text-stone-300 dark:ring-white/10', dot: 'bg-stone-400' },
+  { value: 'Damaged',       color: 'bg-rose-50 text-rose-600 ring-1 ring-inset ring-rose-200/70 dark:bg-rose-900/30 dark:text-rose-300 dark:ring-white/10',       dot: 'bg-rose-600' },
+]
+const query = (f) => new URLSearchParams(Object.entries(f).filter(([, v]) => v !== '' && v != null)).toString()
+export const getInventory      = () => api('/inventory')
+export const getStockPieces    = (filters = {}) => api(`/inventory/pieces?${query(filters)}`)
+export const addStockPieces    = (b) => api('/inventory/pieces', { method: 'POST', body: JSON.stringify(b) })
+export const updateStockPiece  = (id, b) => api(`/inventory/pieces/${id}`, { method: 'PATCH', body: JSON.stringify(b) })
+export const moveStockPieces   = (pieceIds, status, moveNote) => api('/inventory/pieces/move', { method: 'POST', body: JSON.stringify({ pieceIds, status, moveNote }) })
+export const getStockHistory   = (id) => api(`/inventory/pieces/${id}/history`)
+export const deleteStockPiece  = (id) => api(`/inventory/pieces/${id}`, { method: 'DELETE', body: '{}' })
+export const getAvailableStock = () => api('/inventory/available')

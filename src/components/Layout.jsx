@@ -24,6 +24,7 @@ function Logo({ collapsed }) {
       {!collapsed && <>
         <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-7 w-auto dark:hidden" />
         <img src="/brand/wordmark-white.png" alt="" className="hidden h-7 w-auto opacity-90 dark:block" />
+        <span className="rounded border border-line-strong px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-muted">CRM</span>
       </>}
     </Link>
   )
@@ -183,6 +184,7 @@ export default function Layout() {
             <img src="/brand/emblem.png" alt="" className="h-9 w-auto dark:hidden" />
             <img src="/brand/emblem-white.png" alt="" className="hidden h-9 w-auto dark:block" />
             <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-6 w-auto dark:invert" />
+            <span className="rounded border border-line-strong px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-muted">CRM</span>
           </div>
           <button
             onClick={() => setPaletteOpen(true)}

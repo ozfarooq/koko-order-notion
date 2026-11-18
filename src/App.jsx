@@ -27,6 +27,7 @@ const ProductSheet    = lazy(() => import('./pages/resellers/ProductSheet'))
 const Handovers       = lazy(() => import('./pages/resellers/Handovers'))
 const Statements      = lazy(() => import('./pages/resellers/Statements'))
 const ResellerSettings = lazy(() => import('./pages/resellers/ResellerSettings'))
+const Inventory       = lazy(() => import('./pages/inventory/Inventory'))
 
 function Spinner({ full }) {
   return (
@@ -101,6 +102,7 @@ export default function App() {
                 <Route path="/catalogue" element={<Require permission="products:read"><Catalogue /></Require>} />
                 <Route path="/catalogue/collections/:collectionId" element={<Require permission="products:read"><Catalogue /></Require>} />
                 <Route path="/catalogue/products/:id" element={<Require permission="products:read"><ProductPage /></Require>} />
+                <Route path="/inventory" element={<Require permission="inventory:read"><Inventory /></Require>} />
 
                 <Route path="/resellers/:resellerId" element={<Require permission="fc:read"><ResellerScope><ResellerHome /></ResellerScope></Require>} />
                 <Route path="/resellers/:resellerId/stock" element={<Require permission="fc:read"><ResellerScope><ResellerStock /></ResellerScope></Require>} />

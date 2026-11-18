@@ -51,13 +51,14 @@ export default function Login() {
           <img src="/brand/emblem-white.png" alt="" className="hidden h-16 w-auto opacity-90 dark:block" />
           <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-11 w-auto dark:hidden" />
           <img src="/brand/wordmark-white.png" alt="" className="hidden h-11 w-auto opacity-90 dark:block" />
+          <span className="rounded border border-line-strong px-2 py-0.5 text-xs font-semibold tracking-[0.2em] text-muted">CRM</span>
         </motion.div>
 
         <div className="pointer-events-none relative my-10 hidden lg:block"><Headline /></div>
 
         <div className="pointer-events-none relative z-10 hidden space-y-6 lg:block">
           <CollectionTicker />
-          <p className="text-xs text-[#8E8D8A]/70">Koko Atelier © {new Date().getFullYear()}</p>
+          <p className="text-xs text-[#8E8D8A]/70">Koko Atelier CRM © {new Date().getFullYear()}</p>
         </div>
       </div>
 

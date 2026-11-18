@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Truck, Plus, ChevronDown, Trash2, Minus, Shirt, PackagePlus } from 'lucide-react'
-import { getConsignments, addConsignment, refreshResellers } from '../../data/storage'
+import { getConsignments, addConsignment, refreshResellers, getAvailableStock } from '../../data/storage'
 import { useAuth } from '../../auth/AuthContext'
 import { PageHeader, Modal, Field, SkeletonRows, EmptyState, ErrorBanner, fmtDate } from '../../ui/kit'
 import { ease } from '../../ui/motion'
@@ -14,13 +14,38 @@ import { StatusPill } from './ResellerStock'
 const fmt = (n) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
 let seq = 0
 
+function StockHint({ have, want }) {
+  const short = Math.max(0, want - have)
+  return (
+    <p className="w-full pl-11 text-[11px]">
+      {have > 0 && <span className="text-emerald-700 dark:text-emerald-400">{have} at studio</span>}
+      {short > 0 && <span className="text-faint">{have > 0 ? ` · ${short} more ` : 'None at studio, '}will be recorded as newly made</span>}
+    </p>
+  )
+}
+
 function HandoverForm({ open, onClose, reseller, lastPrice, onSaved }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [notes, setNotes] = useState('')
   const [lines, setLines] = useState([])
   const [picking, setPicking] = useState(false)
   const [saving, setSaving] = useState(false)
-  useEffect(() => { if (open) { setLines([]); setNotes(''); setDate(new Date().toISOString().slice(0, 10)) } }, [open])
+  const [stock, setStock] = useState(new Map())   // "productId|size" → pieces at the studio
+  useEffect(() => {
+    if (!open) return
+    setLines([]); setNotes(''); setDate(new Date().toISOString().slice(0, 10))
+    getAvailableStock().then((r) => setStock(new Map(r.map((x) => [`${x.productId}|${x.size}`, x.count])))).catch(() => setStock(new Map()))
+  }, [open])
+  // Studio stock left for each line after the lines above it take theirs (a hint only; saving is never blocked)
+  const atStudio = useMemo(() => {
+    const left = new Map(stock), out = new Map()
+    for (const l of lines) {
+      const k = `${l.productId}|${l.size}`, have = left.get(k) || 0
+      out.set(l.key, have)
+      left.set(k, Math.max(0, have - (Number(l.quantity) || 0)))
+    }
+    return out
+  }, [stock, lines])
 
   const add = (p) => {
     setPicking(false)
@@ -36,7 +61,7 @@ function HandoverForm({ open, onClose, reseller, lastPrice, onSaved }) {
     setSaving(true)
     try {
       const r = await addConsignment({ resellerId: reseller.id, handoverDate: date, notes, items: lines.map((l) => ({ productId: l.productId, size: l.size, quantity: Number(l.quantity), price: Number(l.price) })) })
-      toast.success(`Handover recorded · ${r.pieces} pieces`)
+      toast.success(`Handover recorded · ${r.pieces} piece${r.pieces === 1 ? '' : 's'} (${r.fromStudio} from studio stock)`)
       refreshResellers()
       onSaved()
       onClose()
@@ -74,6 +99,7 @@ function HandoverForm({ open, onClose, reseller, lastPrice, onSaved }) {
                     <input type="number" min="0" className="input pl-10" value={l.price} onChange={(e) => set(l.key, { price: e.target.value })} placeholder="Price" />
                   </div>
                   <button className="btn-icon hover:text-rose-600" onClick={() => setLines((x) => x.filter((y) => y.key !== l.key))} aria-label="Remove"><Trash2 size={15} /></button>
+                  <StockHint have={atStudio.get(l.key) || 0} want={Number(l.quantity) || 0} />
                 </motion.li>
               ))}
             </AnimatePresence>
