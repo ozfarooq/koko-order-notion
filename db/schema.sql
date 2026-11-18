@@ -9,6 +9,7 @@
 -- This file is the BASELINE. Later changes live in db/migrations/ and are applied with
 -- `node scripts/migrate.js` (production) — never edit this file to change the live database.
 --   002: discounts, alteration/laundry, reseller invoice no. & product codes (reseller_products)
+--   008: studio inventory: stock_pieces (one row per piece made ahead of an order) and stock_movements (history)
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (
