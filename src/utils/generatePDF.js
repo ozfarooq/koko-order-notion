@@ -141,7 +141,16 @@ export function buildPDFHTML(order, logos, photos) {
       ${order.channel ? `<tr><td>${label('Channel')}<div style="font-size:13px;font-weight:600;color:${C.ink};margin-top:3px;">${esc(order.channel)}</div></td></tr>` : ''}
     </table>`
   const row = (k, v, color = C.ink, bold = 500) => `<tr><td style="padding:5px 0;font-size:11px;color:${C.muted};">${k}</td><td style="padding:5px 0;font-size:12px;font-weight:${bold};color:${color};text-align:right;white-space:nowrap;">${v}</td></tr>`
-  const totals = `
+  const totals = order.orderType === 'PR' ? `
+    <div style="background:${C.white};border:1px solid ${C.line};border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(44,44,42,.06);">
+      ${label('Complimentary', 'margin-bottom:6px;')}
+      <div style="font-size:13px;font-weight:600;color:${C.ink};line-height:1.5;">A gift from Koko Atelier${order.prHandle ? ` for ${esc(order.prHandle)}` : ''}</div>
+      <div style="height:1px;background:${C.line};margin:10px 0 8px;"></div>
+      <table style="width:100%;border-collapse:collapse;"><tr>
+        <td style="font-size:12px;font-weight:600;color:${C.ink};">Amount due</td>
+        <td style="font-size:18px;font-weight:600;color:#15803D;text-align:right;white-space:nowrap;">${pkr(0)}</td>
+      </tr></table>
+    </div>` : `
     <div style="background:${C.white};border:1px solid ${C.line};border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(44,44,42,.06);">
       <table style="width:100%;border-collapse:collapse;">
         ${row('Order total', pkr(order.amount))}

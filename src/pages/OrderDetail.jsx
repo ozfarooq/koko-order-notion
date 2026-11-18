@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
-  ArrowLeft, Pencil, Trash2, FileDown, Phone, Mail, MapPin, MessageCircle, Shirt, CreditCard, Ruler, Clock, Truck, StickyNote, User,
+  ArrowLeft, Pencil, Trash2, FileDown, Phone, Mail, MapPin, MessageCircle, Shirt, CreditCard, Ruler, Clock, Truck, StickyNote, User, Gift,
 } from 'lucide-react'
 import { getOrderById, getOrderHistory, deleteOrder, updateOrder, STATUS_OPTIONS } from '../data/storage'
 import { MEASUREMENT_FIELDS, hasMeasurements } from '../data/measurements'
@@ -107,6 +107,7 @@ export default function OrderDetail() {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="tabular-nums font-medium text-2xl font-bold tracking-tight text-ink sm:text-3xl">{order.orderNumber}</h1>
             <StatusBadge status={order.status} />
+            {order.orderType === 'PR' && <span className="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2 py-0.5 text-xs font-semibold text-pink-700 dark:bg-pink-950/40 dark:text-pink-300"><Gift size={12} />PR / gift</span>}
             {order.channel && order.channel !== 'Shopify' && <span className="rounded-full bg-subtle2 px-2 py-0.5 text-xs font-semibold text-muted">{order.channel}</span>}
             {order.shopifyOrderNumber && (order.shopifyAdminUrl
               ? <a href={order.shopifyAdminUrl} target="_blank" rel="noreferrer" className="rounded-full bg-subtle2 px-2 py-0.5 text-xs font-semibold text-muted hover:text-accent">Shopify {order.shopifyOrderNumber} ↗</a>
@@ -146,7 +147,7 @@ export default function OrderDetail() {
                 </li>
               ))}
             </ul>
-            {subtotal > 0 && subtotal !== order.amount && <p className="mt-2 text-right text-xs text-muted">Items total {money(subtotal)} · order total {money(order.amount)}</p>}
+            {order.orderType !== 'PR' && subtotal > 0 && subtotal !== order.amount && <p className="mt-2 text-right text-xs text-muted">Items total {money(subtotal)} · order total {money(order.amount)}</p>}
           </Card>
 
           {(hasMeasurements(m)) && (
@@ -191,6 +192,18 @@ export default function OrderDetail() {
             {wa && <a href={wa} target="_blank" rel="noreferrer" className="btn-secondary mt-4 w-full"><MessageCircle size={15} className="text-emerald-600" />WhatsApp</a>}
           </Card>
 
+          {order.orderType === 'PR' ? (
+          <Card icon={Gift} title="PR / gift">
+            <div className="space-y-2 text-sm">
+              {order.prHandle && <div className="flex justify-between"><span className="text-muted">For</span><span className="font-semibold text-ink">{order.prHandle}</span></div>}
+              <div className="flex items-baseline justify-between">
+                <span className="text-muted">Value given</span>
+                <span className="font-display text-2xl font-semibold text-ink">{money(order.giftValue)}</span>
+              </div>
+              <p className="border-t border-line pt-2 text-xs text-faint">Sent free. Not counted as revenue.</p>
+            </div>
+          </Card>
+          ) : (
           <Card icon={CreditCard} title="Payment">
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted">Total</span><span className="font-semibold text-ink">{money(order.amount)}</span></div>
@@ -202,6 +215,7 @@ export default function OrderDetail() {
               </div>
             </div>
           </Card>
+          )}
 
           <Card icon={Truck} title="Delivery">
             <div className="space-y-2 text-sm">

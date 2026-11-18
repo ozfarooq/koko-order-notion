@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, Save, Plus, Trash2, Shirt, User, Ruler, CreditCard, Truck, StickyNote, RotateCcw, Minus } from 'lucide-react'
+import { ArrowLeft, Save, Plus, Trash2, Shirt, User, Ruler, CreditCard, Truck, StickyNote, RotateCcw, Minus, Gift } from 'lucide-react'
 import { addOrder, updateOrder, getOrderById, getNextNumbers, getCustomer, STATUS_OPTIONS, CHANNELS } from '../data/storage'
 import { MEASUREMENT_FIELDS, SIZE_OPTIONS } from '../data/measurements'
 import CustomerPicker from './orders/CustomerPicker'
@@ -18,7 +18,7 @@ const lineKey = () => `l${++keySeq}`
 const EMPTY = {
   customerId: null, customer: '', phone: '', email: '', address: '', city: '',
   items: [], status: 'New', orderDate: today(), deliveryDate: '', channel: '', reference: '', shopifyOrderNumber: '',
-  amount: '', amountManual: false, advancePaid: '', paymentNotes: '', specialInstructions: '',
+  amount: '', amountManual: false, advancePaid: '', paymentNotes: '', specialInstructions: '', orderType: 'Sale', prHandle: '',
   measurements: {},
 }
 
@@ -77,7 +77,8 @@ export default function OrderForm() {
         customerId: o.customerId, customer: o.customer, phone: o.phone, email: o.email, address: o.address, city: o.city,
         items, status: o.status, orderDate: o.orderDate || today(), deliveryDate: o.deliveryDate || '',
         channel: o.channel || '', reference: o.reference || '', shopifyOrderNumber: o.shopifyOrderNumber || '',
-        amount: o.amount ?? '', amountManual: Number(o.amount) !== subtotal, advancePaid: o.advancePaid ?? '',
+        amount: o.amount ?? '', amountManual: o.orderType !== 'PR' && Number(o.amount) !== subtotal, advancePaid: o.advancePaid ?? '',
+        orderType: o.orderType || 'Sale', prHandle: o.prHandle || '',
         paymentNotes: o.paymentNotes, specialInstructions: o.specialInstructions, measurements: o.measurements || {},
       })
     }).catch(() => { toast.error('Order not found'); navigate('/orders') })
@@ -95,14 +96,15 @@ export default function OrderForm() {
   const addCustomLine = () => setForm((f) => ({ ...f, items: [...f.items, { key: lineKey(), productId: null, product: '', size: 'Custom', quantity: 1, unitPrice: '' }] }))
 
   const subtotal = useMemo(() => form.items.reduce((s, l) => s + (Number(l.unitPrice) || 0) * (Number(l.quantity) || 0), 0), [form.items])
-  const amount = form.amountManual ? Number(form.amount) || 0 : subtotal
-  const balance = amount - (Number(form.advancePaid) || 0)
+  const isPR = form.orderType === 'PR'
+  const amount = isPR ? 0 : form.amountManual ? Number(form.amount) || 0 : subtotal
+  const balance = isPR ? 0 : amount - (Number(form.advancePaid) || 0)
 
   const validate = () => {
     const e = {}
     if (!form.customer.trim()) e.customer = 'Choose or add a customer'
     if (!form.items.some((l) => l.productId || l.product.trim())) e.items = 'Add at least one product'
-    if (!amount) e.amount = 'Enter the order amount'
+    if (!amount && !isPR) e.amount = 'Enter the order amount'
     if (!form.channel && !isEdit) e.channel = 'Choose where the order came from'
     setErrors(e)
     if (Object.keys(e).length) toast.error(Object.values(e)[0])
@@ -122,7 +124,8 @@ export default function OrderForm() {
       status: form.status, orderDate: form.orderDate, deliveryDate: form.deliveryDate,
       reference: form.reference,
       ...(form.channel ? { channel: form.channel, shopifyOrderNumber: form.channel === 'Shopify' ? form.shopifyOrderNumber : '' } : {}),
-      amount, advancePaid: Number(form.advancePaid) || 0,
+      orderType: form.orderType, prHandle: isPR ? form.prHandle : '',
+      amount, advancePaid: isPR ? 0 : Number(form.advancePaid) || 0,
       paymentNotes: form.paymentNotes, specialInstructions: form.specialInstructions, measurements: form.measurements,
     }
     try {
@@ -253,6 +256,16 @@ export default function OrderForm() {
         <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
           <section className="card space-y-4 p-5">
             <h2 className="section-title">Order</h2>
+            <Field label="Order type" hint={isPR ? 'Sent free to an influencer. Not counted as revenue.' : undefined}>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[['Sale', 'Sale'], ['PR', 'PR / gift']].map(([v, l]) => (
+                  <button key={v} type="button" onClick={() => setForm((f) => ({ ...f, orderType: v }))}
+                    className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition ${form.orderType === v ? 'border-brand-primary bg-brand-primary text-white' : 'border-line bg-surface text-ink hover:border-plum-300'}`}>
+                    {v === 'PR' && <Gift size={14} />}{l}
+                  </button>
+                ))}
+              </div>
+            </Field>
             <Field label="Sales channel" error={errors.channel}>
               <div className="flex flex-wrap gap-1.5">
                 {CHANNELS.map((c) => (
@@ -281,6 +294,20 @@ export default function OrderForm() {
             </Field>
           </section>
 
+          {isPR ? (
+          <section className="card space-y-4 p-5">
+            <div className="flex items-center gap-2"><Gift size={16} className="text-pink-500" /><h2 className="section-title">PR / gift</h2></div>
+            <Field label="Influencer's handle" hint="Who the outfit is for, e.g. their Instagram">
+              <input className="input" value={form.prHandle} onChange={set('prHandle')} placeholder="@handle" />
+            </Field>
+            <div className="flex items-center justify-between rounded-xl bg-subtle p-3">
+              <span className="text-sm text-muted">Value given</span>
+              <span className="font-display text-2xl font-semibold text-ink">{money(subtotal)}</span>
+            </div>
+            <p className="text-xs text-faint">The outfit's website price, kept to show what PR costs. No payment is collected and it isn't counted as revenue.</p>
+            <Field label="Notes"><textarea className="input" rows={2} value={form.paymentNotes} onChange={set('paymentNotes')} placeholder="e.g. Reel and 2 stories agreed" /></Field>
+          </section>
+          ) : (
           <section className="card space-y-4 p-5">
             <div className="flex items-center gap-2"><CreditCard size={16} className="text-gold-500" /><h2 className="section-title">Payment</h2></div>
             <Field label="Order total" error={errors.amount}>
@@ -308,13 +335,16 @@ export default function OrderForm() {
             </div>
             <Field label="Payment notes"><textarea className="input" rows={2} value={form.paymentNotes} onChange={set('paymentNotes')} placeholder="e.g. advance via JazzCash" /></Field>
           </section>
+          )}
         </aside>
       </div>
 
       {/* Phone save bar */}
       <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+56px)] z-30 border-t border-line bg-surface/95 p-3 backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-6xl items-center gap-3">
-          <div className="flex-1"><p className="text-[11px] text-muted">Total · balance</p><p className="text-sm font-semibold text-ink">{money(amount)} · <span className={balance > 0 ? 'text-rose-600' : 'text-emerald-700'}>{money(balance)}</span></p></div>
+          {isPR
+            ? <div className="flex-1"><p className="text-[11px] text-muted">PR / gift · value given</p><p className="text-sm font-semibold text-ink">{money(subtotal)}</p></div>
+            : <div className="flex-1"><p className="text-[11px] text-muted">Total · balance</p><p className="text-sm font-semibold text-ink">{money(amount)} · <span className={balance > 0 ? 'text-rose-600' : 'text-emerald-700'}>{money(balance)}</span></p></div>}
           <button type="submit" className="btn-primary" disabled={saving}><Save size={15} />{saving ? 'Saving…' : isEdit ? 'Save' : 'Create'}</button>
         </div>
       </div>

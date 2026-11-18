@@ -162,6 +162,7 @@ export const STOCK_STATUS_OPTIONS = [
   { value: 'At Shoot',      color: 'bg-plum-100 text-plum-700 ring-1 ring-inset ring-plum-200/70 dark:bg-plum-800/30 dark:text-plum-300 dark:ring-white/10',       dot: 'bg-plum-500' },
   { value: 'With Reseller', color: 'bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-200/70 dark:bg-sky-800/40 dark:text-sky-200 dark:ring-white/10',            dot: 'bg-sky-500' },
   { value: 'Sold',          color: 'bg-green-100 text-green-700 ring-1 ring-inset ring-green-200/70 dark:bg-green-900/30 dark:text-green-300 dark:ring-white/10', dot: 'bg-green-600' },
+  { value: 'Gifted',        color: 'bg-pink-50 text-pink-700 ring-1 ring-inset ring-pink-200/70 dark:bg-pink-950/40 dark:text-pink-300 dark:ring-white/10',       dot: 'bg-pink-500' },
   { value: 'Archived',      color: 'bg-stone-100 text-stone-600 ring-1 ring-inset ring-stone-200/70 dark:bg-stone-800/40 dark:text-stone-300 dark:ring-white/10', dot: 'bg-stone-400' },
   { value: 'Damaged',       color: 'bg-rose-50 text-rose-600 ring-1 ring-inset ring-rose-200/70 dark:bg-rose-900/30 dark:text-rose-300 dark:ring-white/10',       dot: 'bg-rose-600' },
 ]

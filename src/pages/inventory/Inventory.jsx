@@ -41,7 +41,7 @@ function Thumb({ src, className = 'h-14 w-11' }) {
 // Where a piece is, in a few words: the reseller, the order it went to, or the location note
 function whereabouts(p) {
   if (p.status === 'With Reseller' && p.reseller) return <Link to={`/resellers/${p.resellerId}/stock`} className="hover:text-accent hover:underline" onClick={(e) => e.stopPropagation()}>{p.reseller}</Link>
-  if (p.status === 'Sold' && p.orderId) return <Link to={`/orders/${p.orderId}`} className="hover:text-accent hover:underline" onClick={(e) => e.stopPropagation()}>{p.orderNumber}</Link>
+  if ((p.status === 'Sold' || p.status === 'Gifted') && p.orderId) return <Link to={`/orders/${p.orderId}`} className="hover:text-accent hover:underline" onClick={(e) => e.stopPropagation()}>{p.orderNumber}</Link>
   if (p.status === 'Sold' && p.reseller) return `Sold by ${p.reseller}`
   if (p.source === 'Reseller return' || (p.status === 'At Studio' && p.reseller)) return `Returned by ${p.reseller}`
   return p.locationNote || null
@@ -172,9 +172,10 @@ function PieceModal({ piece, onClose, onSaved, canWrite }) {
 
   const save = async () => {
     if (form.status === 'Damaged' && moving && !form.moveNote.trim()) return toast.error('Say why the piece is damaged or lost')
+    if (form.status === 'Gifted' && moving && !form.moveNote.trim()) return toast.error('Say who the piece was given to')
     setSaving(true)
     try {
-      await updateStockPiece(piece.id, { ...form, orderNumber: form.status === 'Sold' ? form.orderNumber : undefined })
+      await updateStockPiece(piece.id, { ...form, orderNumber: ['Sold', 'Gifted'].includes(form.status) ? form.orderNumber : undefined })
       toast.success('Piece updated'); onSaved(); onClose()
     } catch (err) { toast.error(err.message) } finally { setSaving(false) }
   }
@@ -208,17 +209,17 @@ function PieceModal({ piece, onClose, onSaved, canWrite }) {
             <Field label="Kind">
               <select className="input" value={form.kind} onChange={(e) => set({ kind: e.target.value })}><option value="Stock">Stock</option><option value="Sample">Shoot sample</option></select>
             </Field>
-            {form.status === 'Sold' && (
-              <Field label="Order number" hint="Optional: the customer order it went to">
+            {['Sold', 'Gifted'].includes(form.status) && (
+              <Field label="Order number" hint={form.status === 'Gifted' ? 'Optional: the PR order it went out with' : 'Optional: the customer order it went to'}>
                 <input className="input" value={form.orderNumber} onChange={(e) => set({ orderNumber: e.target.value })} placeholder="SO-000123" />
               </Field>
             )}
-            <Field label="Where it is" className={form.status === 'Sold' ? '' : 'sm:col-span-2'}>
+            <Field label="Where it is" className={['Sold', 'Gifted'].includes(form.status) ? '' : 'sm:col-span-2'}>
               <input className="input" value={form.locationNote} onChange={(e) => set({ locationNote: e.target.value })} placeholder="e.g. With photographer Ali" />
             </Field>
             {moving && (
-              <Field label={form.status === 'Damaged' ? 'Reason (required)' : 'Note for this move'} className="sm:col-span-2">
-                <input className="input" value={form.moveNote} onChange={(e) => set({ moveNote: e.target.value })} placeholder={form.status === 'Damaged' ? 'e.g. Stain on the front, lost by courier' : 'Optional'} autoFocus={form.status === 'Damaged'} />
+              <Field label={form.status === 'Damaged' ? 'Reason (required)' : form.status === 'Gifted' ? 'Given to (required)' : 'Note for this move'} className="sm:col-span-2">
+                <input className="input" value={form.moveNote} onChange={(e) => set({ moveNote: e.target.value })} placeholder={form.status === 'Damaged' ? 'e.g. Stain on the front, lost by courier' : form.status === 'Gifted' ? 'e.g. PR to @zainaarshad' : 'Optional'} autoFocus={['Damaged', 'Gifted'].includes(form.status)} />
               </Field>
             )}
             <Field label="Notes" className="sm:col-span-2"><input className="input" value={form.notes} onChange={(e) => set({ notes: e.target.value })} /></Field>

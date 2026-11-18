@@ -10,6 +10,7 @@
 -- `node scripts/migrate.js` (production) — never edit this file to change the live database.
 --   002: discounts, alteration/laundry, reseller invoice no. & product codes (reseller_products)
 --   008: studio inventory: stock_pieces (one row per piece made ahead of an order) and stock_movements (history)
+--   009: PR / gift orders (orders.order_type, pr_handle; never revenue) and the Gifted stock status
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (

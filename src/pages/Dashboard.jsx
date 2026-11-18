@@ -84,7 +84,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {d.showMoney
               ? <StatCard label="Revenue this month" value={k.revenueThisMonth} prefix="PKR " tone="plum" icon={delta != null && delta < 0 ? TrendingDown : TrendingUp}
-                  sub={delta == null ? `${k.ordersThisMonth} orders` : `${delta >= 0 ? '+' : ''}${delta}% vs last month · ${k.ordersThisMonth} orders`} />
+                  sub={(delta == null ? `${k.ordersThisMonth} orders` : `${delta >= 0 ? '+' : ''}${delta}% vs last month · ${k.ordersThisMonth} orders`)
+                    + (k.prThisMonth ? ` · ${k.prThisMonth} PR gift${k.prThisMonth === 1 ? '' : 's'} (${money(k.prValueThisMonth)}) not included` : '')} />
               : <StatCard label="Orders this month" value={k.ordersThisMonth} tone="plum" icon={TrendingUp} sub={`${k.ordersLastMonth} last month`} />}
             {d.showMoney
               ? <StatCard label="Balance outstanding" value={k.outstanding} prefix="PKR " tone={k.outstanding ? 'red' : 'green'} icon={Wallet} sub={k.owingOrders ? `${k.owingOrders} order${k.owingOrders === 1 ? '' : 's'} owe` : 'Everyone has paid'} />

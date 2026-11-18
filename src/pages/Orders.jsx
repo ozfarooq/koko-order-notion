@@ -59,7 +59,7 @@ function StatusGroup({ statusMeta, orders, onOpen, selectedIds, onToggle, defaul
                     <td className="td font-medium text-ink">{o.customer}{o.reference && <span className="ml-2 text-[11px] text-faint">{o.reference}</span>}</td>
                     <td className="td max-w-xs truncate">{o.product}</td>
                     <td className="td whitespace-nowrap">{fmtDate(o.deliveryDate)}</td>
-                    <td className="td whitespace-nowrap font-medium text-ink">{money(o.amount)}</td>
+                    <td className="td whitespace-nowrap font-medium text-ink">{o.orderType === 'PR' ? <span className="rounded-full bg-pink-50 px-2 py-0.5 text-[11px] font-semibold text-pink-700 dark:bg-pink-950/40 dark:text-pink-300">PR / gift</span> : money(o.amount)}</td>
                     <td className={`td whitespace-nowrap font-semibold ${o.balanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-faint'}`}>{o.balanceDue > 0 ? money(o.balanceDue) : '—'}</td>
                   </tr>
                 ))}
@@ -74,7 +74,7 @@ function StatusGroup({ statusMeta, orders, onOpen, selectedIds, onToggle, defaul
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
                       <p className="truncate font-medium text-ink">{o.customer}</p>
-                      <p className="text-sm font-semibold text-ink">{money(o.amount)}</p>
+                      <p className="text-sm font-semibold text-ink">{o.orderType === 'PR' ? <span className="text-pink-700 dark:text-pink-300">PR / gift</span> : money(o.amount)}</p>
                     </div>
                     <p className="truncate text-xs text-muted">{o.product}</p>
                     <div className="mt-1.5 flex items-center justify-between text-[11px] text-faint">
@@ -124,7 +124,7 @@ export default function Orders() {
     const q = query.trim().toLowerCase()
     return orders.filter((o) =>
       (statusFilter === 'all' || (statusFilter === 'active' ? ACTIVE(o) : o.status === statusFilter)) &&
-      (!q || [o.orderNumber, o.customer, o.product, o.phone, o.reference, o.shopifyOrderNumber, o.channel].some((v) => (v || '').toLowerCase().includes(q))))
+      (!q || [o.orderNumber, o.customer, o.product, o.phone, o.reference, o.shopifyOrderNumber, o.channel, o.prHandle, o.orderType === 'PR' ? 'pr gift' : ''].some((v) => (v || '').toLowerCase().includes(q))))
   }, [orders, query, statusFilter])
   const grouped = groupByStatus(filtered)
 
