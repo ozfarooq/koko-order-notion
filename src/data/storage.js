@@ -179,3 +179,7 @@ export const getLookbook = () => api('/lookbook')
 
 // Studio pieces an order could be filled from (shoot samples, reseller returns)
 export const getPiecesForOrder = (productIds, orderId) => api(`/inventory/for-order?productIds=${productIds}${orderId ? `&orderId=${orderId}` : ''}`)
+export const updatePayment    = (id, paymentId, p) => api(`/resellers/${id}/payments/${paymentId}`, { method: 'PATCH', body: JSON.stringify(p) })
+export const addPaymentFile   = (id, paymentId, f) => api(`/resellers/${id}/payments/${paymentId}/files`, { method: 'POST', body: JSON.stringify(f) })
+export const getPaymentFile   = (id, paymentId, fileId) => api(`/resellers/${id}/payments/${paymentId}/files/${fileId}`)
+export const deletePaymentFile = (id, paymentId, fileId) => api(`/resellers/${id}/payments/${paymentId}/files/${fileId}`, { method: 'DELETE', body: '{}' })

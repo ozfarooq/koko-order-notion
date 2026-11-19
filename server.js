@@ -5,7 +5,7 @@ import express from 'express'
 import { handleApi } from './lib/router.js'
 
 const app = express()
-app.use(express.json())
+app.use(express.json({ limit: '5mb' }))   // payment attachments (up to 2.5 MB, base64)
 app.use('/api', (req, res) => {
   req.url = req.originalUrl   // the router expects the full /api/... path, as on Vercel
   return handleApi(req, res)

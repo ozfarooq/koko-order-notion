@@ -202,6 +202,9 @@ export default function Dashboard() {
                       <div><dt className="text-muted">Sold, unpaid</dt><dd className="font-display text-[17px] font-semibold text-orange-600">{r.unpaid}</dd>{r.owed != null && <dd className="text-faint">{r.currency} {Math.round(r.owed).toLocaleString()}</dd>}</div>
                       <div><dt className="text-muted">Sold this month</dt><dd className="font-display text-[17px] font-semibold text-emerald-700 dark:text-emerald-400">{r.soldThisMonth}</dd>{r.netThisMonth != null && <dd className="text-faint">{r.currency} {Math.round(r.netThisMonth).toLocaleString()}</dd>}</div>
                     </dl>
+                    {r.receivedThisMonth > 0 && (
+                      <p className="mt-3 border-t border-line pt-2 text-xs text-muted">Received this month <span className="font-semibold text-emerald-700 dark:text-emerald-400">{r.currency} {Math.round(r.receivedThisMonth).toLocaleString()}</span>{r.receivedThisMonthPkr != null && <> · <span className="font-semibold text-ink">PKR {Math.round(r.receivedThisMonthPkr).toLocaleString()}</span> in the bank</>}</p>
+                    )}
                   </Link>
                 ))}
               </div>

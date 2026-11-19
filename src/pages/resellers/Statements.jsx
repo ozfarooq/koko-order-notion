@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { FileText, Printer, Plus, Trash2, Wallet, ReceiptText, Banknote, Undo2 } from 'lucide-react'
-import { getConsignments, getPayments, enterStatement, recordPayment, deletePayment, pieceMoney } from '../../data/storage'
+import { FileText, Printer, Plus, Trash2, ReceiptText, Banknote } from 'lucide-react'
+import { getConsignments, getPayments, enterStatement, pieceMoney } from '../../data/storage'
+import Payments from './Payments'
 import { useAuth } from '../../auth/AuthContext'
-import { PageHeader, Segmented, Modal, Field, StatCard, SkeletonRows, EmptyState, ErrorBanner, fmtDate } from '../../ui/kit'
+import { PageHeader, Segmented, Field, SkeletonRows, EmptyState, ErrorBanner, fmtDate } from '../../ui/kit'
 import { ease } from '../../ui/motion'
 
 const f2 = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -48,6 +49,16 @@ function StatementView({ reseller, pieces, payments }) {
           </div>
           <img src="/brand/wordmark.png" alt="Koko Atelier" className="h-12 w-auto dark:invert" />
         </div>
+        {sold.length > 0 && (
+          <div className="mb-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-5">
+            {[['Total gross', t.gross], ['Total net', t.net], ['Total commission', t.comm], ['Alteration / laundry', t.alt], ['Total payable', t.payable]].map(([k, v], i) => (
+              <div key={k} className={`bg-surface px-3 py-2.5 ${i === 4 ? 'col-span-2 sm:col-span-1' : ''}`}>
+                <p className="font-label text-[10px] font-semibold uppercase tracking-wider text-muted">{k}</p>
+                <p className={`font-display text-lg font-semibold tabular-nums ${i === 4 ? 'text-accent' : 'text-ink'}`}>{f2(v)}</p>
+              </div>
+            ))}
+          </div>
+        )}
         {sold.length === 0 ? <p className="py-8 text-center text-sm text-muted">No sales in this period.</p> : (
           <table className="w-full min-w-[980px] border-collapse text-sm">
             <thead>
@@ -90,6 +101,17 @@ function StatementView({ reseller, pieces, payments }) {
           <div className="rounded-xl border border-line bg-surface p-4 shadow-sm"><p className="text-xs text-muted">Already paid</p><p className="font-display text-2xl font-semibold text-emerald-700 dark:text-emerald-400">{cur} {f2(paidHere)}</p></div>
           <div className="rounded-xl border border-line bg-surface p-4 shadow-sm"><p className="text-xs text-muted">Still owed</p><p className="font-display text-2xl font-semibold text-rose-600">{cur} {f2(t.payable - paidHere)}</p></div>
         </div>
+        {period !== 'all' && (() => {
+          const forMonth = payments.filter((p) => p.period === period)
+          return (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <Banknote size={15} className={forMonth.length ? 'text-emerald-600' : 'text-faint'} />
+              {forMonth.length
+                ? forMonth.map((p) => <span key={p.id} className="text-ink">Paid {fmtDate(p.paidOn)} · {cur} {f2(p.amount)}{p.amountPkr != null ? ` · PKR ${Number(p.amountPkr).toLocaleString()}` : ''}{p.reference ? ` · ${p.reference}` : ''}</span>)
+                : <span className="text-muted">No payment recorded for {monthLabel(period)} yet.</span>}
+            </div>
+          )
+        })()}
         {period === 'all' && payments.length > 0 && (
           <p className="mt-3 text-xs text-muted">Payments received: {payments.map((p) => `${fmtDate(p.paidOn)} ${cur} ${f2(p.amount)}${p.reference ? ` (${p.reference})` : ''}`).join(' · ')}</p>
         )}
@@ -172,94 +194,6 @@ function EnterSales({ reseller, pieces, onSaved }) {
 }
 
 // ── Payments received ─────────────────────────────────────────────────
-function Payments({ reseller, pieces, payments, canWrite, onSaved }) {
-  const unpaid = pieces.filter((p) => p.status === 'FC - Sold')
-  const untracked = pieces.filter((p) => p.status === 'FC - Paid' && !p.paymentId)
-  const [open, setOpen] = useState(false)
-  const [selected, setSelected] = useState(new Set())
-  const [form, setForm] = useState({ paidOn: today(), amount: '', reference: '', notes: '' })
-  const [saving, setSaving] = useState(false)
-  const expected = unpaid.filter((p) => selected.has(p.id)).reduce((s, p) => s + pieceMoney(p).netPayable, 0)
-
-  const start = () => { setSelected(new Set(unpaid.map((p) => p.id))); setForm({ paidOn: today(), amount: '', reference: '', notes: '' }); setOpen(true) }
-  const toggle = (id) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const save = async () => {
-    setSaving(true)
-    try {
-      const amount = form.amount === '' ? Math.round(expected * 100) / 100 : Number(form.amount)
-      const r = await recordPayment(reseller.id, { ...form, amount, pieceIds: [...selected] })
-      toast.success(`Payment recorded · ${r.pieces} piece${r.pieces === 1 ? '' : 's'} marked paid`)
-      setOpen(false)
-      onSaved()
-    } catch (err) { toast.error(err.message) } finally { setSaving(false) }
-  }
-  const remove = async (p) => {
-    if (!window.confirm(`Remove the ${fmtDate(p.paidOn)} payment? Its ${p.pieces} piece(s) go back to "Sold".`)) return
-    try { await deletePayment(reseller.id, p.id); toast.success('Payment removed'); onSaved() } catch (err) { toast.error(err.message) }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard label="Owed now (sold, unpaid)" value={unpaid.reduce((s, p) => s + pieceMoney(p).netPayable, 0)} prefix={`${reseller.currency} `} tone="orange" icon={Wallet} sub={`${unpaid.length} piece${unpaid.length === 1 ? '' : 's'}`} />
-        <StatCard label="Received in total" value={payments.reduce((s, p) => s + p.amount, 0)} prefix={`${reseller.currency} `} tone="green" icon={Banknote} sub={`${payments.length} payment${payments.length === 1 ? '' : 's'}`} />
-        {canWrite && <div className="card flex items-center justify-center p-4"><button className="btn-primary" onClick={start} disabled={!unpaid.length}><Plus size={15} />Record a payment</button></div>}
-      </div>
-
-      {untracked.length > 0 && <p className="text-xs text-muted">{untracked.length} piece{untracked.length === 1 ? ' was' : 's were'} marked paid before payments were tracked ({reseller.currency} {f2(untracked.reduce((s, p) => s + pieceMoney(p).netPayable, 0))}), so {untracked.length === 1 ? 'it is not' : 'they are not'} listed below.</p>}
-      {payments.length === 0 ? <EmptyState icon={Banknote} title="No payments recorded" hint={unpaid.length ? 'Record a payment when the reseller transfers money.' : 'Payments appear here once sold pieces are paid for.'} /> : (
-        <div className="card overflow-hidden">
-          <ul className="divide-y divide-line">
-            {payments.map((p) => {
-              const diff = Math.round((p.amount - p.expected) * 100) / 100
-              return (
-                <li key={p.id} className="flex flex-wrap items-center gap-4 px-5 py-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40"><Banknote size={18} /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-ink">{fmtDate(p.paidOn)} · {p.currency} {f2(p.amount)}</p>
-                    <p className="text-xs text-muted">{p.pieces} piece{p.pieces === 1 ? '' : 's'}{p.reference ? ` · ${p.reference}` : ''}{p.createdBy ? ` · by ${p.createdBy}` : ''}{p.notes ? ` · ${p.notes}` : ''}</p>
-                  </div>
-                  {p.pieces > 0 && Math.abs(diff) >= 1 && <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${diff < 0 ? 'bg-rose-50 text-rose-700' : 'bg-sky-50 text-sky-700'}`}>{diff < 0 ? 'short' : 'over'} {p.currency} {f2(Math.abs(diff))}</span>}
-                  {canWrite && <button className="btn-icon hover:text-rose-600" onClick={() => remove(p)} title="Remove payment"><Undo2 size={15} /></button>}
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      )}
-
-      <Modal open={open} onClose={() => setOpen(false)} title="Record a payment" subtitle={`Money received from ${reseller.name}`} size="lg"
-        footer={<><button className="btn-secondary" onClick={() => setOpen(false)}>Cancel</button><button className="btn-primary" onClick={save} disabled={saving || !selected.size}>{saving ? 'Saving…' : `Mark ${selected.size} paid`}</button></>}>
-        <div className="space-y-4 p-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Date received"><input type="date" className="input" value={form.paidOn} onChange={(e) => setForm((f) => ({ ...f, paidOn: e.target.value }))} /></Field>
-            <Field label={`Amount (${reseller.currency})`} hint={`Pieces total ${f2(expected)}`}><input type="number" min="0" className="input" value={form.amount} placeholder={f2(expected)} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} /></Field>
-            <Field label="Reference"><input className="input" value={form.reference} onChange={(e) => setForm((f) => ({ ...f, reference: e.target.value }))} placeholder="Bank transfer ref." /></Field>
-          </div>
-          <div className="rounded-xl border border-line">
-            <div className="flex items-center justify-between border-b border-line px-3 py-2 text-xs text-muted">
-              <span>Pieces this payment covers</span>
-              <button className="font-semibold text-accent" onClick={() => setSelected(selected.size === unpaid.length ? new Set() : new Set(unpaid.map((p) => p.id)))}>{selected.size === unpaid.length ? 'None' : 'All'}</button>
-            </div>
-            <ul className="max-h-64 divide-y divide-line overflow-y-auto">
-              {unpaid.map((p) => (
-                <li key={p.id}>
-                  <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-subtle">
-                    <input type="checkbox" className="accent-plum-600" checked={selected.has(p.id)} onChange={() => toggle(p.id)} />
-                    <span className="flex-1 truncate text-sm text-ink">{p.product} <span className="text-faint">· {p.size} · sold {fmtDate(p.soldOn)}</span></span>
-                    <span className="text-sm font-semibold text-ink">{f2(pieceMoney(p).netPayable)}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <Field label="Notes"><input className="input" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} /></Field>
-        </div>
-      </Modal>
-    </div>
-  )
-}
-
 export default function Statements() {
   const { resellerId } = useParams()
   const { can } = useAuth()
