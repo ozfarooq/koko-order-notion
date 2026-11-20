@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ClipboardList, Kanban, PlusCircle, Users, Store, FileText, Images, Contact, Shirt,
-  Truck, ReceiptText, Settings, Building2, Boxes,
+  Truck, ReceiptText, Settings, Building2, Boxes, HelpCircle,
 } from 'lucide-react'
 
 // Screens switched on as each phase ships
@@ -46,6 +46,7 @@ export function buildNav({ can, user, resellers = [] }) {
           { to: `/resellers/${r.id}/reports/inventory`, label: 'Inventory report', icon: FileText },
           { to: `/resellers/${r.id}/reports/product-sheet`, label: 'Product sheet', icon: Images },
           { to: `/resellers/${r.id}/settings`, label: 'Settings', icon: Settings, when: can('resellers:manage') },
+          { to: `/resellers/${r.id}/help`, label: isReseller ? 'Help' : 'Reseller help', icon: HelpCircle },
         ].filter((i) => i.when !== false),
       })),
     })
