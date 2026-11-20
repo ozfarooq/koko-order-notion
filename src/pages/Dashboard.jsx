@@ -7,6 +7,7 @@ import { getDashboard } from '../data/storage'
 import { PageHeader, StatCard, SkeletonCards, Skeleton, ErrorBanner, money, fmtDate } from '../ui/kit'
 import { listParent, listItem } from '../ui/motion'
 import StatusBadge from '../components/StatusBadge'
+import { monthShort as monthYear, monthLabel, PayBadge } from './resellers/months'
 
 const STATUS_HEX = {
   New: '#C9A96E', 'In Tailoring': '#E39B2B', Ready: '#7B2D45', 'Payment Pending': '#B45309',
@@ -202,6 +203,26 @@ export default function Dashboard() {
                       <div><dt className="text-muted">Sold, unpaid</dt><dd className="font-display text-[17px] font-semibold text-orange-600">{r.unpaid}</dd>{r.owed != null && <dd className="text-faint">{r.currency} {Math.round(r.owed).toLocaleString()}</dd>}</div>
                       <div><dt className="text-muted">Sold this month</dt><dd className="font-display text-[17px] font-semibold text-emerald-700 dark:text-emerald-400">{r.soldThisMonth}</dd>{r.netThisMonth != null && <dd className="text-faint">{r.currency} {Math.round(r.netThisMonth).toLocaleString()}</dd>}</div>
                     </dl>
+                    {r.months?.length > 0 && (
+                      <div className="mt-3 space-y-1.5 border-t border-line pt-2.5">
+                        <p className="text-[10.5px] font-semibold uppercase tracking-wider text-muted">Sales by month</p>
+                        {r.months.map((m) => (
+                          <div key={m.month} className="text-xs tabular-nums">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium text-ink">{monthYear(m.month)}</span>
+                              <PayBadge status={m.status} />
+                            </div>
+                            <p className="text-muted">
+                              {m.pieces ? `${m.pieces} sold · ${r.currency} ${Math.round(m.payable).toLocaleString()} payable` : 'Payment only'}
+                              {m.received > 0 && <> · <span className="text-emerald-700 dark:text-emerald-400">received {Math.round(m.received).toLocaleString()}</span>{m.receivedPkr != null && ` · PKR ${Math.round(m.receivedPkr).toLocaleString()}`}</>}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {r.lastPayment && (
+                      <p className="mt-2 text-xs text-muted">Last payment <span className="font-semibold text-ink">{fmtDate(r.lastPayment.paidOn)}</span> · {r.currency} {Math.round(r.lastPayment.amount).toLocaleString()}{r.lastPayment.amountPkr != null && ` · PKR ${Math.round(r.lastPayment.amountPkr).toLocaleString()}`} · for {monthLabel(r.lastPayment.month)}</p>
+                    )}
                     {r.receivedThisMonth > 0 && (
                       <p className="mt-3 border-t border-line pt-2 text-xs text-muted">Received this month <span className="font-semibold text-emerald-700 dark:text-emerald-400">{r.currency} {Math.round(r.receivedThisMonth).toLocaleString()}</span>{r.receivedThisMonthPkr != null && <> · <span className="font-semibold text-ink">PKR {Math.round(r.receivedThisMonthPkr).toLocaleString()}</span> in the bank</>}</p>
                     )}

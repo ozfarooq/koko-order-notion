@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { LayoutDashboard, Package, CheckCircle2, Wallet, Undo2, Store, FileText, Images, ArrowRight, TrendingUp, Truck, RefreshCw } from 'lucide-react'
-import { getConsignments, pieceMoney } from '../../data/storage'
+import { getConsignments, getPayments, pieceMoney } from '../../data/storage'
+import { monthlySummary, monthLabel, PayBadge } from './months'
 import { useAuth } from '../../auth/AuthContext'
 import { PageHeader, StatCard, SkeletonCards, Skeleton, ErrorBanner, EmptyState, fmtDate } from '../../ui/kit'
 import { listParent, listItem } from '../../ui/motion'
@@ -27,12 +28,16 @@ export default function ResellerDashboard() {
   const showMoney = can('fc:money')
   const isReseller = user?.role === 'reseller'
   const [data, setData] = useState(null)
+  const [payments, setPayments] = useState([])
   const [error, setError] = useState(null)
 
   const load = useCallback(async () => {
     setError(null)
-    try { setData(await getConsignments(resellerId)) } catch (err) { setError(err.message) }
-  }, [resellerId])
+    try {
+      const [d, p] = await Promise.all([getConsignments(resellerId), showMoney ? getPayments(resellerId).catch(() => []) : []])
+      setData(d); setPayments(p)
+    } catch (err) { setError(err.message) }
+  }, [resellerId, showMoney])
   useEffect(() => { setData(null); load() }, [load])
 
   const reseller = data?.resellers.find((r) => String(r.id) === String(resellerId))
@@ -62,6 +67,8 @@ export default function ResellerDashboard() {
     }
   }, [pieces])
 
+  const months = useMemo(() => monthlySummary(pieces, payments).slice(0, 6), [pieces, payments])
+  const lastPayment = payments[0]
   const base = `/resellers/${resellerId}`
   const links = [
     { to: `${base}/stock`, label: isReseller ? 'My Stock' : 'Stock', icon: Store, hint: `${stats.atStore.length} at store` },
@@ -97,6 +104,37 @@ export default function ResellerDashboard() {
           <StatCard label="Stock value at store" value={stats.stockValue} prefix={`${cur} `} tone="gold" icon={Store} />
           <StatCard label="Total sold (gross)" value={stats.soldValue} prefix={`${cur} `} icon={TrendingUp} />
         </div>
+      )}
+
+      {showMoney && data && reseller && months.length > 0 && (
+        <Panel title="Sales by month" action={<Link to={`${base}/statements`} className="text-xs font-semibold text-accent">Statements</Link>}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead className="bg-subtle text-right font-label text-[10.5px] uppercase tracking-wider text-muted">
+                <tr><th className="px-5 py-2 text-left font-medium">Month</th><th className="px-3 py-2 font-medium">Sold</th><th className="px-3 py-2 font-medium">Payable</th>
+                  <th className="px-3 py-2 font-medium">Received</th><th className="px-5 py-2 text-left font-medium">Payment</th></tr>
+              </thead>
+              <tbody className="divide-y divide-line tabular-nums">
+                {months.map((m) => (
+                  <tr key={m.month}>
+                    <td className="px-5 py-2.5 font-medium text-ink">{monthLabel(m.month)}</td>
+                    <td className="px-3 py-2.5 text-right text-ink-soft">{m.pieces}</td>
+                    <td className="px-3 py-2.5 text-right font-semibold text-ink">{cur} {fmt(m.payable)}</td>
+                    <td className="px-3 py-2.5 text-right">{m.received ? <><span className="font-semibold text-emerald-700 dark:text-emerald-400">{cur} {fmt(m.received)}</span>{m.receivedPkr != null && <span className="block text-[11px] text-muted">PKR {fmt(m.receivedPkr)}</span>}</> : <span className="text-faint">—</span>}</td>
+                    <td className="px-5 py-2.5"><div className="flex flex-wrap items-center gap-2"><PayBadge status={m.status} />{m.payments.length > 0 && <span className="text-xs text-muted">{m.payments.map((p) => fmtDate(p.paidOn)).join(', ')}</span>}</div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {lastPayment && (
+            <p className="border-t border-line px-5 py-3 text-xs text-muted">
+              Last payment <span className="font-semibold text-ink">{fmtDate(lastPayment.paidOn)}</span> · <span className="font-semibold text-emerald-700 dark:text-emerald-400">{cur} {fmt(lastPayment.amount)}</span>
+              {lastPayment.amountPkr != null && <> · <span className="font-semibold text-ink">PKR {fmt(lastPayment.amountPkr)}</span></>}
+              {lastPayment.period && <> · for {monthLabel(lastPayment.period)} sales</>}
+            </p>
+          )}
+        </Panel>
       )}
 
       {/* Quick links */}

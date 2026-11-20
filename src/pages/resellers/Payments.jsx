@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Plus, Wallet, Banknote, Undo2, Pencil, Paperclip, FileText, X, AlertTriangle } from 'lucide-react'
 import { recordPayment, deletePayment, updatePayment, addPaymentFile, getPaymentFile, deletePaymentFile, pieceMoney } from '../../data/storage'
@@ -105,7 +105,7 @@ function FileChips({ resellerId, payment, canWrite, onChanged }) {
   ))
 }
 
-export default function Payments({ reseller, pieces, payments, canWrite, onSaved }) {
+export default function Payments({ reseller, pieces, payments, canWrite, onSaved, startMonth, onStarted }) {
   const cur = reseller.currency
   const unpaid = pieces.filter((p) => p.status === 'FC - Sold')
   const untracked = pieces.filter((p) => p.status === 'FC - Paid' && !p.paymentId)
@@ -119,11 +119,19 @@ export default function Payments({ reseller, pieces, payments, canWrite, onSaved
   const expected = Math.round(unpaid.filter((p) => selected.has(p.id)).reduce((s, p) => s + pieceMoney(p).netPayable, 0) * 100) / 100
   const pkrTotal = useMemo(() => payments.reduce((s, p) => s + (p.amountPkr || 0), 0), [payments])
 
-  const start = () => {
-    setSelected(new Set(unpaid.map((p) => p.id)))
-    setForm({ paidOn: today(), period: guessPeriod(unpaid), amount: '', amountPkr: '', reference: '', notes: '', differenceReason: '' })
+  // From the statement's month summary: just that month's unpaid pieces
+  const start = (month) => {
+    const forMonth = month ? unpaid.filter((p) => (p.soldOn || '').startsWith(month)) : []
+    const list = forMonth.length ? forMonth : unpaid
+    setSelected(new Set(list.map((p) => p.id)))
+    setForm({ paidOn: today(), period: month || guessPeriod(unpaid), amount: '', amountPkr: '', reference: '', notes: '', differenceReason: '' })
     setFiles([]); setOpen(true)
   }
+  useEffect(() => {
+    if (!startMonth) return
+    onStarted?.()
+    if (canWrite && unpaid.length) start(startMonth)
+  }, [startMonth]) // eslint-disable-line react-hooks/exhaustive-deps
   const toggle = (id) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const save = async () => {
     setSaving(true)
@@ -169,7 +177,7 @@ export default function Payments({ reseller, pieces, payments, canWrite, onSaved
         <StatCard label="Owed now (sold, unpaid)" value={unpaid.reduce((s, p) => s + pieceMoney(p).netPayable, 0)} prefix={`${cur} `} tone="orange" icon={Wallet} sub={`${unpaid.length} piece${unpaid.length === 1 ? '' : 's'}`} />
         <StatCard label="Received in total" value={payments.reduce((s, p) => s + p.amount, 0)} prefix={`${cur} `} tone="green" icon={Banknote} sub={`${payments.length} payment${payments.length === 1 ? '' : 's'}`} />
         <StatCard label="Received in PKR" value={pkrTotal} prefix="PKR " icon={Banknote} sub={pkrTotal ? 'Credited to the Pakistan bank' : 'Add PKR to each payment'} />
-        {canWrite && <div className="card flex items-center justify-center p-4"><button className="btn-primary" onClick={start} disabled={!unpaid.length}><Plus size={15} />Record a payment</button></div>}
+        {canWrite && <div className="card flex items-center justify-center p-4"><button className="btn-primary" onClick={() => start()} disabled={!unpaid.length}><Plus size={15} />Record a payment</button></div>}
       </div>
 
       {untracked.length > 0 && <p className="text-xs text-muted">{untracked.length} piece{untracked.length === 1 ? ' was' : 's were'} marked paid before payments were tracked ({cur} {f2(untracked.reduce((s, p) => s + pieceMoney(p).netPayable, 0))}), so {untracked.length === 1 ? 'it is not' : 'they are not'} listed below.</p>}
