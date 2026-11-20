@@ -28,10 +28,10 @@ function MissingCodes({ resellerId, prefix, version }) {
 
   if (!prefix) return <p className="text-xs text-muted">Set a prefix and save to turn on automatic codes.</p>
   if (!list) return <SkeletonRows rows={2} />
-  if (!list.length) return <p className="text-xs text-emerald-700 dark:text-emerald-400">Every outfit at this reseller has a code.</p>
+  if (!list.length) return <p className="text-xs text-emerald-700 dark:text-emerald-400">Every design at the store, sold or awaiting payment has a code.</p>
   return (
     <div className="space-y-3 rounded-xl border border-line p-4">
-      <p className="text-sm text-ink"><span className="font-semibold">{list.length} outfit{list.length === 1 ? '' : 's'}</span> at this reseller {list.length === 1 ? 'has' : 'have'} no code yet. They would get:</p>
+      <p className="text-sm text-ink"><span className="font-semibold">{list.length} outfit{list.length === 1 ? '' : 's'}</span> at the store, sold or awaiting payment {list.length === 1 ? 'has' : 'have'} no code yet. They would get:</p>
       <ul className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
         {list.map((c) => <li key={c.productId} className="flex justify-between gap-3"><span className="truncate text-ink-soft">{c.product}</span><span className="font-mono font-semibold text-ink">{c.code}</span></li>)}
       </ul>
@@ -117,7 +117,7 @@ export default function ResellerSettings() {
 
           <div className="card space-y-5 p-5 sm:p-6">
             <div className="flex items-center gap-2"><Barcode size={17} className="text-accent" /><h2 className="section-title">Codes &amp; barcodes</h2></div>
-            <p className="-mt-2 text-sm text-muted">Each outfit gets the next number when it's first handed over. The till barcode adds the size.</p>
+            <p className="-mt-2 text-sm text-muted">One code per design, the next number up. Assign codes once the reseller approves a shipment; designs that were all returned are skipped. The till barcode adds the size.</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Code prefix" hint="Letters, numbers and dashes. Leave empty for no automatic codes.">
                 <input className="input font-mono uppercase" maxLength={21} value={form.codePrefix} onChange={set('codePrefix')} placeholder="KOATLR" />
@@ -128,7 +128,7 @@ export default function ResellerSettings() {
             </div>
             {prefix && (
               <p className="rounded-lg bg-subtle px-3 py-2 text-sm text-ink-soft">
-                Next outfit: <span className="font-mono font-semibold text-ink">{prefix}-{pad(form.nextCode)}</span> · barcodes <span className="font-mono text-ink">{prefix}-{pad(form.nextCode)}-S</span>, <span className="font-mono text-ink">-M</span>, <span className="font-mono text-ink">-L</span>, <span className="font-mono text-ink">-XS</span>, <span className="font-mono text-ink">-XL</span>
+                Next design: <span className="font-mono font-semibold text-ink">{prefix}-{pad(form.nextCode)}</span> · barcodes <span className="font-mono text-ink">{prefix}-{pad(form.nextCode)}-S</span>, <span className="font-mono text-ink">-M</span>, <span className="font-mono text-ink">-L</span>, <span className="font-mono text-ink">-XS</span>, <span className="font-mono text-ink">-XL</span>
               </p>
             )}
             {!isNew && <MissingCodes resellerId={resellerId} prefix={cleanPrefix(original?.codePrefix)} version={version} />}
