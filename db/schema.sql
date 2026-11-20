@@ -12,6 +12,7 @@
 --   008: studio inventory: stock_pieces (one row per piece made ahead of an order) and stock_movements (history)
 --   009: PR / gift orders (orders.order_type, pr_handle; never revenue) and the Gifted stock status
 --   010: reseller payments: statement month, PKR received, difference reason, attached files
+--   011: reseller code prefix and running number (resellers.code_prefix, next_code) for automatic codes
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (

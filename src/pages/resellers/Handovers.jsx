@@ -61,7 +61,7 @@ function HandoverForm({ open, onClose, reseller, lastPrice, onSaved }) {
     setSaving(true)
     try {
       const r = await addConsignment({ resellerId: reseller.id, handoverDate: date, notes, items: lines.map((l) => ({ productId: l.productId, size: l.size, quantity: Number(l.quantity), price: Number(l.price) })) })
-      toast.success(`Handover recorded · ${r.pieces} piece${r.pieces === 1 ? '' : 's'} (${r.fromStudio} from studio stock)`)
+      toast.success(`Handover recorded · ${r.pieces} piece${r.pieces === 1 ? '' : 's'} (${r.fromStudio} from studio stock)`, r.codes?.length ? { description: `New codes: ${r.codes.map((c) => `${c.product} ${c.code}`).join(', ')}` } : undefined)
       refreshResellers()
       onSaved()
       onClose()
