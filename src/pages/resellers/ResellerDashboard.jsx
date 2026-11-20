@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { LayoutDashboard, Package, CheckCircle2, Wallet, Undo2, Store, FileText, Images, ArrowRight, TrendingUp, Truck, RefreshCw } from 'lucide-react'
+import { LayoutDashboard, Package, CheckCircle2, Wallet, Undo2, Store, FileText, Images, ArrowRight, TrendingUp, Truck, RefreshCw, BellRing } from 'lucide-react'
 import { getConsignments, getPayments, pieceMoney } from '../../data/storage'
 import { monthlySummary, monthLabel, PayBadge } from './months'
 import { useAuth } from '../../auth/AuthContext'
@@ -69,6 +69,8 @@ export default function ResellerDashboard() {
 
   const months = useMemo(() => monthlySummary(pieces, payments).slice(0, 6), [pieces, payments])
   const lastPayment = payments[0]
+  // Statements for months already closed that aren't fully paid (this month's sales aren't due yet)
+  const dueMonths = useMemo(() => { const now = new Date().toISOString().slice(0, 7); return monthlySummary(pieces, payments).filter((m) => m.month < now && m.status !== 'Paid' && m.duePayable >= 0.5).reverse() }, [pieces, payments])
   const base = `/resellers/${resellerId}`
   const links = [
     { to: `${base}/stock`, label: isReseller ? 'My Stock' : 'Stock', icon: Store, hint: `${stats.atStore.length} at store` },
@@ -105,6 +107,17 @@ export default function ResellerDashboard() {
           <StatCard label="Total sold (gross)" value={stats.soldValue} prefix={`${cur} `} icon={TrendingUp} />
         </div>
       )}
+
+      {showMoney && data && reseller && dueMonths.map((m) => (
+        <div key={m.month} className="flex flex-wrap items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3.5 dark:border-rose-900/50 dark:bg-rose-950/30">
+          <BellRing size={18} className="flex-shrink-0 text-rose-600" />
+          <p className="flex-1 text-sm text-ink">
+            <span className="font-semibold">{monthLabel(m.month)} statement:</span> {cur} {m.duePayable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {m.status === 'Part paid' ? 'still due' : 'due'}
+            <span className="text-muted"> · {m.pieces} piece{m.pieces === 1 ? '' : 's'} sold{isReseller ? ', payable to Koko Atelier' : ''}</span>
+          </p>
+          <Link to={`${base}/statements?month=${m.month}`} className="btn-secondary py-1.5 text-xs"><FileText size={13} />View &amp; download</Link>
+        </div>
+      ))}
 
       {showMoney && data && reseller && months.length > 0 && (
         <Panel title="Sales by month" action={<Link to={`${base}/statements`} className="text-xs font-semibold text-accent">Statements</Link>}>

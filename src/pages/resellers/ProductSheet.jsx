@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { RefreshCw, Printer } from 'lucide-react'
 import { getConsignments, pieceMoney } from '../../data/storage'
+import { sizeCode } from '../../utils/resellerCodes'
 
 // Each piece carries the commission rate locked in at its handover
 const rate = (o) => (Number(o.commissionPct) || 0) / 100
@@ -73,7 +74,7 @@ function buildInventory(orders) {
           ? `AED ${Number(prices[0]).toLocaleString()}`
           : `AED ${Math.min(...prices.map(Number)).toLocaleString()} – ${Math.max(...prices.map(Number)).toLocaleString()}`
 
-      return { product, sizes, totalQty: items.length, priceLabel, imageUrl: items[0].imageUrl, rate: rate(items[0]) }
+      return { product, sizes, totalQty: items.length, priceLabel, imageUrl: items[0].imageUrl, rate: rate(items[0]), code: items.find((o) => o.resellerCode)?.resellerCode || '' }
     })
 }
 
@@ -174,11 +175,12 @@ export default function FCPhotoReport() {
                   In Store — {inventory.reduce((s, p) => s + p.totalQty, 0)} outfits
                 </h2>
                 <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">
-                  {inventory.map(({ product, sizes, totalQty, priceLabel, imageUrl }) => (
+                  {inventory.map(({ product, sizes, totalQty, priceLabel, imageUrl, code }) => (
                     <div key={product} className="flex flex-col gap-3 print:break-inside-avoid">
                       <ProductImage name={product} src={imageUrl} />
                       <div>
                         <h3 className="text-base font-bold text-ink leading-tight">{product}</h3>
+                        <p className="mt-0.5 font-mono text-xs font-semibold tracking-wide text-accent">{code || <span className="font-sans font-normal text-faint">No code yet</span>}</p>
                         {priceLabel && (
                           <p className="text-sm font-semibold text-ink-soft mt-0.5">{priceLabel}</p>
                         )}
@@ -188,13 +190,45 @@ export default function FCPhotoReport() {
                               key={size}
                               className="rounded-full bg-subtle2 px-2.5 py-0.5 text-xs font-semibold text-ink-soft"
                             >
-                              {size} × {qty}
+                              {size} × {qty}{code && <span className="ml-1 font-mono font-normal text-faint">{sizeCode(code, size)}</span>}
                             </span>
                           ))}
                         </div>
                       </div>
                     </div>
                   ))}
+                </div>
+              </section>
+            )}
+
+            {/* ── CODES FOR THE TILL ── */}
+            {inventory.length > 0 && (
+              <section className="print:break-before-page">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-faint mb-1">Codes for the till</h2>
+                <p className="mb-4 text-xs text-muted">Product code plus size: XS, S, M, L, XL.</p>
+                <div className="card overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-subtle border-b border-line">
+                        <th className="py-3 pl-5 pr-3 text-left text-[11px] font-bold uppercase tracking-wide text-faint">Barcode</th>
+                        <th className="px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-faint">Product</th>
+                        <th className="px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-faint">Size</th>
+                        <th className="px-3 py-3 text-center text-[11px] font-bold uppercase tracking-wide text-faint">Qty</th>
+                        <th className="px-3 py-3 pr-5 text-right text-[11px] font-bold uppercase tracking-wide text-faint">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inventory.flatMap(({ product, sizes, code, priceLabel }) => sizes.map(([size, qty]) => (
+                        <tr key={product + size} className="border-b border-line">
+                          <td className="py-2 pl-5 pr-3 font-mono text-sm font-semibold text-ink">{code ? sizeCode(code, size) : <span className="font-sans text-xs font-normal text-faint">No code yet</span>}</td>
+                          <td className="px-3 py-2 text-sm text-ink">{product}</td>
+                          <td className="px-3 py-2 text-sm text-ink-soft">{size}</td>
+                          <td className="px-3 py-2 text-center text-sm text-ink-soft">{qty}</td>
+                          <td className="px-3 py-2 pr-5 text-right text-sm text-ink-soft">{priceLabel || '—'}</td>
+                        </tr>
+                      )))}
+                    </tbody>
+                  </table>
                 </div>
               </section>
             )}

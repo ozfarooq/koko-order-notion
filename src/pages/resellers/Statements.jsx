@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { FileText, Printer, Trash2, ReceiptText, Banknote, Search, ChevronDown, Plus } from 'lucide-react'
+import { FileText, Printer, Trash2, ReceiptText, Banknote, Search, ChevronDown, Plus, Download } from 'lucide-react'
 import { getConsignments, getPayments, getProducts, enterStatement, updateConsignmentItem, pieceMoney } from '../../data/storage'
 import Payments from './Payments'
 import SaleDetailsModal from './SaleDetailsModal'
@@ -10,6 +10,7 @@ import { monthKey, monthLabel, monthShort, monthlySummary, PayBadge } from './mo
 import { useAuth } from '../../auth/AuthContext'
 import { PageHeader, Segmented, Field, SkeletonRows, EmptyState, ErrorBanner, fmtDate } from '../../ui/kit'
 import { ease } from '../../ui/motion'
+import { downloadElementPdf } from '../../utils/statementPdf'
 
 const f2 = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const f0 = (n) => Math.round(Number(n) || 0).toLocaleString()
@@ -72,7 +73,10 @@ function MonthSummary({ months, cur, showPkr, period, onPick, onRecord }) {
 
 // ── Printable statement (same columns as the reseller's own statement) ──
 function StatementView({ reseller, pieces, payments, months, showPkr, onRecord }) {
-  const [period, setPeriod] = useState('all')
+  const [params] = useSearchParams()
+  const [period, setPeriod] = useState(() => (/^\d{4}-\d{2}$/.test(params.get('month') || '') ? params.get('month') : 'all'))
+  const [saving, setSaving] = useState(false)
+  const sheet = useRef(null)
   const sold = pieces.filter((p) => ['FC - Sold', 'FC - Paid'].includes(p.status) && (period === 'all' || monthKey(p.soldOn) === period))
     .sort((a, b) => (a.soldOn || '').localeCompare(b.soldOn || ''))
   const t = sold.reduce((s, p) => {
@@ -83,6 +87,13 @@ function StatementView({ reseller, pieces, payments, months, showPkr, onRecord }
   const cur = reseller.currency
   const thisMonth = months.find((m) => m.month === period)
 
+  const download = async () => {
+    setSaving(true)
+    try {
+      const name = `${reseller.name} statement ${period === 'all' ? 'all sales' : monthLabel(period)}`.replace(/[^\w -]+/g, '')
+      await downloadElementPdf(sheet.current, `${name}.pdf`)
+    } catch (err) { toast.error(`Couldn't make the PDF: ${err.message}`) } finally { setSaving(false) }
+  }
   const print = () => { document.body.classList.add('printing-report'); window.onafterprint = () => document.body.classList.remove('printing-report'); window.print() }
 
   return (
@@ -94,10 +105,11 @@ function StatementView({ reseller, pieces, payments, months, showPkr, onRecord }
           <option value="all">All sales</option>
           {months.map((m) => <option key={m.month} value={m.month}>{monthLabel(m.month)}</option>)}
         </select>
-        <button className="btn-secondary ml-auto" onClick={print}><Printer size={15} />Print / PDF</button>
+        <button className="btn-primary ml-auto" onClick={download} disabled={saving}><Download size={15} />{saving ? 'Preparing…' : `Download ${period === 'all' ? 'statement' : `${monthLabel(period)} statement`}`}</button>
+        <button className="btn-secondary" onClick={print}><Printer size={15} />Print</button>
       </div>
 
-      <div className="card overflow-x-auto p-4 sm:p-6 print:border-0 print:shadow-none">
+      <div ref={sheet} data-pdf-root className="card overflow-x-auto p-4 sm:p-6 print:border-0 print:shadow-none">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="eyebrow">Designer name</p>
@@ -162,7 +174,7 @@ function StatementView({ reseller, pieces, payments, months, showPkr, onRecord }
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
             <Banknote size={15} className={thisMonth?.payments.length ? 'text-emerald-600' : 'text-faint'} />
             {thisMonth?.payments.length
-              ? thisMonth.payments.map((p) => <span key={p.id} className="text-ink">Paid {fmtDate(p.paidOn)} · {cur} {f2(p.amount)}{p.amountPkr != null ? ` · PKR ${f0(p.amountPkr)}` : ''}{p.reference ? ` · ${p.reference}` : ''}</span>)
+              ? thisMonth.payments.map((p) => <span key={p.id} className="text-ink">Paid {fmtDate(p.paidOn)} · {cur} {f2(p.amount)}{p.amountPkr != null && <span data-pdf-hide> · PKR {f0(p.amountPkr)}</span>}{p.reference ? ` · ${p.reference}` : ''}</span>)
               : <span className="text-muted">No payment recorded for {monthLabel(period)} yet.</span>}
           </div>
         )}
