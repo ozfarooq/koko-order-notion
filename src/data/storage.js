@@ -145,8 +145,9 @@ export function pieceMoney(p, gross = p.aedPrice) {
 
 export const addReseller      = (r) => api('/resellers', { method: 'POST', body: JSON.stringify(r) }).then((x) => { refreshResellers(); return x })
 export const updateReseller   = (id, r) => api(`/resellers/${id}`, { method: 'PATCH', body: JSON.stringify(r) }).then((x) => { refreshResellers(); return x })
-export const previewResellerCodes = (id) => api(`/resellers/${id}/codes`)
-export const assignResellerCodes  = (id) => api(`/resellers/${id}/codes`, { method: 'POST' })
+export const getResellerCodes = (id) => api(`/resellers/${id}/codes`)
+export const setResellerCode = (id, productId, code) => api(`/resellers/${id}/codes/${productId}`, { method: 'PUT', body: JSON.stringify({ code }) })
+export const nextResellerCode = (id, productId) => api(`/resellers/${id}/codes/${productId}/next`, { method: 'POST' })
 export const enterStatement   = (id, lines) => api(`/resellers/${id}/statement`, { method: 'POST', body: JSON.stringify({ lines }) })
 export const getPayments      = (id) => api(`/resellers/${id}/payments`)
 export const recordPayment    = (id, p) => api(`/resellers/${id}/payments`, { method: 'POST', body: JSON.stringify(p) })
