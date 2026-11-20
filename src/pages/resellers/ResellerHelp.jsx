@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   HelpCircle, Search, LayoutDashboard, Store, Truck, ReceiptText, FileText, Images, Barcode, Calculator,
-  CalendarClock, ShieldCheck, MessageCircleQuestion, KeyRound, ArrowRight,
+  CalendarClock, ShieldCheck, MessageCircleQuestion, KeyRound, ArrowRight, Users, Undo2, Wallet, ClipboardEdit, Settings,
 } from 'lucide-react'
 import { getResellers } from '../../data/storage'
 import { useAuth } from '../../auth/AuthContext'
@@ -202,23 +202,112 @@ function sectionsFor({ base, name, cur, pct, prefix, showMoney }) {
   ].filter(Boolean)
 }
 
+// For Koko's own team (owner, manager, staff): how to run this reseller. Never shown to reseller logins.
+function teamSectionsFor({ base, name, can }) {
+  const money = can('fc:money'), write = can('fc:write'), manage = can('resellers:manage')
+  return [
+    write && {
+      id: 'team-handover', title: 'Sending a shipment', icon: Truck, team: true, keywords: 'handover shipment record send stock studio',
+      body: (
+        <Steps items={[
+          <>Open <Go to={`${base}/handovers`}>Handovers</Go> and choose <b>Record a handover</b>.</>,
+          <>Add each design with its size, quantity and price in the reseller's currency. Pieces ready at the studio are used first; the rest are recorded as made for this shipment.</>,
+          <>Save. The pieces show as <b>At store</b> for {name} straight away.</>,
+          <>Any design new to {name} is listed in the message. Once they approve the shipment, give it a code (see <a href="#team-codes" className="font-semibold text-accent">Codes and reseller settings</a>).</>,
+        ]} />
+      ),
+    },
+    write && money && {
+      id: 'team-sales', title: 'Recording their monthly sales', icon: ClipboardEdit, team: true, keywords: 'enter sales statement sheet sold discount alteration invoice',
+      body: (
+        <Steps items={[
+          <>When {name}'s sales sheet arrives, open <Go to={`${base}/statements`}>Statements</Go> and the <b>Enter sales</b> tab.</>,
+          <>Under <b>At the store</b>, find the design by collection or search, and tap its size. Each tap adds a sale line.</>,
+          <>Fill in the sale date, invoice number, code, discounts and alteration/laundry from their sheet. Net payable updates as you type.</>,
+          <>Click <b>Record sales</b>. The pieces change to <b>Sold</b> and appear under <b>Recorded sales</b>, grouped by month. Click any sale there to view or correct it.</>,
+          <>Check the <b>Statement</b> tab for that month against the totals on their sheet.</>,
+        ]} />
+      ),
+    },
+    write && money && {
+      id: 'team-payment', title: 'Recording a payment', icon: Wallet, team: true, keywords: 'payment received bank pkr proof month difference reason',
+      body: (
+        <Steps items={[
+          <>On <b>Statements</b>, click <b>Record payment</b> next to the month in <b>Month by month</b>, or use the <b>Payments</b> tab and <b>Record a payment</b>.</>,
+          <>Check the ticked pieces, the date received and <b>For sales in</b> (the month it settles).</>,
+          <>Enter the amount. If it differs from the statement, give a reason: bank charges, a return, exchange difference or rounding.</>,
+          <>Add the <b>PKR received</b> when the bank credit shows, now or later with the pencil icon. {name} never sees the PKR amount or rate.</>,
+          <>Attach the statement and payment email as proof. The pieces change to <b>Paid</b>, and the reminder leaves {name}'s dashboard.</>,
+        ]} />
+      ),
+    },
+    write && {
+      id: 'team-returns', title: 'Pieces coming back', icon: Undo2, team: true, keywords: 'return returned back reason stock',
+      body: (
+        <Steps items={[
+          <>Open <Go to={`${base}/stock`}>Stock</Go>, tick the pieces coming back (only pieces at the store can be ticked) and click <b>Return</b>.</>,
+          <>Enter the date and reason, then <b>Mark returned</b>.</>,
+        ]} />
+      ),
+    },
+    manage && {
+      id: 'team-codes', title: 'Codes and reseller settings', icon: Settings, team: true, keywords: 'codes barcode prefix next number reserved settings commission currency',
+      body: (
+        <>
+          <p>In <Go to={`${base}/settings`}>Settings</Go>, under <b>Codes &amp; barcodes</b>:</p>
+          <dl className="divide-y divide-line">
+            <Term k="Prefix and number">{name}'s own series, e.g. KOATLR and 17. The next new design gets KOATLR-017; the till barcode adds the size.</Term>
+            <Term k="Reserved designs">Already shipped but without a confirmed code. Use <b>Enter code</b> once {name} confirms it.</Term>
+            <Term k="Next number">Only for a design new to {name}, after they approve the shipment.</Term>
+            <Term k="Commission %">A change applies to new handovers only; stock already sent keeps its agreed rate.</Term>
+          </dl>
+        </>
+      ),
+    },
+    can('users:manage') && {
+      id: 'team-logins', title: 'Giving the reseller a login', icon: Users, team: true, keywords: 'user login access account password reseller staff',
+      body: (
+        <>
+          <Steps items={[
+            <>Open <Go to="/users">Users</Go> and choose <b>Add user</b>.</>,
+            <>Pick the role <b>Reseller</b> and choose <b>{name}</b>.</>,
+            <>Set a username and password and share them with the person. Each member of their staff should have their own login.</>,
+          ]} />
+          <p className="text-sm text-muted">Reseller logins only see their own stock, handovers, statements, payments (without PKR), reports and this guide, and can't change anything.</p>
+        </>
+      ),
+    },
+  ].filter(Boolean)
+}
+
 export default function ResellerHelp() {
   const { resellerId } = useParams()
-  const { can } = useAuth()
+  const { can, user } = useAuth()
+  const isTeam = user?.role !== 'reseller'
   const [reseller, setReseller] = useState(null)
   const [q, setQ] = useState('')
   useEffect(() => { getResellers().then((list) => setReseller(list.find((r) => String(r.id) === String(resellerId)) || null)).catch(() => {}) }, [resellerId])
 
-  const sections = useMemo(() => sectionsFor({
-    base: `/resellers/${resellerId}`, name: reseller?.name || 'your store', cur: reseller?.currency || 'AED',
-    pct: Number(reseller?.commissionPct) || 30, prefix: reseller?.codePrefix, showMoney: can('fc:money'),
-  }), [reseller, resellerId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const sections = useMemo(() => {
+    const base = `/resellers/${resellerId}`
+    const theirs = sectionsFor({
+      base, name: reseller?.name || 'your store', cur: reseller?.currency || 'AED',
+      pct: Number(reseller?.commissionPct) || 30, prefix: reseller?.codePrefix, showMoney: can('fc:money'),
+    })
+    return isTeam ? [...teamSectionsFor({ base, name: reseller?.name || 'the reseller', can }), ...theirs] : theirs
+  }, [reseller, resellerId, isTeam]) // eslint-disable-line react-hooks/exhaustive-deps
   const term = q.trim().toLowerCase()
   const shown = term ? sections.filter((s) => `${s.title} ${s.keywords}`.toLowerCase().includes(term)) : sections
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
-      <PageHeader eyebrow={reseller?.name || 'Reseller'} title="Help" icon={HelpCircle} subtitle="How to use your Koko Atelier view: stock, statements, payments and codes" />
+      <PageHeader eyebrow={reseller?.name || 'Reseller'} title={isTeam ? 'Reseller help' : 'Help'} icon={HelpCircle}
+        subtitle={isTeam ? `How the Koko team runs ${reseller?.name || 'this reseller'}, and the guide their login shows` : 'How to use your Koko Atelier view: stock, statements, payments and codes'} />
+      {isTeam && (
+        <p className="rounded-xl border border-plum-200 bg-plum-50/60 px-4 py-3 text-sm text-ink dark:border-plum-900/50 dark:bg-plum-900/20">
+          <b>For the Koko team:</b> sections marked <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">Team</span> explain how to run {reseller?.name || 'this reseller'} and are only shown to Koko logins. The rest is exactly what {reseller?.name || 'the reseller'}'s own login sees.
+        </p>
+      )}
       <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
           <div className="relative">
@@ -228,7 +317,7 @@ export default function ResellerHelp() {
           <nav className="hidden space-y-0.5 lg:block">
             {shown.map((s) => (
               <a key={s.id} href={`#${s.id}`} className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-ink-soft transition hover:bg-subtle hover:text-ink">
-                <s.icon size={14} className="text-faint" />{s.title}
+                <s.icon size={14} className={s.team ? 'text-accent' : 'text-faint'} /><span className="flex-1">{s.title}</span>{s.team && <span className="text-[9px] font-semibold uppercase tracking-wider text-accent">Team</span>}
               </a>
             ))}
           </nav>
@@ -239,6 +328,7 @@ export default function ResellerHelp() {
             <section key={s.id} id={s.id} className="card scroll-mt-4 p-5 sm:p-6">
               <h2 className="mb-3 flex items-center gap-2.5 font-display text-xl font-semibold text-ink">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-plum-50 text-accent dark:bg-plum-900/40"><s.icon size={16} /></span>{s.title}
+                {s.team && <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">Team</span>}
               </h2>
               <div className="space-y-3 text-[15px] leading-relaxed text-ink-soft">{s.body}</div>
             </section>

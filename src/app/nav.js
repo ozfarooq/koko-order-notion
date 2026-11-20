@@ -45,8 +45,8 @@ export function buildNav({ can, user, resellers = [] }) {
           { to: `/resellers/${r.id}/statements`, label: 'Statements', icon: ReceiptText, when: can('fc:money') },
           { to: `/resellers/${r.id}/reports/inventory`, label: 'Inventory report', icon: FileText },
           { to: `/resellers/${r.id}/reports/product-sheet`, label: 'Product sheet', icon: Images },
-          { to: `/resellers/${r.id}/settings`, label: 'Settings', icon: Settings, when: can('resellers:manage') },
           { to: `/resellers/${r.id}/help`, label: isReseller ? 'Help' : 'Reseller help', icon: HelpCircle },
+          { to: `/resellers/${r.id}/settings`, label: 'Settings', icon: Settings, when: can('resellers:manage') },
         ].filter((i) => i.when !== false),
       })),
     })
