@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
   Boxes, Plus, Camera, Scissors, Store, Search, X, Shirt, Minus, Trash2, AlertTriangle, PackageCheck, Warehouse, History,
-  ShoppingBag, LayoutGrid,
+  ShoppingBag, LayoutGrid, Undo2, ChevronDown,
 } from 'lucide-react'
 import {
   getInventory, getStockPieces, addStockPieces, updateStockPiece, moveStockPieces, getStockHistory, deleteStockPiece,
@@ -167,7 +167,7 @@ function AddPiecesModal({ open, onClose, sample, preset, overview, onSaved }) {
 }
 
 // ── Bulk add: quantities for many outfits in one go ────────────────────
-function BulkAddModal({ open, onClose, overview, onSaved, startKind = 'Stock' }) {
+function BulkAddModal({ open, onClose, overview, onSaved, startKind = 'Stock', startStatus, startSource = 'Made' }) {
   const newest = overview?.collections[0]?.id ?? null
   const [kind, setKind] = useState(startKind)
   const [collection, setCollection] = useState('all')
@@ -183,8 +183,8 @@ function BulkAddModal({ open, onClose, overview, onSaved, startKind = 'Stock' })
   useEffect(() => {
     if (!open) return
     setKind(startKind); setCollection(String(newest ?? 'all')); setQ(''); setQty({}); setSampleSize({}); setLocationNote('')
-    setStatus(startKind === 'Sample' ? 'At Studio' : 'In Production'); setSource('Made'); setMadeOn(today()); setNotes('')
-  }, [open, newest, startKind])
+    setStatus(startStatus || (startKind === 'Sample' ? 'At Studio' : 'In Production')); setSource(startSource); setMadeOn(today()); setNotes('')
+  }, [open, newest, startKind, startStatus, startSource])
   const isSample = kind === 'Sample'
   const switchKind = (k) => { setKind(k); setStatus(k === 'Sample' ? 'At Studio' : 'In Production') }
 
@@ -229,7 +229,7 @@ function BulkAddModal({ open, onClose, overview, onSaved, startKind = 'Stock' })
           </Field>
           <Field label="Source">
             <select className="input" value={source} onChange={(e) => setSource(e.target.value)}>
-              <option value="Made">Made</option><option value="Opening count">Opening count</option><option value="Customer return">Customer return</option>
+              <option value="Made">Made</option><option value="Opening count">Spare, already at the studio</option><option value="Customer return">Customer return</option>
             </select>
           </Field>
           <Field label="Made on"><input type="date" className="input" value={madeOn} onChange={(e) => setMadeOn(e.target.value)} /></Field>
@@ -315,8 +315,10 @@ function PieceModal({ piece, onClose, onSaved, canWrite, canSell }) {
   const [form, setForm] = useState(null)
   const [history, setHistory] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [byHand, setByHand] = useState(false)
   useEffect(() => {
     if (!piece) return
+    setByHand(false)
     setForm({ status: piece.status, kind: piece.kind, locationNote: piece.locationNote, notes: piece.notes, orderNumber: piece.orderNumber || '', moveNote: '',
       damaged: piece.damaged, damageNote: piece.damageNote, askingPricePkr: piece.askingPricePkr ?? '' })
     setHistory(null)
@@ -343,6 +345,15 @@ function PieceModal({ piece, onClose, onSaved, canWrite, canSell }) {
       toast.success('Piece updated'); onSaved(); onClose()
     } catch (err) { toast.error(err.message) } finally { setSaving(false) }
   }
+  const quick = async (status, note, done) => {
+    try { await moveStockPieces([piece.id], status, note); toast.success(`${piece.product} (${piece.size}) ${done}`); onSaved(); onClose() }
+    catch (err) { toast.error(err.message) }
+  }
+  const actions = !editable ? [] : [
+    piece.status === 'In Production' && { label: 'Mark ready', icon: PackageCheck, run: () => quick('At Studio', 'Ready', 'is ready') },
+    piece.kind === 'Sample' && piece.status === 'At Studio' && { label: 'Send to shoot', icon: Camera, run: () => quick('At Shoot', null, 'sent to the shoot') },
+    piece.status === 'At Shoot' && { label: 'Back at studio', icon: Undo2, run: () => quick('At Studio', 'Back from the shoot', 'back at the studio') },
+  ].filter(Boolean)
   const remove = async () => {
     if (!window.confirm(`Delete this ${piece.product} (${piece.size})? Only for pieces added by mistake.`)) return
     try { await deleteStockPiece(piece.id); toast.success('Piece deleted'); onSaved(); onClose() } catch (err) { toast.error(err.message) }
@@ -366,15 +377,24 @@ function PieceModal({ piece, onClose, onSaved, canWrite, canSell }) {
           </div>
         </div>
         {locked && <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:bg-sky-950/40 dark:text-sky-200">This piece is with {piece.reseller}. Its status follows the reseller screens: sold, paid or returned there, it updates here.</p>}
+        {actions.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {actions.map((a) => <button key={a.label} type="button" className="btn-secondary" onClick={a.run}><a.icon size={15} />{a.label}</button>)}
+          </div>
+        )}
 
         {editable && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Status">
-              <select className="input" value={form.status} onChange={(e) => set({ status: e.target.value })}>{MANUAL.map((s) => <option key={s}>{s}</option>)}</select>
-            </Field>
-            <Field label="Kind">
-              <select className="input" value={form.kind} onChange={(e) => set({ kind: e.target.value })}><option value="Stock">Stock</option><option value="Sample">Shoot sample</option></select>
-            </Field>
+            {byHand ? <>
+              <Field label="Status">
+                <select className="input" value={form.status} onChange={(e) => set({ status: e.target.value })}>{MANUAL.map((s) => <option key={s}>{s}</option>)}</select>
+              </Field>
+              <Field label="Kind">
+                <select className="input" value={form.kind} onChange={(e) => set({ kind: e.target.value })}><option value="Stock">Stock</option><option value="Sample">Shoot sample</option></select>
+              </Field>
+            </> : (
+              <button type="button" className="text-left text-xs font-semibold text-accent hover:underline sm:col-span-2" onClick={() => setByHand(true)}>Change status by hand (written off, archived, sold elsewhere…)</button>
+            )}
             {['Sold', 'Gifted'].includes(form.status) && (
               <Field label="Order number" hint={form.status === 'Gifted' ? 'Optional: the PR order it went out with' : 'Optional: the customer order it went to'}>
                 <input className="input" value={form.orderNumber} onChange={(e) => set({ orderNumber: e.target.value })} placeholder="SO-000123" />
@@ -446,175 +466,38 @@ function DamagedModal({ open, count, onClose, onConfirm }) {
   )
 }
 
-// ── Overview tab ────────────────────────────────────────────────────────
-function SizeStrip({ counts }) {
-  return (
-    <div className="grid grid-cols-5 gap-1 text-center">
-      {STOCK_SIZES.map((z) => (
-        <div key={z} className="w-9">
-          <p className="text-[10px] font-semibold text-faint">{SHORT[z]}</p>
-          <p className={`text-sm font-semibold tabular-nums ${counts[z] ? 'text-ink' : 'text-faint/50'}`}>{counts[z] || 0}</p>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function SampleBadge({ p, newest }) {
-  const live = p.samples.filter((s) => !['Sold', 'Archived'].includes(s.status))
-  if (live.length) return <StockPill status={live[0].status} />
-  if (p.isActive && p.collectionId === newest) return <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"><AlertTriangle size={11} />No sample</span>
-  return <span className="text-xs text-faint">—</span>
-}
-
-function OverviewTab({ data, onOpen }) {
-  const newest = data.collections[0]?.id ?? null
-  const [collection, setCollection] = useState(String(newest ?? 'all'))
-  const [showAll, setShowAll] = useState(false)
-  const rows = data.products.filter((p) => {
-    if (collection !== 'all' && String(p.collectionId ?? 'none') !== collection) return false
-    const stocked = p.inProduction || Object.values(p.atStudio).some(Boolean) || p.atResellers.length || p.samples.length
-    return showAll || stocked
-  })
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <select className="input w-auto" value={collection} onChange={(e) => setCollection(e.target.value)}>
-          {data.collections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          <option value="none">Separates</option>
-          <option value="all">All collections</option>
-        </select>
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
-          <input type="checkbox" className="h-4 w-4 accent-[#7B2D45]" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />Show outfits with no stock
-        </label>
-      </div>
-      {rows.length === 0 ? (
-        <EmptyState icon={Boxes} title="No stock in this collection" hint="Turn on “Show outfits with no stock” to see every outfit, or add pieces." />
-      ) : (
-        <div className="card overflow-hidden">
-          <div className="hidden grid-cols-[minmax(0,1fr)_90px_220px_minmax(0,160px)_120px] gap-4 border-b border-line bg-surface-accent px-4 py-2.5 font-label text-[10.5px] font-medium uppercase tracking-wider text-ink md:grid">
-            <span>Outfit</span><span className="text-center">Making</span><span>At studio</span><span>At resellers</span><span>Sample</span>
-          </div>
-          <motion.ul variants={listParent} initial="hidden" animate="show" className="divide-y divide-line">
-            {rows.map((p) => (
-              <motion.li key={p.productId} variants={listItem}>
-                <button type="button" onClick={() => onOpen(p)}
-                  className="grid w-full grid-cols-[auto_1fr] gap-x-3 gap-y-2 px-4 py-3 text-left transition hover:bg-subtle/60 md:grid-cols-[minmax(0,1fr)_90px_220px_minmax(0,160px)_120px] md:items-center md:gap-4">
-                  <div className="row-span-3 flex items-center gap-3 md:row-span-1">
-                    <Thumb src={p.imageUrl} />
-                    <div className="hidden min-w-0 md:block"><p className="truncate font-medium text-ink">{p.product}</p><p className="truncate text-xs text-faint">{p.collection || 'Separates'}{p.soldLast30 ? ` · ${p.soldLast30} sold in 30 days` : ''}</p></div>
-                  </div>
-                  <div className="min-w-0 md:hidden"><p className="truncate font-medium text-ink">{p.product}</p><p className="truncate text-xs text-faint">{p.inProduction ? `${p.inProduction} in production · ` : ''}{p.collection || 'Separates'}</p></div>
-                  <p className={`hidden text-center font-semibold tabular-nums md:block ${p.inProduction ? 'text-amber-700 dark:text-amber-300' : 'text-faint/50'}`}>{p.inProduction}</p>
-                  <SizeStrip counts={p.atStudio} />
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {p.atResellers.map((r) => <span key={r.resellerId} className="whitespace-nowrap rounded-full bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">{r.name.replace(/^Fashion /, '').split(' ')[0]} {r.count}</span>)}
-                    <span className="md:hidden"><SampleBadge p={p} newest={newest} /></span>
-                  </div>
-                  <div className="hidden md:block"><SampleBadge p={p} newest={newest} /></div>
-                </button>
-              </motion.li>
-            ))}
-          </motion.ul>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Pieces tab ──────────────────────────────────────────────────────────
-function PiecesTab({ product, clearProduct, version, onChanged, canWrite, onOpenPiece }) {
-  const [statuses, setStatuses] = useState(product ? ['In Production', 'At Studio', 'At Shoot', 'With Reseller'] : DEFAULT_FILTER)
-  const [kind, setKind] = useState('')
-  const [q, setQ] = useState('')
-  const [pieces, setPieces] = useState(null)
-  const [error, setError] = useState(null)
+// ── Lists of pieces with tick boxes and a bar of bulk actions ──────────
+function PieceRows({ pieces, canWrite, canSell, onOpen, actions, empty }) {
+  const navigate = useNavigate()
   const [picked, setPicked] = useState(new Set())
-  const [damaging, setDamaging] = useState(false)
-  const [damagedOnly, setDamagedOnly] = useState(false)
-
-  const load = useCallback(() => {
-    getStockPieces({ status: statuses.join(','), kind, productId: product?.productId, q: q.trim(), damaged: damagedOnly ? '1' : '' })
-      .then((r) => { setPieces(r); setError(null); setPicked((s) => new Set([...s].filter((id) => r.some((p) => p.id === id)))) })
-      .catch((e) => setError(e.message))
-  }, [statuses, kind, product, q, damagedOnly])
-  useEffect(() => { const t = setTimeout(load, q ? 250 : 0); return () => clearTimeout(t) }, [load, version]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const toggleStatus = (s) => setStatuses((x) => (x.includes(s) ? x.filter((y) => y !== s) : [...x, s]))
-  const toggle = (id) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const move = async (status, label, moveNote) => {
-    try {
-      const r = await moveStockPieces([...picked], status, moveNote)
-      toast.success(`${r.moved} piece${r.moved === 1 ? '' : 's'} ${label}`)
-      setPicked(new Set()); setDamaging(false); onChanged()
-    } catch (err) { toast.error(err.message) }
-  }
-  const damage = async ({ forSale, reason, price }) => {
-    if (!forSale) return move('Damaged', 'written off', reason)
-    try {
-      const r = await markStockDamaged({ pieceIds: [...picked], damaged: true, damageNote: reason, askingPricePkr: price })
-      toast.success(`${r.updated} piece${r.updated === 1 ? '' : 's'} labelled damaged`)
-      setPicked(new Set()); setDamaging(false); onChanged()
-    } catch (err) { toast.error(err.message) }
-  }
-
+  useEffect(() => { setPicked((x) => new Set([...x].filter((id) => pieces.some((p) => p.id === id)))) }, [pieces])
+  const toggle = (id) => setPicked((x) => { const n = new Set(x); n.has(id) ? n.delete(id) : n.add(id); return n })
+  if (!pieces.length) return <p className="card p-6 text-center text-sm text-muted">{empty}</p>
   return (
-    <div className="space-y-3 pb-20">
-      <div className="flex flex-wrap items-center gap-2">
-        {STATUSES.map((s) => (
-          <button key={s} type="button" onClick={() => toggleStatus(s)}
-            className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition ${statuses.includes(s) ? 'border-brand-primary bg-brand-primary text-white' : 'border-line text-muted hover:text-ink'}`}>{s}</button>
-        ))}
-        <button type="button" onClick={() => setDamagedOnly((d) => !d)}
-          className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition ${damagedOnly ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300'}`}><AlertTriangle size={12} />Damaged for sale</button>
-      </div>
-      {statuses.includes('With Reseller') && (
-        <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
-          <b>With Reseller</b> only lists pieces sent from studio stock. Everything at a store, including pieces sent before inventory started, is on that reseller's <b>Stock</b> page, where you can also bring pieces back to the studio.
-        </p>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] flex-1">
-          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
-          <input className="input pl-9" placeholder="Search by outfit" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
-        <select className="input w-auto" value={kind} onChange={(e) => setKind(e.target.value)}>
-          <option value="">Stock and samples</option><option value="Stock">Stock only</option><option value="Sample">Samples only</option>
-        </select>
-        {product && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-plum-50 py-1 pl-3 pr-1.5 text-xs font-semibold text-plum-700 dark:bg-plum-900/40 dark:text-plum-300">
-            {product.product}<button type="button" className="rounded-full p-0.5 hover:bg-plum-100 dark:hover:bg-plum-800" onClick={clearProduct} aria-label="Show all outfits"><X size={12} /></button>
-          </span>
-        )}
-      </div>
-      <ErrorBanner onRetry={load}>{error}</ErrorBanner>
-
-      {!pieces ? <SkeletonRows rows={5} /> : pieces.length === 0 ? (
-        <EmptyState icon={Boxes} title="No pieces" hint={statuses.length ? 'Nothing matches these filters.' : 'Choose at least one status above.'} />
-      ) : (
-        <div className="card divide-y divide-line overflow-hidden">
-          {pieces.map((p) => {
-            const selectable = canWrite && p.status !== 'With Reseller'
-            const where = whereabouts(p)
-            return (
-              <div key={p.id} role="button" tabIndex={0} onClick={() => onOpenPiece(p)} onKeyDown={(e) => e.key === 'Enter' && onOpenPiece(p)}
-                className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-subtle/60 sm:px-4 ${picked.has(p.id) ? 'bg-plum-50/50 dark:bg-plum-900/10' : ''}`}>
-                <input type="checkbox" className="h-4 w-4 flex-shrink-0 accent-[#7B2D45] disabled:opacity-30" disabled={!selectable} checked={picked.has(p.id)}
-                  onClick={(e) => e.stopPropagation()} onChange={() => toggle(p.id)} aria-label={`Select ${p.product} ${p.size}`} />
-                <Thumb src={p.imageUrl} className="h-12 w-9" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{p.product} <span className="font-normal text-muted">· {SHORT[p.size] || p.size}</span>
-                    {p.kind === 'Sample' && <span className="ml-1.5 rounded bg-plum-50 px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wider text-plum-700 dark:bg-plum-900/40 dark:text-plum-300">Sample</span>}
-                    {p.damaged && <span className="ml-1.5 align-middle"><DamagedLabel piece={p} /></span>}</p>
-                  <p className="truncate text-xs text-faint">{[where && <span key="w">{where}</span>, p.madeOn && `made ${fmtDate(p.madeOn, { day: 'numeric', month: 'short' })}`].filter(Boolean).reduce((a, x, i) => (i ? [...a, ' · ', x] : [x]), [])}</p>
-                </div>
-                <StockPill status={p.status} />
+    <>
+      <div className="card divide-y divide-line overflow-hidden">
+        {pieces.map((p) => {
+          const where = whereabouts(p)
+          const selectable = canWrite && ['At Studio', 'In Production', 'At Shoot'].includes(p.status)
+          return (
+            <div key={p.id} role="button" tabIndex={0} onClick={() => onOpen(p)} onKeyDown={(e) => e.key === 'Enter' && onOpen(p)}
+              className={`flex cursor-pointer flex-wrap items-center gap-3 px-3 py-2.5 transition hover:bg-subtle/60 sm:flex-nowrap sm:px-4 ${picked.has(p.id) ? 'bg-plum-50/50 dark:bg-plum-900/10' : ''}`}>
+              {canWrite && <input type="checkbox" className="h-4 w-4 flex-shrink-0 accent-[#7B2D45] disabled:opacity-30" disabled={!selectable} checked={picked.has(p.id)}
+                onClick={(e) => e.stopPropagation()} onChange={() => toggle(p.id)} aria-label={`Select ${p.product} ${p.size}`} />}
+              <Thumb src={p.imageUrl} className="h-12 w-9" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-ink">{p.product} <span className="font-normal text-muted">· {p.size}</span></p>
+                <p className="truncate text-xs text-faint">{[where && <span key="w">{where}</span>, p.collection, p.madeOn && `made ${fmtDate(p.madeOn, { day: 'numeric', month: 'short' })}`].filter(Boolean).reduce((a, x, i) => (i ? [...a, ' · ', x] : [x]), [])}</p>
               </div>
-            )
-          })}
-        </div>
-      )}
-
+              <DamagedLabel piece={p} />
+              {!['At Studio', 'In Production'].includes(p.status) && <StockPill status={p.status} />}
+              {canSell && p.status === 'At Studio' && !p.orderId && (
+                <button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={(e) => { e.stopPropagation(); navigate('/orders/new', { state: { stockPiece: p } }) }}><ShoppingBag size={13} />Sell</button>
+              )}
+            </div>
+          )
+        })}
+      </div>
       <AnimatePresence>
         {picked.size > 0 && (
           <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} transition={{ duration: 0.2, ease }}
@@ -622,48 +505,130 @@ function PiecesTab({ product, clearProduct, version, onChanged, canWrite, onOpen
             <span className="px-2 text-sm font-semibold text-ink">{picked.size} selected</span>
             <button className="btn-ghost text-xs" onClick={() => setPicked(new Set())}>Clear</button>
             <div className="ml-auto flex flex-wrap gap-1.5">
-              <button className="btn-primary text-xs" onClick={() => move('At Studio', 'marked ready', 'Ready')}><PackageCheck size={14} />Mark ready</button>
-              <button className="btn-secondary text-xs" onClick={() => move('At Shoot', 'sent to the shoot')}><Camera size={14} />Send to shoot</button>
-              <button className="btn-secondary text-xs" onClick={() => move('At Studio', 'moved to the studio')}><Warehouse size={14} />Move to studio</button>
-              <button className="btn-secondary text-xs text-rose-600" onClick={() => setDamaging(true)}><AlertTriangle size={14} />Mark damaged</button>
+              {actions.map((a) => <button key={a.label} className={`${a.primary ? 'btn-primary' : 'btn-secondary'} text-xs ${a.danger ? 'text-rose-600' : ''}`} onClick={() => a.run([...picked], () => setPicked(new Set()))}><a.icon size={14} />{a.label}</button>)}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-      <DamagedModal open={damaging} count={picked.size} onClose={() => setDamaging(false)} onConfirm={damage} />
+    </>
+  )
+}
+
+// ── Samples: one per design, any collection ────────────────────────────
+function SamplesTab({ data, canWrite, onOpenSample, onAddOne }) {
+  const [collection, setCollection] = useState(String(data.collections[0]?.id ?? 'all'))
+  const [q, setQ] = useState('')
+  const [missingOnly, setMissingOnly] = useState(false)
+  const [showSold, setShowSold] = useState(false)
+  const live = (p) => p.samples.filter((x) => !['Sold', 'Archived', 'Gifted'].includes(x.status))
+  const term = q.trim().toLowerCase()
+  const outfits = data.products.filter((p) => (term ? p.product.toLowerCase().includes(term) : collection === 'all' || String(p.collectionId ?? 'none') === collection)
+    && (p.isActive || p.samples.length))
+  const shown = outfits.filter((p) => !missingOnly || !live(p).length)
+  const have = outfits.filter((p) => live(p).length).length
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <select className="input w-auto" value={collection} onChange={(e) => setCollection(e.target.value)} disabled={!!term}>
+          {data.collections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          <option value="none">Separates</option><option value="all">All collections</option>
+        </select>
+        <div className="relative min-w-[180px] flex-1">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+          <input className="input pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search any design" />
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-muted"><input type="checkbox" className="h-4 w-4 accent-[#7B2D45]" checked={missingOnly} onChange={(e) => setMissingOnly(e.target.checked)} />Missing a sample</label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-muted"><input type="checkbox" className="h-4 w-4 accent-[#7B2D45]" checked={showSold} onChange={(e) => setShowSold(e.target.checked)} />Show sold</label>
+      </div>
+      <p className="text-sm text-muted"><span className="font-semibold text-ink">{have} of {outfits.length}</span> designs have a sample{have < outfits.length ? <> · <span className="text-amber-700 dark:text-amber-300">{outfits.length - have} missing</span></> : ''}</p>
+      {shown.length === 0 ? <EmptyState icon={Camera} title={missingOnly ? 'Every design has a sample' : 'No designs here'} /> : (
+        <motion.div variants={listParent} initial="hidden" animate="show" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {shown.map((p) => {
+            const samples = p.samples.filter((x) => showSold || !['Sold', 'Archived', 'Gifted'].includes(x.status))
+            return (
+              <motion.div key={p.productId} variants={listItem} className="card overflow-hidden">
+                <div className="aspect-[3/4] bg-subtle2">{p.imageUrl ? <img src={p.imageUrl} alt={p.product} loading="lazy" className="h-full w-full object-cover object-top" /> : null}</div>
+                <div className="space-y-2 p-2.5">
+                  <div><p className="truncate text-sm font-medium text-ink">{p.product}</p>{(collection === 'all' || term) && <p className="truncate text-[11px] text-faint">{p.collection || 'Separates'}</p>}</div>
+                  {samples.map((x) => (
+                    <button key={x.id} type="button" onClick={() => onOpenSample(p, x)} className="flex w-full items-center justify-between gap-2 rounded-lg bg-subtle px-2 py-1.5 text-left transition hover:bg-subtle2">
+                      <span className="text-xs font-semibold text-ink">{SHORT[x.size] || x.size}</span><StockPill status={x.status} />
+                    </button>
+                  ))}
+                  {!live(p).length && (canWrite
+                    ? <button type="button" className="btn-secondary w-full px-2 py-1.5 text-xs" onClick={() => onAddOne(p)}><Plus size={13} />Add sample</button>
+                    : <p className="text-xs text-amber-700 dark:text-amber-300">No sample</p>)}
+                </div>
+              </motion.div>
+            )
+          })}
+        </motion.div>
+      )}
     </div>
   )
 }
 
-// ── Samples tab ─────────────────────────────────────────────────────────
-function SamplesTab({ data, canWrite, onAdd, onOpenSample, onBulk }) {
-  const newest = data.collections[0]
-  const outfits = data.products.filter((p) => p.collectionId === newest?.id && p.isActive)
-  if (!newest) return <EmptyState icon={Camera} title="No collections yet" />
+// ── Studio stock: what's physically here, apart from samples ───────────
+function StudioStockTab({ version, canWrite, canSell, onOpen, onChanged }) {
+  const [pieces, setPieces] = useState(null)
+  const [gone, setGone] = useState(null)
+  const [showGone, setShowGone] = useState(false)
+  const [q, setQ] = useState('')
+  const [damaging, setDamaging] = useState(null)
+  useEffect(() => { getStockPieces({ status: 'At Studio', kind: 'Stock' }).then(setPieces).catch((e) => toast.error(e.message)) }, [version])
+  useEffect(() => { if (showGone) getStockPieces({ status: 'Sold,Gifted,Damaged,Archived', kind: 'Stock' }).then(setGone).catch(() => setGone([])) }, [showGone, version])
+  const term = q.trim().toLowerCase()
+  const match = (p) => !term || `${p.product} ${p.collection || ''}`.toLowerCase().includes(term)
+  if (!pieces) return <SkeletonRows rows={5} />
+  const ready = pieces.filter((p) => p.source === 'Made' && match(p))
+  const forSale = pieces.filter((p) => p.source !== 'Made' && match(p))
+  const damage = async ({ forSale: sellable, reason, price }) => {
+    try {
+      if (sellable) await markStockDamaged({ pieceIds: damaging.ids, damaged: true, damageNote: reason, askingPricePkr: price })
+      else await moveStockPieces(damaging.ids, 'Damaged', reason)
+      toast.success(sellable ? 'Labelled damaged' : 'Written off'); damaging.done(); setDamaging(null); onChanged()
+    } catch (err) { toast.error(err.message) }
+  }
+  const actions = [{ label: 'Mark damaged', icon: AlertTriangle, danger: true, run: (ids, done) => setDamaging({ ids, done }) }]
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="text-sm text-muted">{newest.name} · {outfits.filter((p) => p.samples.length).length} of {outfits.length} outfits have a sample</p>
-        {canWrite && <button className="btn-secondary ml-auto text-xs" onClick={onBulk}><LayoutGrid size={14} />Bulk add samples</button>}
+    <div className="space-y-5 pb-20">
+      <div className="relative max-w-sm">
+        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+        <input className="input pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by design" />
       </div>
-      <motion.div variants={listParent} initial="hidden" animate="show" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {outfits.map((p) => (
-          <motion.div key={p.productId} variants={listItem} className="card overflow-hidden">
-            <div className="aspect-[3/4] bg-subtle2">{p.imageUrl ? <img src={p.imageUrl} alt={p.product} loading="lazy" className="h-full w-full object-cover" /> : null}</div>
-            <div className="space-y-2 p-3">
-              <p className="truncate font-medium text-ink">{p.product}</p>
-              {p.samples.length ? p.samples.map((s) => (
-                <button key={s.id} type="button" onClick={() => onOpenSample(p, s)} className="block w-full space-y-1 rounded-lg bg-subtle p-2 text-left transition hover:bg-subtle2">
-                  <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold text-muted">{s.size}</span><StockPill status={s.status} /></div>
-                  {s.locationNote && <p className="truncate text-xs text-faint">{s.locationNote}</p>}
-                </button>
-              )) : canWrite ? (
-                <button type="button" className="btn-secondary w-full text-xs" onClick={() => onAdd(p)}><Plus size={14} />Add sample</button>
-              ) : <p className="text-xs text-amber-700 dark:text-amber-300">No sample yet</p>}
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
+      <section className="space-y-2">
+        <h2 className="section-title">Returns and spares, for sale <span className="font-normal text-muted">· {forSale.length}</span></h2>
+        <p className="text-xs text-muted">Back from a reseller or a customer, or spare. Sell one with <b>Sell</b>; damaged pieces show their asking price.</p>
+        <PieceRows pieces={forSale} canWrite={canWrite} canSell={canSell} onOpen={onOpen} actions={actions} empty="Nothing back from resellers or customers right now." />
+      </section>
+      <section className="space-y-2">
+        <h2 className="section-title">Ready for a shipment <span className="font-normal text-muted">· {ready.length}</span></h2>
+        <p className="text-xs text-muted">Finished pieces waiting to go to a reseller. The next handover uses them first.</p>
+        <PieceRows pieces={ready} canWrite={canWrite} canSell={canSell} onOpen={onOpen} actions={actions} empty="Nothing waiting for a shipment." />
+      </section>
+      <button type="button" className="inline-flex items-center gap-1 text-sm font-semibold text-accent" onClick={() => setShowGone((x) => !x)}>
+        <ChevronDown size={15} className={`transition ${showGone ? 'rotate-180' : ''}`} />{showGone ? 'Hide' : 'Show'} sold and written off
+      </button>
+      {showGone && (gone ? <PieceRows pieces={gone.filter(match)} canWrite={false} canSell={false} onOpen={onOpen} actions={[]} empty="Nothing sold or written off yet." /> : <SkeletonRows rows={3} />)}
+      <DamagedModal open={!!damaging} count={damaging?.ids.length || 0} onClose={() => setDamaging(null)} onConfirm={damage} />
+    </div>
+  )
+}
+
+// ── Being made: pieces stitched for the next shipment ──────────────────
+function MakingTab({ version, canWrite, onOpen, onChanged }) {
+  const [pieces, setPieces] = useState(null)
+  useEffect(() => { getStockPieces({ status: 'In Production' }).then(setPieces).catch((e) => toast.error(e.message)) }, [version])
+  if (!pieces) return <SkeletonRows rows={4} />
+  const ready = async (ids, done) => {
+    try { const r = await moveStockPieces(ids, 'At Studio', 'Ready'); toast.success(`${r.moved} piece${r.moved === 1 ? '' : 's'} ready`); done(); onChanged() }
+    catch (err) { toast.error(err.message) }
+  }
+  return (
+    <div className="space-y-2 pb-20">
+      <p className="text-xs text-muted">Tick the pieces that are finished and click <b>Mark ready</b>; they move to Studio stock, ready for the shipment.</p>
+      <PieceRows pieces={pieces} canWrite={canWrite} canSell={false} onOpen={onOpen} empty="Nothing being made right now."
+        actions={[{ label: 'Mark ready', icon: PackageCheck, primary: true, run: ready }]} />
     </div>
   )
 }
@@ -672,12 +637,12 @@ function SamplesTab({ data, canWrite, onAdd, onOpenSample, onBulk }) {
 export default function Inventory() {
   const { can } = useAuth()
   const canWrite = can('inventory:write')
-  const [bulk, setBulk] = useState(false)
+  const canSell = can('orders:write')
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
-  const [tab, setTab] = useState('overview')
-  const [product, setProduct] = useState(null)     // Pieces tab filtered to one outfit
-  const [adding, setAdding] = useState(null)       // { sample, preset }
+  const [tab, setTab] = useState('samples')
+  const [adding, setAdding] = useState(null)       // single sample for one design
+  const [bulk, setBulk] = useState(null)           // { kind, status, source }
   const [piece, setPiece] = useState(null)
   const [version, setVersion] = useState(0)
 
@@ -685,48 +650,52 @@ export default function Inventory() {
   useEffect(() => { load() }, [load, version])
   const changed = () => setVersion((v) => v + 1)
 
-  const openSample = async (p, s) => {
+  const openSample = async (p, x) => {
     try {
       const list = await getStockPieces({ productId: p.productId, kind: 'Sample', status: STATUSES.join(',') })
-      setPiece(list.find((x) => x.id === s.id) || null)
+      setPiece(list.find((y) => y.id === x.id) || null)
     } catch (err) { toast.error(err.message) }
   }
   const asPicked = (p) => ({ id: p.productId, name: p.product, imageUrl: p.imageUrl, collection: p.collection })
+  const samples = data ? data.products.flatMap((p) => p.samples).filter((x) => ['At Studio', 'At Shoot'].includes(x.status)) : []
+  const atShoot = samples.filter((x) => x.status === 'At Shoot').length
+  const addFor = {
+    samples: { label: 'Add samples', icon: Camera, open: () => setBulk({ kind: 'Sample', status: 'At Studio', source: 'Made' }) },
+    stock: { label: 'Add pieces', icon: Plus, open: () => setBulk({ kind: 'Stock', status: 'At Studio', source: 'Opening count' }) },
+    making: { label: 'Add a batch', icon: Scissors, open: () => setBulk({ kind: 'Stock', status: 'In Production', source: 'Made' }) },
+  }[tab]
+  const Card = ({ to, children }) => <button type="button" onClick={() => setTab(to)} className={`rounded-2xl text-left transition ${tab === to ? 'ring-2 ring-brand-primary/50' : 'hover:-translate-y-0.5'}`}>{children}</button>
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
-      <PageHeader eyebrow="Studio" title="Inventory" icon={Boxes} subtitle="Pieces made ahead of orders: reseller stock and shoot samples"
-        actions={canWrite && <>
-          <button className="btn-secondary" onClick={() => setAdding({ sample: true })}><Camera size={16} />Add sample</button>
-          <button className="btn-secondary" onClick={() => setBulk(tab === 'samples' ? 'Sample' : 'Stock')}><LayoutGrid size={16} />Bulk add</button>
-          <button className="btn-primary" onClick={() => setAdding({ sample: false })}><Plus size={16} />Add pieces</button>
-        </>} />
+      <PageHeader eyebrow="Studio" title="Inventory" icon={Boxes} subtitle="What's physically at the studio: shoot samples, pieces for sale, and pieces being made for a shipment"
+        actions={canWrite && addFor && <button className="btn-primary" onClick={addFor.open}><addFor.icon size={16} />{addFor.label}</button>} />
       <ErrorBanner onRetry={load}>{error}</ErrorBanner>
 
       {!data ? <SkeletonCards count={4} /> : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard label="At studio" value={data.stats.atStudio} icon={Warehouse} sub={data.stats.damagedForSale ? `Finished stock · ${data.stats.damagedForSale} damaged, for sale` : 'Finished stock'} />
-          <StatCard label="In production" value={data.stats.inProduction} icon={Scissors} tone="orange" sub="Being made" />
-          <StatCard label="At resellers" value={data.stats.atResellers} icon={Store} sub="At store, unsold" />
-          <StatCard label="Samples out" value={data.stats.samplesOut} icon={Camera} tone="plum" sub="At the shoot or a store" />
+          <Card to="samples"><StatCard label="Shoot samples" value={samples.length} icon={Camera} tone="plum" sub={atShoot ? `${atShoot} at the shoot` : 'At the studio'} /></Card>
+          <Card to="stock"><StatCard label="Studio stock" value={data.stats.atStudio} icon={Warehouse} sub={data.stats.damagedForSale ? `${data.stats.damagedForSale} damaged, for sale` : 'Returns, spares, ready pieces'} /></Card>
+          <Card to="making"><StatCard label="Being made" value={data.stats.inProduction} icon={Scissors} tone="orange" sub="For the next shipment" /></Card>
+          <StatCard label="At resellers" value={data.stats.atResellers} icon={Store} sub="On each reseller's Stock page" />
         </div>
       )}
 
-      <Segmented value={tab} onChange={setTab} options={[{ value: 'overview', label: 'Overview' }, { value: 'pieces', label: 'Pieces' }, { value: 'samples', label: 'Samples' }]} />
+      <Segmented value={tab} onChange={setTab} options={[{ value: 'samples', label: 'Samples' }, { value: 'stock', label: 'Studio stock' }, { value: 'making', label: 'Being made' }]} />
 
       {!data ? <SkeletonRows rows={6} /> : (
         <AnimatePresence mode="wait">
-          <motion.div key={tab + (product?.productId || '')} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18, ease }}>
-            {tab === 'overview' && <OverviewTab data={data} onOpen={(p) => { setProduct(p); setTab('pieces') }} />}
-            {tab === 'pieces' && <PiecesTab product={product} clearProduct={() => setProduct(null)} version={version} onChanged={changed} canWrite={canWrite} onOpenPiece={setPiece} />}
-            {tab === 'samples' && <SamplesTab data={data} canWrite={canWrite} onAdd={(p) => setAdding({ sample: true, preset: asPicked(p) })} onOpenSample={openSample} onBulk={() => setBulk('Sample')} />}
+          <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18, ease }}>
+            {tab === 'samples' && <SamplesTab data={data} canWrite={canWrite} onOpenSample={openSample} onAddOne={(p) => setAdding({ sample: true, preset: asPicked(p) })} />}
+            {tab === 'stock' && <StudioStockTab version={version} canWrite={canWrite} canSell={canSell} onOpen={setPiece} onChanged={changed} />}
+            {tab === 'making' && <MakingTab version={version} canWrite={canWrite} onOpen={setPiece} onChanged={changed} />}
           </motion.div>
         </AnimatePresence>
       )}
 
       <AddPiecesModal open={!!adding} sample={!!adding?.sample} preset={adding?.preset} overview={data} onClose={() => setAdding(null)} onSaved={changed} />
-      <PieceModal piece={piece} onClose={() => setPiece(null)} onSaved={changed} canWrite={canWrite} canSell={can('orders:write')} />
-      <BulkAddModal open={!!bulk} startKind={bulk || 'Stock'} onClose={() => setBulk(false)} overview={data} onSaved={changed} />
+      <PieceModal piece={piece} onClose={() => setPiece(null)} onSaved={changed} canWrite={canWrite} canSell={canSell} />
+      <BulkAddModal open={!!bulk} startKind={bulk?.kind} startStatus={bulk?.status} startSource={bulk?.source} onClose={() => setBulk(null)} overview={data} onSaved={changed} />
     </div>
   )
 }
