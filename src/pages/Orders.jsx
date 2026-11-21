@@ -12,6 +12,20 @@ import WebsiteImport from './orders/WebsiteImport'
 
 const ACTIVE = (o) => !['Cancelled', 'Returned', 'Paid'].includes(o.status)
 const DEFAULT_OPEN = ['New', 'In Tailoring', 'Ready', 'Payment Pending', 'Out for Delivery']
+// Dates in the studio's own time (the browser's local date), as YYYY-MM-DD
+const localDay = (d = new Date()) => d.toLocaleDateString('en-CA')
+const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return localDay(d) }
+const RANGES = [
+  { value: 'all', label: 'All orders' }, { value: 'today', label: 'Today' }, { value: '7', label: 'Last 7 days' },
+  { value: '15', label: 'Last 15 days' }, { value: '30', label: 'Last 30 days' }, { value: 'custom', label: 'Custom' },
+]
+// [from, to] by order date for a range choice; null = no date filter
+function rangeDates(range, custom) {
+  if (range === 'all') return null
+  if (range === 'today') return [localDay(), localDay()]
+  if (range === 'custom') return custom.from || custom.to ? [custom.from || '0000-01-01', custom.to || '9999-12-31'] : null
+  return [daysAgo(Number(range) - 1), localDay()]
+}
 
 function Checkbox({ checked, onChange }) {
   return (
@@ -102,6 +116,8 @@ export default function Orders() {
   const [error, setError] = useState(null)
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [range, setRange] = useState('all')
+  const [custom, setCustom] = useState({ from: '', to: '' })
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [busy, setBusy] = useState(null)
 
@@ -120,13 +136,25 @@ export default function Orders() {
     return next
   })
 
+  const dates = rangeDates(range, custom)
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return orders.filter((o) =>
       (statusFilter === 'all' || (statusFilter === 'active' ? ACTIVE(o) : o.status === statusFilter)) &&
+      (!dates || (o.orderDate && o.orderDate >= dates[0] && o.orderDate <= dates[1])) &&
       (!q || [o.orderNumber, o.customer, o.product, o.phone, o.reference, o.shopifyOrderNumber, o.channel, o.prHandle, o.orderType === 'PR' ? 'pr gift' : ''].some((v) => (v || '').toLowerCase().includes(q))))
-  }, [orders, query, statusFilter])
+  }, [orders, query, statusFilter, dates?.[0], dates?.[1]]) // eslint-disable-line react-hooks/exhaustive-deps
   const grouped = groupByStatus(filtered)
+  // Totals for the chosen period: sales only (PR / gift, cancelled and returned don't count as revenue)
+  const period = useMemo(() => {
+    const sales = filtered.filter((o) => o.orderType !== 'PR' && !['Cancelled', 'Returned'].includes(o.status))
+    return {
+      orders: filtered.length, pr: filtered.filter((o) => o.orderType === 'PR').length,
+      sales: sales.reduce((s, o) => s + (Number(o.amount) || 0), 0),
+      advance: sales.reduce((s, o) => s + (Number(o.advancePaid) || 0), 0),
+      balance: sales.reduce((s, o) => s + Math.max(0, Number(o.balanceDue) || 0), 0),
+    }
+  }, [filtered])
 
   const active = orders.filter(ACTIVE)
   const outstanding = orders.filter((o) => o.status !== 'Cancelled').reduce((s, o) => s + Math.max(0, Number(o.balanceDue) || 0), 0)
@@ -188,6 +216,32 @@ export default function Orders() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
           <input className="input pl-9" placeholder="Search by order no., Shopify no., customer, product, phone or channel" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
+        {/* Order date range */}
+        <div className="flex flex-wrap items-center gap-2">
+          <CalendarClock size={15} className="text-faint" />
+          <div className="inline-flex flex-wrap rounded-xl border border-line bg-subtle/60 p-0.5">
+            {RANGES.map((r) => (
+              <button key={r.value} type="button" onClick={() => setRange(r.value)}
+                className={`whitespace-nowrap rounded-lg px-3 py-1 text-xs font-semibold transition ${range === r.value ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>{r.label}</button>
+            ))}
+          </div>
+          {range === 'custom' && (
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+              <input type="date" className="input w-auto py-1.5 text-sm" value={custom.from} max={custom.to || undefined} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))} aria-label="From" />
+              <span>to</span>
+              <input type="date" className="input w-auto py-1.5 text-sm" value={custom.to} min={custom.from || undefined} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))} aria-label="To" />
+            </div>
+          )}
+        </div>
+        {dates && !loading && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm">
+            <span className="text-muted">{dates[0] === dates[1] ? fmtDate(dates[0]) : `${dates[0] > '0001' ? fmtDate(dates[0]) : 'Start'} – ${dates[1] < '9999' ? fmtDate(dates[1]) : 'today'}`} · by order date</span>
+            <span><span className="font-semibold text-ink">{period.orders}</span> <span className="text-muted">order{period.orders === 1 ? '' : 's'}{period.pr ? ` (${period.pr} PR)` : ''}</span></span>
+            <span><span className="text-muted">Sales</span> <span className="font-semibold text-ink">{money(period.sales)}</span></span>
+            <span><span className="text-muted">Advance</span> <span className="font-semibold text-emerald-700 dark:text-emerald-400">{money(period.advance)}</span></span>
+            <span><span className="text-muted">Balance</span> <span className={`font-semibold ${period.balance ? 'text-rose-600' : 'text-ink'}`}>{money(period.balance)}</span></span>
+          </div>
+        )}
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
           {chips.map((c) => (
             <button key={c.value} onClick={() => setStatusFilter(c.value)}
@@ -204,13 +258,13 @@ export default function Orders() {
 
       {loading ? <SkeletonRows rows={6} /> : filtered.length === 0 ? (
         <EmptyState icon={Package} title={orders.length ? 'No matching orders' : 'No orders yet'}
-          hint={orders.length ? 'Try a different search or status.' : 'Create your first order to get started.'}
+          hint={orders.length ? 'Try a different search, status or date range.' : 'Create your first order to get started.'}
           action={can('orders:write') && !orders.length && <button className="btn-primary" onClick={() => navigate('/orders/new')}><PlusCircle size={16} />Create order</button>} />
       ) : (
         <div className="space-y-3">
           {STATUS_OPTIONS.map((s) => (
-            <StatusGroup key={s.value} statusMeta={s} orders={grouped[s.value] || []} onOpen={(id) => navigate(`/orders/${id}`)}
-              selectedIds={selectedIds} onToggle={toggleSelect} defaultOpen={DEFAULT_OPEN.includes(s.value) || statusFilter === s.value || !!query} />
+            <StatusGroup key={`${s.value}-${range}`} statusMeta={s} orders={grouped[s.value] || []} onOpen={(id) => navigate(`/orders/${id}`)}
+              selectedIds={selectedIds} onToggle={toggleSelect} defaultOpen={DEFAULT_OPEN.includes(s.value) || statusFilter === s.value || !!query || range !== 'all'} />
           ))}
         </div>
       )}
