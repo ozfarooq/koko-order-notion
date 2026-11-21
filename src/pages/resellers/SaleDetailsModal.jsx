@@ -55,6 +55,15 @@ export default function SaleDetailsModal({ piece, onClose, onSave }) {
   }, [onClose])
 
   if (!form) return null
+  // Paid pieces only change through Payments; sold pieces keep their price; studio returns are view-only
+  const locked = piece.status === 'FC - Paid' || (piece.status === 'FC - Returned' && piece.studioStatus)
+  const allowed = {
+    'FC - At Store': ['FC - At Store', 'FC - Sold', 'FC - Returned'],
+    'FC - Sold': ['FC - Sold', 'FC - At Store'],
+    'FC - Paid': ['FC - Paid'],
+    'FC - Returned': piece.studioStatus ? ['FC - Returned'] : ['FC - Returned', 'FC - At Store'],
+  }[piece.status] || [piece.status]
+  const priceLocked = locked || piece.status === 'FC - Sold'
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const preview = { ...piece, ...form }
@@ -113,8 +122,8 @@ export default function SaleDetailsModal({ piece, onClose, onSave }) {
           {/* Fields */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Status">
-              <select className="input" value={form.status} onChange={set('status')}>
-                {FC_STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              <select className="input" value={form.status} onChange={set('status')} disabled={allowed.length < 2}>
+                {FC_STATUS_OPTIONS.filter((s) => allowed.includes(s.value)).map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </Field>
             <Field label="Sale date" hint={isSale ? 'Date on the statement' : 'Set when sold'}>
@@ -127,19 +136,19 @@ export default function SaleDetailsModal({ piece, onClose, onSave }) {
               <input className="input" value={form.resellerCode} onChange={set('resellerCode')} placeholder="KOATLR-010" />
             </Field>
             <Field label={`Gross price (${piece.currency || 'AED'})`}>
-              <input type="number" min="0" className="input" value={form.aedPrice} onChange={set('aedPrice')} />
+              <input type="number" min="0" className="input" value={form.aedPrice} onChange={set('aedPrice')} disabled={priceLocked} />
             </Field>
             <Field label="Designer discount" hint="Discount Koko offers">
               <div className="flex gap-2">
-                <input type="number" min="0" className="input" value={form.designerDiscount} onChange={set('designerDiscount')} placeholder="0" />
-                <button type="button" className="btn-secondary px-2 text-xs" onClick={() => applyPercent(10)} title="10% of gross">10%</button>
+                <input type="number" min="0" className="input" value={form.designerDiscount} onChange={set('designerDiscount')} placeholder="0" disabled={locked} />
+                <button type="button" className="btn-secondary px-2 text-xs" onClick={() => applyPercent(10)} title="10% of gross" disabled={locked}>10%</button>
               </div>
             </Field>
             <Field label="Collage discount" hint="Discount the reseller offers">
-              <input type="number" min="0" className="input" value={form.resellerDiscount} onChange={set('resellerDiscount')} placeholder="0" />
+              <input type="number" min="0" className="input" value={form.resellerDiscount} onChange={set('resellerDiscount')} placeholder="0" disabled={locked} />
             </Field>
             <Field label="Alt / Laundry" hint="Deducted after commission">
-              <input type="number" min="0" className="input" value={form.alterationCharge} onChange={set('alterationCharge')} placeholder="0" />
+              <input type="number" min="0" className="input" value={form.alterationCharge} onChange={set('alterationCharge')} placeholder="0" disabled={locked} />
             </Field>
             {form.status === 'FC - Paid' && (
               <Field label="Payment date">
@@ -164,6 +173,13 @@ export default function SaleDetailsModal({ piece, onClose, onSave }) {
           </div>
         </div>
 
+        {(locked || priceLocked) && (
+          <p className="mx-5 mb-4 rounded-lg bg-subtle px-3 py-2 text-xs text-muted">
+            {piece.status === 'FC - Paid' ? 'Paid: price, discounts and status are locked. To undo, remove the payment under Payments.'
+              : piece.status === 'FC - Sold' ? 'Sold: the price is locked. It becomes Paid when you record its payment; "At Store" undoes a sale entered by mistake.'
+              : 'Back in studio stock: this piece can no longer be changed here.'}
+          </p>
+        )}
         {(invalid || error) && (
           <div className="mx-5 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{invalid || error}</div>
         )}

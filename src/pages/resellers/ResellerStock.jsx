@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { RefreshCw, Store, ArrowUp, ArrowDown, Pencil, Search, Package, CheckCircle2, Wallet, Undo2 } from 'lucide-react'
+import { RefreshCw, Store, ArrowUp, ArrowDown, Pencil, Search, Package, CheckCircle2, Wallet, Undo2, Lock } from 'lucide-react'
 import { getConsignments, updateConsignmentItem, recordReturns, pieceMoney, FC_STATUS_OPTIONS } from '../../data/storage'
 import { sizeCode } from '../../utils/resellerCodes'
 import { useAuth } from '../../auth/AuthContext'
@@ -29,6 +29,11 @@ function PieceDate({ o }) {
     return <><p>Sold {fmtDate(o.soldOn)}</p>{o.resellerInvoiceNo && <p className="tabular-nums font-medium text-[11px] text-faint">{o.resellerInvoiceNo}</p>}</>
   return <>Handed over {fmtDate(o.handoverDate)}</>
 }
+
+// Finished pieces can't be edited here: sold, paid, or returned and back in studio stock
+const isLocked = (o) => ['FC - Sold', 'FC - Paid'].includes(o.status) || (o.status === 'FC - Returned' && !!o.studioStatus)
+const GROUPS = [['FC - At Store', 'At store'], ['FC - Sold', 'Sold, awaiting payment'], ['FC - Paid', 'Paid'], ['FC - Returned', 'Returned']]
+const groupOf = (o) => GROUPS.findIndex(([s]) => s === o.status)
 
 export default function ResellerStock() {
   const { resellerId } = useParams()
@@ -104,8 +109,11 @@ export default function ResellerStock() {
     return pieces
       .filter((o) => statusFilter === 'all' || o.status === statusFilter)
       .filter((o) => !q || [o.product, o.size, o.resellerCode, o.resellerInvoiceNo].some((v) => (v || '').toLowerCase().includes(q)))
-      .sort((a, b) => (sortDir === 'asc' ? 1 : -1) * (a.product || '').localeCompare(b.product || ''))
-  }, [pieces, statusFilter, query, sortDir])
+      .sort((a, b) => (statusFilter === 'all' ? groupOf(a) - groupOf(b) : 0) || (sortDir === 'asc' ? 1 : -1) * (a.product || '').localeCompare(b.product || ''))
+  }, [pieces, statusFilter, query, sortDir]) // eslint-disable-line react-hooks/exhaustive-deps
+  // In "All", a heading row starts each status group
+  const startsGroup = (o, i) => statusFilter === 'all' && (i === 0 || visible[i - 1].status !== o.status)
+  const groupCount = (status) => visible.filter((o) => o.status === status).length
 
   const filterOptions = [{ value: 'all', label: `All ${pieces.length}` },
     ...FC_STATUS_OPTIONS.map((s) => ({ value: s.value, label: `${s.label} ${pieces.filter((o) => o.status === s.value).length}` }))]
@@ -192,11 +200,20 @@ export default function ResellerStock() {
             </tr></thead>
             <motion.tbody layout className="divide-y divide-line">
               <AnimatePresence initial={false}>
-                {visible.map((o) => {
+                {visible.flatMap((o, i) => {
                   const drafting = editingPrice[o.id] !== undefined
+                  const locked = isLocked(o)
+                  const heading = startsGroup(o, i) && (
+                    <tr key={`g-${o.status}`} className="bg-subtle/70">
+                      <td colSpan={20} className="px-4 py-2 font-label text-[11px] font-semibold uppercase tracking-wider text-muted">
+                        {GROUPS.find(([s]) => s === o.status)?.[1]} · {groupCount(o.status)}
+                        {o.status !== 'FC - At Store' && <span className="ml-2 inline-flex items-center gap-1 font-normal normal-case tracking-normal text-faint"><Lock size={11} />locked</span>}
+                      </td>
+                    </tr>
+                  )
                   const gross = drafting ? Number(editingPrice[o.id]) || 0 : Number(o.aedPrice) || 0
                   const m = pieceMoney(o, gross)
-                  return (
+                  return [heading, (
                     <motion.tr key={o.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease }} className={selected.has(o.id) ? 'bg-plum-50/60 dark:bg-plum-900/20' : 'hover:bg-subtle/50'}>
                       {canEdit && <td className="pl-4">{canBringBack(o) && <input type="checkbox" className="accent-plum-600" checked={selected.has(o.id)} onChange={() => toggle(o.id)} aria-label="Select to bring back to the studio" />}</td>}
                       <td className="td">
@@ -209,7 +226,7 @@ export default function ResellerStock() {
                       {showMoney && (
                         <>
                           <td className="td">
-                            {canEdit ? (
+                            {canEdit && !locked ? (
                               <div className="flex items-center gap-1">
                                 <span className="text-[11px] text-faint">{cur}</span>
                                 <input type="number" className="w-20 rounded-md border border-line bg-surface px-2 py-1 text-sm font-semibold text-ink focus:border-plum-400 focus:outline-none"
@@ -226,10 +243,10 @@ export default function ResellerStock() {
                         </>
                       )}
                       <td className="td">
-                        {canEdit ? (
+                        {canEdit && !locked ? (
                           <select className="rounded-md border border-line bg-surface px-2 py-1 text-xs font-semibold text-ink-soft focus:border-plum-400 focus:outline-none"
                             value={o.status} onChange={(e) => changeStatus(o, e.target.value)}>
-                            {FC_STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                            {FC_STATUS_OPTIONS.filter((s) => s.value !== 'FC - Paid' && (o.status !== 'FC - Returned' || s.value !== 'FC - Sold')).map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                           </select>
                         ) : <StatusPill status={o.status} />}
                       </td>
@@ -239,10 +256,11 @@ export default function ResellerStock() {
                           : <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">Not in studio stock yet</p>)}
                       </td>
                       <td className="py-3 pr-3 text-right">
-                        {canEdit && <button className="btn-icon" onClick={() => setDetailsId(o.id)} title="Sale details"><Pencil size={14} /></button>}
+                        {canEdit && !locked && <button className="btn-icon" onClick={() => setDetailsId(o.id)} title="Sale details"><Pencil size={14} /></button>}
+                        {canEdit && locked && <span className="inline-flex h-8 w-8 items-center justify-center text-faint" title={o.status === 'FC - Returned' ? 'Back in studio stock' : 'Sale details are corrected under Statements'}><Lock size={14} /></span>}
                       </td>
                     </motion.tr>
-                  )
+                  )].filter(Boolean)
                 })}
               </AnimatePresence>
             </motion.tbody>
@@ -250,8 +268,10 @@ export default function ResellerStock() {
 
           {/* Phone */}
           <div className="divide-y divide-line md:hidden">
-            {visible.map((o) => (
-              <div key={o.id} className="flex gap-3 p-4" onClick={() => canEdit && setDetailsId(o.id)}>
+            {visible.map((o, i) => (
+              <div key={o.id}>
+              {startsGroup(o, i) && <p className="bg-subtle/70 px-4 py-2 font-label text-[11px] font-semibold uppercase tracking-wider text-muted">{GROUPS.find(([s]) => s === o.status)?.[1]} · {groupCount(o.status)}</p>}
+              <div className="flex gap-3 p-4" onClick={() => canEdit && !isLocked(o) && setDetailsId(o.id)}>
                 {o.imageUrl && <img src={o.imageUrl} alt="" className="h-14 w-14 flex-shrink-0 rounded-lg object-cover" loading="lazy" />}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
@@ -263,6 +283,7 @@ export default function ResellerStock() {
                     {showMoney && <div className="text-right"><p className="text-ink">{cur} {fmt(o.aedPrice)}</p><p className="font-semibold text-emerald-700 dark:text-emerald-400">Net {fmt(net(o))}</p></div>}
                   </div>
                 </div>
+              </div>
               </div>
             ))}
           </div>
