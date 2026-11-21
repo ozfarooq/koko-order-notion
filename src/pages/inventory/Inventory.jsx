@@ -167,11 +167,14 @@ function AddPiecesModal({ open, onClose, sample, preset, overview, onSaved }) {
 }
 
 // ── Bulk add: quantities for many outfits in one go ────────────────────
-function BulkAddModal({ open, onClose, overview, onSaved }) {
+function BulkAddModal({ open, onClose, overview, onSaved, startKind = 'Stock' }) {
   const newest = overview?.collections[0]?.id ?? null
+  const [kind, setKind] = useState(startKind)
   const [collection, setCollection] = useState('all')
   const [q, setQ] = useState('')
-  const [qty, setQty] = useState({})            // { [productId]: { Small: 2 } }
+  const [qty, setQty] = useState({})            // stock: { [productId]: { Small: 2 } }
+  const [sampleSize, setSampleSize] = useState({})  // samples: { [productId]: 'Medium' }
+  const [locationNote, setLocationNote] = useState('')
   const [status, setStatus] = useState('In Production')
   const [source, setSource] = useState('Made')
   const [madeOn, setMadeOn] = useState(today())
@@ -179,39 +182,47 @@ function BulkAddModal({ open, onClose, overview, onSaved }) {
   const [saving, setSaving] = useState(false)
   useEffect(() => {
     if (!open) return
-    setCollection(String(newest ?? 'all')); setQ(''); setQty({}); setStatus('In Production'); setSource('Made'); setMadeOn(today()); setNotes('')
-  }, [open, newest])
+    setKind(startKind); setCollection(String(newest ?? 'all')); setQ(''); setQty({}); setSampleSize({}); setLocationNote('')
+    setStatus(startKind === 'Sample' ? 'At Studio' : 'In Production'); setSource('Made'); setMadeOn(today()); setNotes('')
+  }, [open, newest, startKind])
+  const isSample = kind === 'Sample'
+  const switchKind = (k) => { setKind(k); setStatus(k === 'Sample' ? 'At Studio' : 'In Production') }
 
   const term = q.trim().toLowerCase()
   const rows = (overview?.products || []).filter((p) => (term ? `${p.product} ${p.collection || ''}`.toLowerCase().includes(term)
     : collection === 'all' || String(p.collectionId ?? 'none') === collection) && (p.isActive || term))
-  const total = Object.values(qty).reduce((s, z) => s + Object.values(z).reduce((a, n) => a + (Number(n) || 0), 0), 0)
-  const outfits = Object.values(qty).filter((z) => Object.values(z).some((n) => Number(n) > 0)).length
+  const stockTotal = Object.values(qty).reduce((s, z) => s + Object.values(z).reduce((a, n) => a + (Number(n) || 0), 0), 0)
+  const samplesChosen = Object.values(sampleSize).filter(Boolean).length
+  const total = isSample ? samplesChosen : stockTotal
+  const outfits = isSample ? samplesChosen : Object.values(qty).filter((z) => Object.values(z).some((n) => Number(n) > 0)).length
   const setCell = (pid, size, v) => {
     const n = v === '' ? '' : Math.min(50, Math.max(0, Math.floor(Number(v) || 0)))
     setQty((x) => ({ ...x, [pid]: { ...(x[pid] || {}), [size]: n } }))
   }
 
   const save = async () => {
-    const items = Object.entries(qty).map(([pid, z]) => ({ productId: Number(pid), sizes: Object.fromEntries(Object.entries(z).filter(([, n]) => Number(n) > 0)) }))
-      .filter((it) => Object.keys(it.sizes).length)
-    if (!items.length) return toast.error('Enter a quantity for at least one outfit')
+    const items = isSample
+      ? Object.entries(sampleSize).filter(([, z]) => z).map(([pid, z]) => ({ productId: Number(pid), sizes: { [z]: 1 } }))
+      : Object.entries(qty).map(([pid, z]) => ({ productId: Number(pid), sizes: Object.fromEntries(Object.entries(z).filter(([, n]) => Number(n) > 0)) }))
+        .filter((it) => Object.keys(it.sizes).length)
+    if (!items.length) return toast.error(isSample ? 'Choose a size for at least one outfit' : 'Enter a quantity for at least one outfit')
     setSaving(true)
     try {
-      const r = await addStockPiecesBulk({ items, status, source, madeOn, notes })
-      toast.success(`${r.created} piece${r.created === 1 ? '' : 's'} added across ${r.outfits} outfit${r.outfits === 1 ? '' : 's'}`)
+      const r = await addStockPiecesBulk({ items, kind, status, source, madeOn, notes, locationNote: isSample ? locationNote : undefined })
+      toast.success(isSample ? `${r.created} shoot sample${r.created === 1 ? '' : 's'} added` : `${r.created} piece${r.created === 1 ? '' : 's'} added across ${r.outfits} outfit${r.outfits === 1 ? '' : 's'}`)
       onSaved(); onClose()
     } catch (err) { toast.error(err.message) } finally { setSaving(false) }
   }
 
   return (
-    <Modal open={open} onClose={onClose} size="xl" title="Bulk add" subtitle="Quantities for as many outfits as you like, saved together"
+    <Modal open={open} onClose={onClose} size="xl" title="Bulk add" subtitle={isSample ? 'Shoot samples for as many outfits as you like, saved together' : 'Quantities for as many outfits as you like, saved together'}
       footer={<>
-        <p className="mr-auto self-center text-sm text-muted">{total} piece{total === 1 ? '' : 's'} · {outfits} outfit{outfits === 1 ? '' : 's'}</p>
+        <p className="mr-auto self-center text-sm text-muted">{isSample ? `${total} sample${total === 1 ? '' : 's'}` : `${total} piece${total === 1 ? '' : 's'} · ${outfits} outfit${outfits === 1 ? '' : 's'}`}</p>
         <button className="btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn-primary" onClick={save} disabled={saving || !total}><Plus size={15} />{saving ? 'Saving…' : `Add ${total || ''} piece${total === 1 ? '' : 's'}`}</button>
+        <button className="btn-primary" onClick={save} disabled={saving || !total}><Plus size={15} />{saving ? 'Saving…' : isSample ? `Add ${total || ''} sample${total === 1 ? '' : 's'}` : `Add ${total || ''} piece${total === 1 ? '' : 's'}`}</button>
       </>}>
       <div className="space-y-4 p-5">
+        <Segmented value={kind} onChange={switchKind} options={[{ value: 'Stock', label: 'Stock pieces' }, { value: 'Sample', label: 'Shoot samples' }]} />
         <div className="grid gap-3 sm:grid-cols-4">
           <Field label="Status" className="sm:col-span-2">
             <Segmented value={status} onChange={setStatus} options={[{ value: 'In Production', label: 'In production' }, { value: 'At Studio', label: 'Finished, at studio' }]} />
@@ -222,7 +233,8 @@ function BulkAddModal({ open, onClose, overview, onSaved }) {
             </select>
           </Field>
           <Field label="Made on"><input type="date" className="input" value={madeOn} onChange={(e) => setMadeOn(e.target.value)} /></Field>
-          <Field label="Notes (all pieces)" className="sm:col-span-4"><input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. tailor, batch for Collage" /></Field>
+          {isSample && <Field label="Where they are" className="sm:col-span-2"><input className="input" value={locationNote} onChange={(e) => setLocationNote(e.target.value)} placeholder="e.g. Studio rail, with photographer Ali" /></Field>}
+          <Field label={isSample ? 'Notes (all samples)' : 'Notes (all pieces)'} className={isSample ? 'sm:col-span-2' : 'sm:col-span-4'}><input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={isSample ? 'e.g. Eid shoot, Dec 2026' : 'e.g. tailor, batch for Collage'} /></Field>
         </div>
         <div className="flex flex-wrap gap-2">
           <select className="input w-auto" value={collection} onChange={(e) => setCollection(e.target.value)} disabled={!!term}>
@@ -237,15 +249,41 @@ function BulkAddModal({ open, onClose, overview, onSaved }) {
         <div className="max-h-[48vh] overflow-auto rounded-xl border border-line">
           <table className="w-full min-w-[560px] text-sm">
             <thead className="sticky top-0 z-10 bg-surface-accent">
+              {isSample ? (
+              <tr>
+                <th className="px-3 py-2 text-left font-label text-[10.5px] font-medium uppercase tracking-wider text-ink">Outfit</th>
+                <th className="px-3 py-2 text-left font-label text-[10.5px] font-medium uppercase tracking-wider text-ink">Sample already</th>
+                <th className="w-44 px-3 py-2 text-left font-label text-[10.5px] font-medium uppercase tracking-wider text-ink">Sample size</th>
+              </tr>
+              ) : (
               <tr>
                 <th className="px-3 py-2 text-left font-label text-[10.5px] font-medium uppercase tracking-wider text-ink">Outfit</th>
                 {STOCK_SIZES.map((z) => <th key={z} className="w-16 px-1 py-2 text-center font-label text-[10.5px] font-medium uppercase tracking-wider text-ink">{SHORT[z]}</th>)}
                 <th className="w-12 px-2 py-2 text-right font-label text-[10.5px] font-medium uppercase tracking-wider text-ink">Total</th>
               </tr>
+              )}
             </thead>
             <tbody className="divide-y divide-line">
               {rows.length === 0 && <tr><td colSpan={7} className="px-3 py-6 text-center text-muted">No outfits match.</td></tr>}
-              {rows.map((p) => {
+              {isSample && rows.map((p) => {
+                const live = p.samples.filter((s) => !['Sold', 'Archived', 'Damaged'].includes(s.status))
+                const chosen = sampleSize[p.productId] || ''
+                return (
+                  <tr key={p.productId} className={chosen ? 'bg-plum-50/40 dark:bg-plum-900/10' : ''}>
+                    <td className="px-3 py-1.5"><div className="flex items-center gap-2.5"><Thumb src={p.imageUrl} className="h-10 w-8" /><div className="min-w-0"><p className="truncate font-medium text-ink">{p.product}</p><p className="truncate text-[11px] text-faint">{p.collection || 'Separates'}</p></div></div></td>
+                    <td className="px-3 py-1.5 text-xs">{live.length
+                      ? <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300"><AlertTriangle size={11} />{live.map((s) => `${SHORT[s.size]}, ${s.status.toLowerCase()}`).join('; ')}</span>
+                      : <span className="text-faint">None</span>}</td>
+                    <td className="px-3 py-1.5">
+                      <select className="input py-1.5 text-sm" value={chosen} onChange={(e) => setSampleSize((x) => ({ ...x, [p.productId]: e.target.value }))} aria-label={`${p.product} sample size`}>
+                        <option value="">No sample</option>
+                        {STOCK_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+                  </tr>
+                )
+              })}
+              {!isSample && rows.map((p) => {
                 const z = qty[p.productId] || {}
                 const sum = Object.values(z).reduce((a, n) => a + (Number(n) || 0), 0)
                 return (
@@ -265,7 +303,7 @@ function BulkAddModal({ open, onClose, overview, onSaved }) {
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-muted">Quantities stay when you switch collection or search, so you can fill several collections before saving.</p>
+        <p className="text-xs text-muted">{isSample ? 'One sample per outfit; outfits that already have one are flagged. ' : ''}{isSample ? 'Choices' : 'Quantities'} stay when you switch collection or search, so you can fill several collections before saving.</p>
       </div>
     </Modal>
   )
@@ -598,13 +636,16 @@ function PiecesTab({ product, clearProduct, version, onChanged, canWrite, onOpen
 }
 
 // ── Samples tab ─────────────────────────────────────────────────────────
-function SamplesTab({ data, canWrite, onAdd, onOpenSample }) {
+function SamplesTab({ data, canWrite, onAdd, onOpenSample, onBulk }) {
   const newest = data.collections[0]
   const outfits = data.products.filter((p) => p.collectionId === newest?.id && p.isActive)
   if (!newest) return <EmptyState icon={Camera} title="No collections yet" />
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted">{newest.name} · {outfits.filter((p) => p.samples.length).length} of {outfits.length} outfits have a sample</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm text-muted">{newest.name} · {outfits.filter((p) => p.samples.length).length} of {outfits.length} outfits have a sample</p>
+        {canWrite && <button className="btn-secondary ml-auto text-xs" onClick={onBulk}><LayoutGrid size={14} />Bulk add samples</button>}
+      </div>
       <motion.div variants={listParent} initial="hidden" animate="show" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {outfits.map((p) => (
           <motion.div key={p.productId} variants={listItem} className="card overflow-hidden">
@@ -657,7 +698,7 @@ export default function Inventory() {
       <PageHeader eyebrow="Studio" title="Inventory" icon={Boxes} subtitle="Pieces made ahead of orders: reseller stock and shoot samples"
         actions={canWrite && <>
           <button className="btn-secondary" onClick={() => setAdding({ sample: true })}><Camera size={16} />Add sample</button>
-          <button className="btn-secondary" onClick={() => setBulk(true)}><LayoutGrid size={16} />Bulk add</button>
+          <button className="btn-secondary" onClick={() => setBulk(tab === 'samples' ? 'Sample' : 'Stock')}><LayoutGrid size={16} />Bulk add</button>
           <button className="btn-primary" onClick={() => setAdding({ sample: false })}><Plus size={16} />Add pieces</button>
         </>} />
       <ErrorBanner onRetry={load}>{error}</ErrorBanner>
@@ -678,14 +719,14 @@ export default function Inventory() {
           <motion.div key={tab + (product?.productId || '')} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18, ease }}>
             {tab === 'overview' && <OverviewTab data={data} onOpen={(p) => { setProduct(p); setTab('pieces') }} />}
             {tab === 'pieces' && <PiecesTab product={product} clearProduct={() => setProduct(null)} version={version} onChanged={changed} canWrite={canWrite} onOpenPiece={setPiece} />}
-            {tab === 'samples' && <SamplesTab data={data} canWrite={canWrite} onAdd={(p) => setAdding({ sample: true, preset: asPicked(p) })} onOpenSample={openSample} />}
+            {tab === 'samples' && <SamplesTab data={data} canWrite={canWrite} onAdd={(p) => setAdding({ sample: true, preset: asPicked(p) })} onOpenSample={openSample} onBulk={() => setBulk('Sample')} />}
           </motion.div>
         </AnimatePresence>
       )}
 
       <AddPiecesModal open={!!adding} sample={!!adding?.sample} preset={adding?.preset} overview={data} onClose={() => setAdding(null)} onSaved={changed} />
       <PieceModal piece={piece} onClose={() => setPiece(null)} onSaved={changed} canWrite={canWrite} canSell={can('orders:write')} />
-      <BulkAddModal open={bulk} onClose={() => setBulk(false)} overview={data} onSaved={changed} />
+      <BulkAddModal open={!!bulk} startKind={bulk || 'Stock'} onClose={() => setBulk(false)} overview={data} onSaved={changed} />
     </div>
   )
 }
