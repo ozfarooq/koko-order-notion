@@ -128,7 +128,7 @@ export default function Kanban() {
   }
 
   const share = () => navigator.clipboard.writeText(`${window.location.origin}/board`)
-    .then(() => toast.success('Public board link copied')).catch(() => toast.error("Couldn't copy the link"))
+    .then(() => toast.success('Board link copied. It opens for logged-in staff only.')).catch(() => toast.error("Couldn't copy the link"))
 
   const active = orders.filter((o) => !['Paid', 'Cancelled', 'Returned'].includes(o.status)).length
 

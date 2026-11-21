@@ -6,6 +6,7 @@ import { FileText, Printer, Trash2, ReceiptText, Banknote, Search, ChevronDown, 
 import { getConsignments, getPayments, getProducts, enterStatement, updateConsignmentItem, pieceMoney } from '../../data/storage'
 import Payments from './Payments'
 import SaleDetailsModal from './SaleDetailsModal'
+import ImportSheet from './ImportSheet'
 import { monthKey, monthLabel, monthShort, monthlySummary, PayBadge } from './months'
 import { useAuth } from '../../auth/AuthContext'
 import { PageHeader, Segmented, Field, SkeletonRows, EmptyState, ErrorBanner, fmtDate } from '../../ui/kit'
@@ -174,12 +175,12 @@ function StatementView({ reseller, pieces, payments, months, showPkr, onRecord }
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
             <Banknote size={15} className={thisMonth?.payments.length ? 'text-emerald-600' : 'text-faint'} />
             {thisMonth?.payments.length
-              ? thisMonth.payments.map((p) => <span key={p.id} className="text-ink">Paid {fmtDate(p.paidOn)} · {cur} {f2(p.amount)}{p.amountPkr != null && <span data-pdf-hide> · PKR {f0(p.amountPkr)}</span>}{p.reference ? ` · ${p.reference}` : ''}</span>)
+              ? thisMonth.payments.map((p) => <span key={p.id} className="text-ink">Paid {fmtDate(p.paidOn)} · {cur} {f2(p.amount)}{p.amountPkr != null && <span data-pdf-hide> · PKR {f0(p.amountPkr)}</span>}</span>)
               : <span className="text-muted">No payment recorded for {monthLabel(period)} yet.</span>}
           </div>
         )}
         {period === 'all' && payments.length > 0 && (
-          <p className="mt-3 text-xs text-muted">Payments received: {payments.map((p) => `${fmtDate(p.paidOn)} ${cur} ${f2(p.amount)}${p.reference ? ` (${p.reference})` : ''}`).join(' · ')}</p>
+          <p className="mt-3 text-xs text-muted">Payments received: {payments.map((p) => `${fmtDate(p.paidOn)} ${cur} ${f2(p.amount)}`).join(' · ')}</p>
         )}
       </div>
     </div>
@@ -345,6 +346,7 @@ function EnterSales({ reseller, pieces, months, onSaved }) {
 
   return (
     <div className="space-y-4">
+      {available.length > 0 && <ImportSheet reseller={reseller} pieces={pieces} used={used} onAdd={(add) => setLines((l) => [...l, ...add.map((x) => ({ key: ++seq, resellerDiscount: '', ...x }))])} />}
       {available.length ? <OutfitPicker available={available} used={used} onPick={pick} cur={cur} />
         : <EmptyState icon={ReceiptText} title="Nothing at the store" hint="Every piece is already sold, paid or returned." />}
 

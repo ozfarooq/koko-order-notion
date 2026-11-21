@@ -88,7 +88,7 @@ export default function App() {
           <Suspense fallback={<Spinner full />}>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/board" element={<BoardReadOnly />} />
+              <Route path="/board" element={<ProtectedRoute><Require permission="orders:read"><BoardReadOnly /></Require></ProtectedRoute>} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Home />} />
                 <Route path="/dashboard" element={<Require permission="orders:read"><Dashboard /></Require>} />

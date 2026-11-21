@@ -222,7 +222,8 @@ function teamSectionsFor({ base, name, can }) {
       body: (
         <Steps items={[
           <>When {name}'s sales sheet arrives, open <Go to={`${base}/statements`}>Statements</Go> and the <b>Enter sales</b> tab.</>,
-          <>Under <b>At the store</b>, find the design by collection or search, and tap its size. Each tap adds a sale line.</>,
+          <>Quickest: <b>Choose file</b> under <i>Import {name}'s sales sheet</i> and pick their Excel. Each sale is matched by code and design; pick a size where asked, then <b>Add</b>. Sales already entered are recognised and left out.</>,
+          <>Or by hand: under <b>At the store</b>, find the design by collection or search, and tap its size. Each tap adds a sale line.</>,
           <>Fill in the sale date, invoice number, code, discounts and alteration/laundry from their sheet. Net payable updates as you type.</>,
           <>Click <b>Record sales</b>. The pieces change to <b>Sold</b> and appear under <b>Recorded sales</b>, grouped by month. Click any sale there to view or correct it.</>,
           <>Check the <b>Statement</b> tab for that month against the totals on their sheet.</>,
