@@ -10,7 +10,7 @@ import { PageHeader } from '../../ui/kit'
 
 const f2 = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-function Steps({ items }) {
+export function Steps({ items }) {
   return (
     <ol className="space-y-2">
       {items.map((s, i) => (
@@ -23,11 +23,11 @@ function Steps({ items }) {
   )
 }
 
-function Term({ k, children }) {
+export function Term({ k, children }) {
   return <div className="grid gap-1 py-2 sm:grid-cols-[150px_1fr] sm:gap-4"><dt className="font-semibold text-ink">{k}</dt><dd>{children}</dd></div>
 }
 
-function Go({ to, children }) {
+export function Go({ to, children }) {
   return <Link to={to} className="inline-flex items-center gap-1 font-semibold text-accent hover:underline">{children}<ArrowRight size={13} /></Link>
 }
 

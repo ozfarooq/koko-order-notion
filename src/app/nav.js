@@ -52,6 +52,8 @@ export function buildNav({ can, user, resellers = [] }) {
     })
   }
 
+  if (!isReseller && can('orders:read')) sections.push({ title: 'Help', items: [{ to: '/help', label: 'Help', icon: HelpCircle }] })
+
   if (can('users:manage')) {
     sections.push({ title: 'Admin', items: [
       { to: '/users', label: 'Users', icon: Users },
