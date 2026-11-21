@@ -245,8 +245,10 @@ function teamSectionsFor({ base, name, can }) {
       id: 'team-returns', title: 'Pieces coming back', icon: Undo2, team: true, keywords: 'return returned back reason stock',
       body: (
         <Steps items={[
-          <>Open <Go to={`${base}/stock`}>Stock</Go>, tick the pieces coming back (only pieces at the store can be ticked) and click <b>Return</b>.</>,
-          <>Enter the date and reason, then <b>Mark returned</b>.</>,
+          <>Open <Go to={`${base}/stock`}>Stock</Go> and tick the pieces coming back: pieces at the store, or returned pieces marked <i>Not in studio stock yet</i>. Click <b>Back to studio</b>.</>,
+          <>Tick <b>Damaged</b> on any damaged piece, say what's wrong and, if you like, an asking price in PKR.</>,
+          <>For pieces still at the store, enter the return date and reason. Click <b>Move to studio</b>: they show as Returned for {name} and At Studio in Inventory.</>,
+          <>Remove {name}'s barcode tag from each piece. To sell one, open it in <Go to="/inventory">Inventory</Go> and click <b>Sell this piece</b>.</>,
         ]} />
       ),
     },

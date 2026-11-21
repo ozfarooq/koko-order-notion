@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { ArrowLeft, Save, Plus, Trash2, Shirt, User, Ruler, CreditCard, Truck, StickyNote, RotateCcw, Minus, Gift, Warehouse } from 'lucide-react'
-import { addOrder, updateOrder, getOrderById, getNextNumbers, getCustomer, getPiecesForOrder, STATUS_OPTIONS, CHANNELS } from '../data/storage'
+import { addOrder, updateOrder, getOrderById, getNextNumbers, getCustomer, getPiecesForOrder, getProducts, STATUS_OPTIONS, CHANNELS } from '../data/storage'
 import { MEASUREMENT_FIELDS, SIZE_OPTIONS } from '../data/measurements'
 import CustomerPicker from './orders/CustomerPicker'
 import ProductPicker from './orders/ProductPicker'
@@ -57,6 +57,25 @@ export default function OrderForm() {
     }))).catch(() => {})
   }, [state?.customerId, isEdit])
 
+  // "Sell this piece" from Inventory: one line for that exact studio piece, at its asking price
+  useEffect(() => {
+    const p = state?.stockPiece
+    if (isEdit || !p) return
+    getProducts().catch(() => []).then((list) => {
+      const prod = list.find((x) => x.id === p.productId)
+      setForm((f) => (f.items.some((l) => l.pinId === p.id) ? f : {
+        ...f,
+        items: [...f.items, {
+          key: lineKey(), productId: p.productId, product: p.product, imageUrl: p.imageUrl, collection: p.collection,
+          size: p.size, quantity: 1, listPrice: prod?.pricePkr ?? null,
+          unitPrice: p.askingPricePkr ?? prod?.pricePkr ?? '',
+          note: p.damaged ? `Sold as is (damaged)${p.damageNote ? `: ${p.damageNote}` : ''}` : '',
+          useStock: true, pinId: p.id,
+        }],
+      }))
+    })
+  }, [state?.stockPiece, isEdit])
+
   // New orders: show the number they'll get and continue the Shopify numbering
   useEffect(() => {
     if (isEdit) return
@@ -108,7 +127,9 @@ export default function OrderForm() {
     const pool = [...studio].sort((a, b) => Number(b.reserved) - Number(a.reserved))
     const byLine = {}
     for (const l of form.items) {
-      const match = pool.filter((p) => p.productId === l.productId && p.size === l.size)
+      // Damaged pieces are only used when chosen on purpose ("Sell this piece", or already on this order); the chosen piece goes first
+      const match = pool.filter((p) => p.productId === l.productId && p.size === l.size && (!p.damaged || p.reserved || p.id === l.pinId))
+        .sort((a, b) => Number(b.id === l.pinId) - Number(a.id === l.pinId))
       const take = l.useStock ? match.slice(0, Number(l.quantity) || 1) : []
       byLine[l.key] = { available: match, taken: take }
       take.forEach((p) => pool.splice(pool.indexOf(p), 1))
@@ -243,6 +264,9 @@ export default function OrderForm() {
                           <Gift size={14} className="flex-shrink-0" />The price is 0, so this gift's value won't be recorded. <b className="underline">Use website price ({money(l.listPrice)})</b>
                         </button>
                       )}
+                      {l.productId && l.note !== undefined && l.note !== '' && (
+                        <input className="input py-1.5 text-xs" value={l.note} onChange={(e) => setLine(l.key, { note: e.target.value })} aria-label="Line note" />
+                      )}
                       {stock[l.key]?.available.length > 0 && (() => {
                         const { available, taken } = stock[l.key]
                         const samples = available.filter((p) => p.kind === 'Sample').length
@@ -253,7 +277,7 @@ export default function OrderForm() {
                             <Warehouse size={14} className="flex-shrink-0" />
                             <span>
                               {available.length} {l.size} {what} at the studio. {l.useStock
-                                ? <b>Using {taken.length} from stock{taken.length < (Number(l.quantity) || 1) ? '; the rest will be stitched' : ''}.</b>
+                                ? <b>Using {taken.length} from stock{taken.some((p) => p.damaged) ? ' (damaged piece, sold as is)' : ''}{taken.length < (Number(l.quantity) || 1) ? '; the rest will be stitched' : ''}.</b>
                                 : 'Tick to send it instead of stitching a new one.'}
                             </span>
                           </label>

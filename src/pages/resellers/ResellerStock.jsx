@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { RefreshCw, Store, ArrowUp, ArrowDown, Pencil, Search, Package, CheckCircle2, Wallet, Undo2 } from 'lucide-react'
 import { getConsignments, updateConsignmentItem, recordReturns, pieceMoney, FC_STATUS_OPTIONS } from '../../data/storage'
+import { sizeCode } from '../../utils/resellerCodes'
 import { useAuth } from '../../auth/AuthContext'
 import { PageHeader, StatCard, SkeletonCards, SkeletonRows, EmptyState, ErrorBanner, Segmented, Modal, Field, fmtDate } from '../../ui/kit'
 import { ease } from '../../ui/motion'
@@ -110,10 +111,17 @@ export default function ResellerStock() {
     ...FC_STATUS_OPTIONS.map((s) => ({ value: s.value, label: `${s.label} ${pieces.filter((o) => o.status === s.value).length}` }))]
 
   const toggle = (id) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  // Pieces that can come back to the studio: at the store, or returned before studio stock existed
+  const canBringBack = (o) => o.status === 'FC - At Store' || (o.status === 'FC - Returned' && !o.studioStatus)
+  const chosen = pieces.filter((p) => selected.has(p.id))
+  const fromStore = chosen.filter((p) => p.status === 'FC - At Store')
+  const setDamage = (id, patch) => setReturning((r) => ({ ...r, damaged: { ...r.damaged, [id]: { ...(r.damaged[id] || { note: '', askingPricePkr: '' }), ...patch } } }))
   const saveReturns = async () => {
+    const damaged = Object.fromEntries(Object.entries(returning.damaged).filter(([, d]) => d.on).map(([id, d]) => [id, { note: d.note, askingPricePkr: d.askingPricePkr }]))
+    if (Object.values(damaged).some((d) => !d.note.trim())) return toast.error("Say what's wrong with each damaged piece")
     try {
-      const r = await recordReturns(resellerId, { pieceIds: [...selected], returnedOn: returning.date, reason: returning.reason })
-      toast.success(`${r.returned} piece${r.returned === 1 ? '' : 's'} marked returned`)
+      const r = await recordReturns(resellerId, { pieceIds: [...selected], returnedOn: returning.date, reason: returning.reason, damaged })
+      toast.success(`${r.toStudio} piece${r.toStudio === 1 ? '' : 's'} back in studio stock${r.damaged ? ` · ${r.damaged} labelled damaged` : ''}`)
       setSelected(new Set()); setReturning(null); load()
     } catch (err) { toast.error(err.message) }
   }
@@ -190,7 +198,7 @@ export default function ResellerStock() {
                   const m = pieceMoney(o, gross)
                   return (
                     <motion.tr key={o.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease }} className={selected.has(o.id) ? 'bg-plum-50/60 dark:bg-plum-900/20' : 'hover:bg-subtle/50'}>
-                      {canEdit && <td className="pl-4">{o.status === 'FC - At Store' && <input type="checkbox" className="accent-plum-600" checked={selected.has(o.id)} onChange={() => toggle(o.id)} aria-label="Select for return" />}</td>}
+                      {canEdit && <td className="pl-4">{canBringBack(o) && <input type="checkbox" className="accent-plum-600" checked={selected.has(o.id)} onChange={() => toggle(o.id)} aria-label="Select to bring back to the studio" />}</td>}
                       <td className="td">
                         <div className="flex items-center gap-3">
                           {o.imageUrl && <img src={o.imageUrl} alt="" className="h-9 w-9 rounded-md object-cover" loading="lazy" />}
@@ -225,7 +233,11 @@ export default function ResellerStock() {
                           </select>
                         ) : <StatusPill status={o.status} />}
                       </td>
-                      <td className="td text-xs text-muted"><PieceDate o={o} /></td>
+                      <td className="td text-xs text-muted"><PieceDate o={o} />
+                        {canEdit && o.status === 'FC - Returned' && (o.studioStatus
+                          ? <p className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-400">In studio stock</p>
+                          : <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">Not in studio stock yet</p>)}
+                      </td>
                       <td className="py-3 pr-3 text-right">
                         {canEdit && <button className="btn-icon" onClick={() => setDetailsId(o.id)} title="Sale details"><Pencil size={14} /></button>}
                       </td>
@@ -263,20 +275,51 @@ export default function ResellerStock() {
             className="fixed inset-x-4 bottom-20 z-30 mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-plum-950 px-4 py-3 text-white shadow-2xl md:bottom-6">
             <p className="flex-1 text-sm">{selected.size} piece{selected.size === 1 ? '' : 's'} selected</p>
             <button className="text-xs text-white/70 hover:text-white" onClick={() => setSelected(new Set())}>Clear</button>
-            <button className="btn-primary" onClick={() => setReturning({ date: new Date().toISOString().slice(0, 10), reason: '' })}><Undo2 size={15} />Return</button>
+            <button className="btn-primary" onClick={() => setReturning({ date: new Date().toISOString().slice(0, 10), reason: '', damaged: {} })}><Undo2 size={15} />Back to studio</button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <Modal open={!!returning} onClose={() => setReturning(null)} title="Return pieces to Koko" subtitle={`${selected.size} piece${selected.size === 1 ? '' : 's'} coming back from ${reseller?.name || 'the reseller'}`}
-        footer={<><button className="btn-secondary" onClick={() => setReturning(null)}>Cancel</button><button className="btn-primary" onClick={saveReturns}>Mark returned</button></>}>
+      <Modal open={!!returning} onClose={() => setReturning(null)} size="lg" title="Back to the studio" subtitle={`${selected.size} piece${selected.size === 1 ? '' : 's'} from ${reseller?.name || 'the reseller'} into studio stock`}
+        footer={<><button className="btn-secondary" onClick={() => setReturning(null)}>Cancel</button><button className="btn-primary" onClick={saveReturns}><Undo2 size={15} />Move to studio</button></>}>
         {returning && (
           <div className="space-y-4 p-5">
-            <ul className="max-h-48 space-y-1 overflow-y-auto text-sm text-ink">{pieces.filter((p) => selected.has(p.id)).map((p) => <li key={p.id}>{p.product} <span className="text-faint">· {p.size}</span></li>)}</ul>
-            <div className="grid gap-3 sm:grid-cols-[160px_1fr]">
-              <Field label="Returned on"><input type="date" className="input" value={returning.date} onChange={(e) => setReturning((r) => ({ ...r, date: e.target.value }))} /></Field>
-              <Field label="Reason"><input className="input" value={returning.reason} onChange={(e) => setReturning((r) => ({ ...r, reason: e.target.value }))} placeholder="e.g. end of season, not selling" /></Field>
-            </div>
+            <ul className="max-h-[42vh] divide-y divide-line overflow-y-auto rounded-xl border border-line">
+              {chosen.map((p) => {
+                const d = returning.damaged[p.id] || {}
+                return (
+                  <li key={p.id} className="space-y-2 px-3 py-2.5">
+                    <div className="flex flex-wrap items-center gap-3">
+                      {p.imageUrl && <img src={p.imageUrl} alt="" className="h-10 w-10 rounded-md object-cover" />}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">{p.product} <span className="font-normal text-faint">· {p.size}</span></p>
+                        <p className="text-[11px] text-muted">{p.status === 'FC - At Store' ? 'At the store now' : 'Returned earlier'}{p.resellerCode ? <> · remove tag <span className="font-mono font-semibold text-ink">{sizeCode(p.resellerCode, p.size)}</span></> : ''}</p>
+                      </div>
+                      <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                        <input type="checkbox" className="h-4 w-4 accent-rose-600" checked={!!d.on} onChange={(e) => setDamage(p.id, { on: e.target.checked })} />Damaged
+                      </label>
+                    </div>
+                    {d.on && (
+                      <div className="grid gap-2 sm:grid-cols-[1fr_150px]">
+                        <input className="input py-1.5 text-sm" value={d.note} onChange={(e) => setDamage(p.id, { note: e.target.value })} placeholder="What's wrong, e.g. stain on the dupatta" autoFocus />
+                        <div className="relative"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-faint">PKR</span>
+                          <input type="number" min="0" className="input py-1.5 pl-11 text-sm" value={d.askingPricePkr} onChange={(e) => setDamage(p.id, { askingPricePkr: e.target.value })} placeholder="Asking price" /></div>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+            {fromStore.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-[160px_1fr]">
+                <Field label="Returned on"><input type="date" className="input" value={returning.date} onChange={(e) => setReturning((r) => ({ ...r, date: e.target.value }))} /></Field>
+                <Field label="Reason"><input className="input" value={returning.reason} onChange={(e) => setReturning((r) => ({ ...r, reason: e.target.value }))} placeholder="e.g. end of season, not selling" /></Field>
+              </div>
+            )}
+            <p className="rounded-lg bg-subtle px-3 py-2 text-xs text-muted">
+              {fromStore.length > 0 && <>The {fromStore.length} piece{fromStore.length === 1 ? '' : 's'} at the store will show as Returned on {reseller?.name || 'the reseller'}'s statement. </>}
+              All of them go into studio stock as <b>At Studio</b>. Remove {reseller?.name || 'the reseller'}'s barcode tag from each piece; the design keeps its code for any pieces still at the store.
+            </p>
           </div>
         )}
       </Modal>

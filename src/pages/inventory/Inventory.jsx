@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
   Boxes, Plus, Camera, Scissors, Store, Search, X, Shirt, Minus, Trash2, AlertTriangle, PackageCheck, Warehouse, History,
+  ShoppingBag, LayoutGrid,
 } from 'lucide-react'
 import {
   getInventory, getStockPieces, addStockPieces, updateStockPiece, moveStockPieces, getStockHistory, deleteStockPiece,
+  addStockPiecesBulk, markStockDamaged,
   STOCK_SIZES, STOCK_STATUS_OPTIONS,
 } from '../../data/storage'
 import { useAuth } from '../../auth/AuthContext'
@@ -26,6 +28,16 @@ export function StockPill({ status }) {
   return (
     <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${meta.color}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />{status}
+    </span>
+  )
+}
+
+// A damaged piece that can still be sold, with its asking price
+export function DamagedLabel({ piece, full }) {
+  if (!piece?.damaged) return null
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-300" title={piece.damageNote}>
+      <AlertTriangle size={11} />Damaged{piece.askingPricePkr != null ? ` · PKR ${Math.round(piece.askingPricePkr).toLocaleString()}` : ''}{full && piece.damageNote ? ` · ${piece.damageNote}` : ''}
     </span>
   )
 }
@@ -154,14 +166,121 @@ function AddPiecesModal({ open, onClose, sample, preset, overview, onSaved }) {
   )
 }
 
+// ── Bulk add: quantities for many outfits in one go ────────────────────
+function BulkAddModal({ open, onClose, overview, onSaved }) {
+  const newest = overview?.collections[0]?.id ?? null
+  const [collection, setCollection] = useState('all')
+  const [q, setQ] = useState('')
+  const [qty, setQty] = useState({})            // { [productId]: { Small: 2 } }
+  const [status, setStatus] = useState('In Production')
+  const [source, setSource] = useState('Made')
+  const [madeOn, setMadeOn] = useState(today())
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    setCollection(String(newest ?? 'all')); setQ(''); setQty({}); setStatus('In Production'); setSource('Made'); setMadeOn(today()); setNotes('')
+  }, [open, newest])
+
+  const term = q.trim().toLowerCase()
+  const rows = (overview?.products || []).filter((p) => (term ? `${p.product} ${p.collection || ''}`.toLowerCase().includes(term)
+    : collection === 'all' || String(p.collectionId ?? 'none') === collection) && (p.isActive || term))
+  const total = Object.values(qty).reduce((s, z) => s + Object.values(z).reduce((a, n) => a + (Number(n) || 0), 0), 0)
+  const outfits = Object.values(qty).filter((z) => Object.values(z).some((n) => Number(n) > 0)).length
+  const setCell = (pid, size, v) => {
+    const n = v === '' ? '' : Math.min(50, Math.max(0, Math.floor(Number(v) || 0)))
+    setQty((x) => ({ ...x, [pid]: { ...(x[pid] || {}), [size]: n } }))
+  }
+
+  const save = async () => {
+    const items = Object.entries(qty).map(([pid, z]) => ({ productId: Number(pid), sizes: Object.fromEntries(Object.entries(z).filter(([, n]) => Number(n) > 0)) }))
+      .filter((it) => Object.keys(it.sizes).length)
+    if (!items.length) return toast.error('Enter a quantity for at least one outfit')
+    setSaving(true)
+    try {
+      const r = await addStockPiecesBulk({ items, status, source, madeOn, notes })
+      toast.success(`${r.created} piece${r.created === 1 ? '' : 's'} added across ${r.outfits} outfit${r.outfits === 1 ? '' : 's'}`)
+      onSaved(); onClose()
+    } catch (err) { toast.error(err.message) } finally { setSaving(false) }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} size="xl" title="Bulk add" subtitle="Quantities for as many outfits as you like, saved together"
+      footer={<>
+        <p className="mr-auto self-center text-sm text-muted">{total} piece{total === 1 ? '' : 's'} · {outfits} outfit{outfits === 1 ? '' : 's'}</p>
+        <button className="btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn-primary" onClick={save} disabled={saving || !total}><Plus size={15} />{saving ? 'Saving…' : `Add ${total || ''} piece${total === 1 ? '' : 's'}`}</button>
+      </>}>
+      <div className="space-y-4 p-5">
+        <div className="grid gap-3 sm:grid-cols-4">
+          <Field label="Status" className="sm:col-span-2">
+            <Segmented value={status} onChange={setStatus} options={[{ value: 'In Production', label: 'In production' }, { value: 'At Studio', label: 'Finished, at studio' }]} />
+          </Field>
+          <Field label="Source">
+            <select className="input" value={source} onChange={(e) => setSource(e.target.value)}>
+              <option value="Made">Made</option><option value="Opening count">Opening count</option><option value="Customer return">Customer return</option>
+            </select>
+          </Field>
+          <Field label="Made on"><input type="date" className="input" value={madeOn} onChange={(e) => setMadeOn(e.target.value)} /></Field>
+          <Field label="Notes (all pieces)" className="sm:col-span-4"><input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. tailor, batch for Collage" /></Field>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <select className="input w-auto" value={collection} onChange={(e) => setCollection(e.target.value)} disabled={!!term}>
+            {(overview?.collections || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            <option value="none">Separates</option><option value="all">All collections</option>
+          </select>
+          <div className="relative min-w-[200px] flex-1">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+            <input className="input pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search any outfit" />
+          </div>
+        </div>
+        <div className="max-h-[48vh] overflow-auto rounded-xl border border-line">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead className="sticky top-0 z-10 bg-surface-accent">
+              <tr>
+                <th className="px-3 py-2 text-left font-label text-[10.5px] font-medium uppercase tracking-wider text-ink">Outfit</th>
+                {STOCK_SIZES.map((z) => <th key={z} className="w-16 px-1 py-2 text-center font-label text-[10.5px] font-medium uppercase tracking-wider text-ink">{SHORT[z]}</th>)}
+                <th className="w-12 px-2 py-2 text-right font-label text-[10.5px] font-medium uppercase tracking-wider text-ink">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {rows.length === 0 && <tr><td colSpan={7} className="px-3 py-6 text-center text-muted">No outfits match.</td></tr>}
+              {rows.map((p) => {
+                const z = qty[p.productId] || {}
+                const sum = Object.values(z).reduce((a, n) => a + (Number(n) || 0), 0)
+                return (
+                  <tr key={p.productId} className={sum ? 'bg-plum-50/40 dark:bg-plum-900/10' : ''}>
+                    <td className="px-3 py-1.5"><div className="flex items-center gap-2.5"><Thumb src={p.imageUrl} className="h-10 w-8" /><div className="min-w-0"><p className="truncate font-medium text-ink">{p.product}</p><p className="truncate text-[11px] text-faint">{p.collection || 'Separates'}</p></div></div></td>
+                    {STOCK_SIZES.map((size) => (
+                      <td key={size} className="px-1 py-1.5">
+                        <input type="number" min="0" max="50" inputMode="numeric" aria-label={`${p.product} ${size}`}
+                          className="w-full rounded-md border border-line bg-surface px-1 py-1.5 text-center tabular-nums text-ink focus:border-plum-400 focus:outline-none"
+                          value={z[size] ?? ''} placeholder="0" onFocus={(e) => e.target.select()} onChange={(e) => setCell(p.productId, size, e.target.value)} />
+                      </td>
+                    ))}
+                    <td className={`px-2 py-1.5 text-right font-semibold tabular-nums ${sum ? 'text-ink' : 'text-faint/50'}`}>{sum}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-muted">Quantities stay when you switch collection or search, so you can fill several collections before saving.</p>
+      </div>
+    </Modal>
+  )
+}
+
 // ── One piece: edit and history ─────────────────────────────────────────
-function PieceModal({ piece, onClose, onSaved, canWrite }) {
+function PieceModal({ piece, onClose, onSaved, canWrite, canSell }) {
+  const navigate = useNavigate()
   const [form, setForm] = useState(null)
   const [history, setHistory] = useState(null)
   const [saving, setSaving] = useState(false)
   useEffect(() => {
     if (!piece) return
-    setForm({ status: piece.status, kind: piece.kind, locationNote: piece.locationNote, notes: piece.notes, orderNumber: piece.orderNumber || '', moveNote: '' })
+    setForm({ status: piece.status, kind: piece.kind, locationNote: piece.locationNote, notes: piece.notes, orderNumber: piece.orderNumber || '', moveNote: '',
+      damaged: piece.damaged, damageNote: piece.damageNote, askingPricePkr: piece.askingPricePkr ?? '' })
     setHistory(null)
     getStockHistory(piece.id).then(setHistory).catch(() => setHistory([]))
   }, [piece])
@@ -170,13 +289,19 @@ function PieceModal({ piece, onClose, onSaved, canWrite }) {
   const locked = piece.status === 'With Reseller'
   const editable = canWrite && !locked
   const moving = form.status !== piece.status
+  const labelable = ['At Studio', 'At Shoot', 'In Production'].includes(form.status)
+  const sellable = canSell && piece.status === 'At Studio' && !piece.orderId
 
   const save = async () => {
     if (form.status === 'Damaged' && moving && !form.moveNote.trim()) return toast.error('Say why the piece is damaged or lost')
     if (form.status === 'Gifted' && moving && !form.moveNote.trim()) return toast.error('Say who the piece was given to')
     setSaving(true)
     try {
-      await updateStockPiece(piece.id, { ...form, orderNumber: ['Sold', 'Gifted'].includes(form.status) ? form.orderNumber : undefined })
+      if (form.damaged && labelable && !String(form.damageNote || '').trim()) { setSaving(false); return toast.error("Say what's wrong with the piece") }
+      await updateStockPiece(piece.id, {
+        ...form, orderNumber: ['Sold', 'Gifted'].includes(form.status) ? form.orderNumber : undefined,
+        ...(labelable ? {} : { damaged: undefined, damageNote: undefined, askingPricePkr: undefined }),
+      })
       toast.success('Piece updated'); onSaved(); onClose()
     } catch (err) { toast.error(err.message) } finally { setSaving(false) }
   }
@@ -189,6 +314,7 @@ function PieceModal({ piece, onClose, onSaved, canWrite }) {
     <Modal open={!!piece} onClose={onClose} title={piece.product} subtitle={`${piece.size} · ${piece.kind === 'Sample' ? 'Shoot sample' : 'Stock'} · ${piece.source}${piece.madeOn ? ` · made ${fmtDate(piece.madeOn, { day: 'numeric', month: 'short' })}` : ''}`}
       footer={editable ? <>
         {piece.canDelete && <button className="btn-ghost mr-auto text-rose-600" onClick={remove}><Trash2 size={15} />Delete</button>}
+        {sellable && <button className={`btn-secondary ${piece.canDelete ? '' : 'mr-auto'}`} onClick={() => navigate('/orders/new', { state: { stockPiece: piece } })}><ShoppingBag size={15} />Sell this piece</button>}
         <button className="btn-secondary" onClick={onClose}>Cancel</button>
         <button className="btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
       </> : <button className="btn-primary" onClick={onClose}>Done</button>}>
@@ -196,8 +322,9 @@ function PieceModal({ piece, onClose, onSaved, canWrite }) {
         <div className="flex items-center gap-3">
           <Thumb src={piece.imageUrl} className="h-20 w-16" />
           <div className="space-y-1 text-sm">
-            <StockPill status={piece.status} />
+            <div className="flex flex-wrap items-center gap-1.5"><StockPill status={piece.status} /><DamagedLabel piece={piece} /></div>
             {whereabouts(piece) && <p className="text-muted">{whereabouts(piece)}</p>}
+            {piece.damaged && piece.damageNote && <p className="text-xs text-rose-700 dark:text-rose-300">{piece.damageNote}</p>}
           </div>
         </div>
         {locked && <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:bg-sky-950/40 dark:text-sky-200">This piece is with {piece.reseller}. Its status follows the reseller screens: sold, paid or returned there, it updates here.</p>}
@@ -224,6 +351,21 @@ function PieceModal({ piece, onClose, onSaved, canWrite }) {
               </Field>
             )}
             <Field label="Notes" className="sm:col-span-2"><input className="input" value={form.notes} onChange={(e) => set({ notes: e.target.value })} /></Field>
+            {labelable && (
+              <div className="space-y-3 rounded-xl border border-line p-3 sm:col-span-2">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-ink">
+                  <input type="checkbox" className="h-4 w-4 accent-[#7B2D45]" checked={!!form.damaged} onChange={(e) => set({ damaged: e.target.checked })} />
+                  Damaged, but can still be sold at a lower price
+                </label>
+                {form.damaged && (
+                  <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
+                    <Field label="What's wrong"><input className="input" value={form.damageNote} onChange={(e) => set({ damageNote: e.target.value })} placeholder="e.g. Small stain on the dupatta" /></Field>
+                    <Field label="Asking price"><div className="relative"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-faint">PKR</span>
+                      <input type="number" min="0" className="input pl-11" value={form.askingPricePkr} onChange={(e) => set({ askingPricePkr: e.target.value })} /></div></Field>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -249,11 +391,19 @@ function PieceModal({ piece, onClose, onSaved, canWrite }) {
 
 function DamagedModal({ open, count, onClose, onConfirm }) {
   const [reason, setReason] = useState('')
-  useEffect(() => { if (open) setReason('') }, [open])
+  const [forSale, setForSale] = useState(true)
+  const [price, setPrice] = useState('')
+  useEffect(() => { if (open) { setReason(''); setForSale(true); setPrice('') } }, [open])
   return (
-    <Modal open={open} onClose={onClose} size="sm" title="Mark damaged" subtitle={`${count} piece${count === 1 ? '' : 's'} will be written off`}
-      footer={<><button className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={!reason.trim()} onClick={() => onConfirm(reason.trim())}>Mark damaged</button></>}>
-      <div className="p-5"><Field label="Reason"><input autoFocus className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Stain on the front, lost by courier" /></Field></div>
+    <Modal open={open} onClose={onClose} size="sm" title="Mark damaged" subtitle={`${count} piece${count === 1 ? '' : 's'}`}
+      footer={<><button className="btn-secondary" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={!reason.trim()} onClick={() => onConfirm({ forSale, reason: reason.trim(), price })}>{forSale ? 'Label damaged' : 'Write off'}</button></>}>
+      <div className="space-y-4 p-5">
+        <Segmented value={forSale ? 'sale' : 'off'} onChange={(v) => setForSale(v === 'sale')} options={[{ value: 'sale', label: 'Can still be sold' }, { value: 'off', label: "Can't be sold" }]} />
+        <p className="text-xs text-muted">{forSale ? 'The piece stays where it is with a Damaged label, ready to sell at a lower price.' : 'The piece is written off and leaves stock.'}</p>
+        <Field label={forSale ? "What's wrong" : 'Reason'}><input autoFocus className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Stain on the front, lost by courier" /></Field>
+        {forSale && <Field label="Asking price (optional)"><div className="relative"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-faint">PKR</span>
+          <input type="number" min="0" className="input pl-11" value={price} onChange={(e) => setPrice(e.target.value)} /></div></Field>}
+      </div>
     </Modal>
   )
 }
@@ -343,12 +493,13 @@ function PiecesTab({ product, clearProduct, version, onChanged, canWrite, onOpen
   const [error, setError] = useState(null)
   const [picked, setPicked] = useState(new Set())
   const [damaging, setDamaging] = useState(false)
+  const [damagedOnly, setDamagedOnly] = useState(false)
 
   const load = useCallback(() => {
-    getStockPieces({ status: statuses.join(','), kind, productId: product?.productId, q: q.trim() })
+    getStockPieces({ status: statuses.join(','), kind, productId: product?.productId, q: q.trim(), damaged: damagedOnly ? '1' : '' })
       .then((r) => { setPieces(r); setError(null); setPicked((s) => new Set([...s].filter((id) => r.some((p) => p.id === id)))) })
       .catch((e) => setError(e.message))
-  }, [statuses, kind, product, q])
+  }, [statuses, kind, product, q, damagedOnly])
   useEffect(() => { const t = setTimeout(load, q ? 250 : 0); return () => clearTimeout(t) }, [load, version]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleStatus = (s) => setStatuses((x) => (x.includes(s) ? x.filter((y) => y !== s) : [...x, s]))
@@ -360,6 +511,14 @@ function PiecesTab({ product, clearProduct, version, onChanged, canWrite, onOpen
       setPicked(new Set()); setDamaging(false); onChanged()
     } catch (err) { toast.error(err.message) }
   }
+  const damage = async ({ forSale, reason, price }) => {
+    if (!forSale) return move('Damaged', 'written off', reason)
+    try {
+      const r = await markStockDamaged({ pieceIds: [...picked], damaged: true, damageNote: reason, askingPricePkr: price })
+      toast.success(`${r.updated} piece${r.updated === 1 ? '' : 's'} labelled damaged`)
+      setPicked(new Set()); setDamaging(false); onChanged()
+    } catch (err) { toast.error(err.message) }
+  }
 
   return (
     <div className="space-y-3 pb-20">
@@ -368,7 +527,14 @@ function PiecesTab({ product, clearProduct, version, onChanged, canWrite, onOpen
           <button key={s} type="button" onClick={() => toggleStatus(s)}
             className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition ${statuses.includes(s) ? 'border-brand-primary bg-brand-primary text-white' : 'border-line text-muted hover:text-ink'}`}>{s}</button>
         ))}
+        <button type="button" onClick={() => setDamagedOnly((d) => !d)}
+          className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition ${damagedOnly ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300'}`}><AlertTriangle size={12} />Damaged for sale</button>
       </div>
+      {statuses.includes('With Reseller') && (
+        <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
+          <b>With Reseller</b> only lists pieces sent from studio stock. Everything at a store, including pieces sent before inventory started, is on that reseller's <b>Stock</b> page, where you can also bring pieces back to the studio.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[200px] flex-1">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
@@ -400,7 +566,8 @@ function PiecesTab({ product, clearProduct, version, onChanged, canWrite, onOpen
                 <Thumb src={p.imageUrl} className="h-12 w-9" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-ink">{p.product} <span className="font-normal text-muted">· {SHORT[p.size] || p.size}</span>
-                    {p.kind === 'Sample' && <span className="ml-1.5 rounded bg-plum-50 px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wider text-plum-700 dark:bg-plum-900/40 dark:text-plum-300">Sample</span>}</p>
+                    {p.kind === 'Sample' && <span className="ml-1.5 rounded bg-plum-50 px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wider text-plum-700 dark:bg-plum-900/40 dark:text-plum-300">Sample</span>}
+                    {p.damaged && <span className="ml-1.5 align-middle"><DamagedLabel piece={p} /></span>}</p>
                   <p className="truncate text-xs text-faint">{[where && <span key="w">{where}</span>, p.madeOn && `made ${fmtDate(p.madeOn, { day: 'numeric', month: 'short' })}`].filter(Boolean).reduce((a, x, i) => (i ? [...a, ' · ', x] : [x]), [])}</p>
                 </div>
                 <StockPill status={p.status} />
@@ -425,7 +592,7 @@ function PiecesTab({ product, clearProduct, version, onChanged, canWrite, onOpen
           </motion.div>
         )}
       </AnimatePresence>
-      <DamagedModal open={damaging} count={picked.size} onClose={() => setDamaging(false)} onConfirm={(reason) => move('Damaged', 'marked damaged', reason)} />
+      <DamagedModal open={damaging} count={picked.size} onClose={() => setDamaging(false)} onConfirm={damage} />
     </div>
   )
 }
@@ -464,6 +631,7 @@ function SamplesTab({ data, canWrite, onAdd, onOpenSample }) {
 export default function Inventory() {
   const { can } = useAuth()
   const canWrite = can('inventory:write')
+  const [bulk, setBulk] = useState(false)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [tab, setTab] = useState('overview')
@@ -489,13 +657,14 @@ export default function Inventory() {
       <PageHeader eyebrow="Studio" title="Inventory" icon={Boxes} subtitle="Pieces made ahead of orders: reseller stock and shoot samples"
         actions={canWrite && <>
           <button className="btn-secondary" onClick={() => setAdding({ sample: true })}><Camera size={16} />Add sample</button>
+          <button className="btn-secondary" onClick={() => setBulk(true)}><LayoutGrid size={16} />Bulk add</button>
           <button className="btn-primary" onClick={() => setAdding({ sample: false })}><Plus size={16} />Add pieces</button>
         </>} />
       <ErrorBanner onRetry={load}>{error}</ErrorBanner>
 
       {!data ? <SkeletonCards count={4} /> : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard label="At studio" value={data.stats.atStudio} icon={Warehouse} sub="Finished stock" />
+          <StatCard label="At studio" value={data.stats.atStudio} icon={Warehouse} sub={data.stats.damagedForSale ? `Finished stock · ${data.stats.damagedForSale} damaged, for sale` : 'Finished stock'} />
           <StatCard label="In production" value={data.stats.inProduction} icon={Scissors} tone="orange" sub="Being made" />
           <StatCard label="At resellers" value={data.stats.atResellers} icon={Store} sub="At store, unsold" />
           <StatCard label="Samples out" value={data.stats.samplesOut} icon={Camera} tone="plum" sub="At the shoot or a store" />
@@ -515,7 +684,8 @@ export default function Inventory() {
       )}
 
       <AddPiecesModal open={!!adding} sample={!!adding?.sample} preset={adding?.preset} overview={data} onClose={() => setAdding(null)} onSaved={changed} />
-      <PieceModal piece={piece} onClose={() => setPiece(null)} onSaved={changed} canWrite={canWrite} />
+      <PieceModal piece={piece} onClose={() => setPiece(null)} onSaved={changed} canWrite={canWrite} canSell={can('orders:write')} />
+      <BulkAddModal open={bulk} onClose={() => setBulk(false)} overview={data} onSaved={changed} />
     </div>
   )
 }

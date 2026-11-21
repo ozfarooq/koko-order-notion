@@ -175,6 +175,8 @@ export const getStockPieces    = (filters = {}) => api(`/inventory/pieces?${quer
 export const addStockPieces    = (b) => api('/inventory/pieces', { method: 'POST', body: JSON.stringify(b) })
 export const updateStockPiece  = (id, b) => api(`/inventory/pieces/${id}`, { method: 'PATCH', body: JSON.stringify(b) })
 export const moveStockPieces   = (pieceIds, status, moveNote) => api('/inventory/pieces/move', { method: 'POST', body: JSON.stringify({ pieceIds, status, moveNote }) })
+export const addStockPiecesBulk = (b) => api('/inventory/pieces/bulk', { method: 'POST', body: JSON.stringify(b) })
+export const markStockDamaged  = (b) => api('/inventory/pieces/damage', { method: 'POST', body: JSON.stringify(b) })
 export const getStockHistory   = (id) => api(`/inventory/pieces/${id}/history`)
 export const deleteStockPiece  = (id) => api(`/inventory/pieces/${id}`, { method: 'DELETE', body: '{}' })
 export const getAvailableStock = () => api('/inventory/available')

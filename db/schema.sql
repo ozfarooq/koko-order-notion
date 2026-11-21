@@ -13,6 +13,7 @@
 --   009: PR / gift orders (orders.order_type, pr_handle; never revenue) and the Gifted stock status
 --   010: reseller payments: statement month, PKR received, difference reason, attached files
 --   011: reseller code prefix and running number (resellers.code_prefix, next_code) for automatic codes
+--   012: damaged pieces for sale (stock_pieces.damaged, damage_note, asking_price_pkr)
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (
