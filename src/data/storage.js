@@ -43,7 +43,7 @@ export const groupByStatus = (orders) => {
 let onUnauthorized = () => {}
 export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn }
 
-async function api(path, options = {}) {
+export async function api(path, options = {}) {
   const res = await fetch(`/api${path}`, {
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',

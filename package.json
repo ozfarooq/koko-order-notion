@@ -7,7 +7,9 @@
     "api": "node server.js",
     "dev": "concurrently \"npm run api\" \"vite\"",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:finance": "node --env-file=.env --test tests/finance/*.test.js",
+    "dev:finance": "node scripts/dev-finance.js"
   },
   "dependencies": {
     "@dnd-kit/core": "6.1.0",

@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import { AuthProvider, useAuth, homeFor } from './auth/AuthContext'
+import { FEATURES } from './app/nav'
 import { getResellers } from './data/storage'
 import { MotionProvider } from './ui/motion'
 import { useTheme } from './ui/theme'
@@ -29,6 +30,10 @@ const Statements      = lazy(() => import('./pages/resellers/Statements'))
 const ResellerSettings = lazy(() => import('./pages/resellers/ResellerSettings'))
 const ResellerHelp    = lazy(() => import('./pages/resellers/ResellerHelp'))
 const Help            = lazy(() => import('./pages/Help'))
+const Journals        = lazy(() => import('./pages/finance/Journals'))
+const JournalEditor   = lazy(() => import('./pages/finance/JournalEditor'))
+const EntryView       = lazy(() => import('./pages/finance/EntryView'))
+const FinanceSettings = lazy(() => import('./pages/finance/FinanceSettings'))
 const Inventory       = lazy(() => import('./pages/inventory/Inventory'))
 
 function Spinner({ full }) {
@@ -106,6 +111,13 @@ export default function App() {
                 <Route path="/catalogue/products/:id" element={<Require permission="products:read"><ProductPage /></Require>} />
                 <Route path="/inventory" element={<Require permission="inventory:read"><Inventory /></Require>} />
                 <Route path="/help" element={<Require permission="orders:read"><Help /></Require>} />
+                {FEATURES.finance && <>
+                  <Route path="/finance/journals" element={<Require permission="finance:read"><Journals /></Require>} />
+                  <Route path="/finance/journals/new" element={<Require permission="finance:write"><JournalEditor /></Require>} />
+                  <Route path="/finance/journals/:id" element={<Require permission="finance:read"><EntryView /></Require>} />
+                  <Route path="/finance/journals/:id/edit" element={<Require permission="finance:write"><JournalEditor /></Require>} />
+                  <Route path="/finance/settings" element={<Require permission="finance:read"><FinanceSettings /></Require>} />
+                </>}
 
                 <Route path="/resellers/:resellerId" element={<Require permission="fc:read"><ResellerScope><ResellerHome /></ResellerScope></Require>} />
                 <Route path="/resellers/:resellerId/stock" element={<Require permission="fc:read"><ResellerScope><ResellerStock /></ResellerScope></Require>} />

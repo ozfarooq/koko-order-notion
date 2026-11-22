@@ -4,6 +4,7 @@
 // statement by statement and a statement whose object already exists is skipped; anything else fails.
 // Usage: node scripts/finance-dev-db.js            (create structure if empty, then apply pending migrations)
 //        node scripts/finance-dev-db.js --status   (list applied / pending)
+//        node scripts/finance-dev-db.js --copy-owner (copy the owner login from live, to sign in to npm run dev:finance)
 import 'dotenv/config'
 import fs from 'fs'
 import { Pool, neonConfig } from '@neondatabase/serverless'
@@ -41,7 +42,19 @@ try {
   const empty = !(await client.query(`SELECT to_regclass('public.orders') AS t`)).rows[0].t
   await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`)
   const done = new Set((await client.query('SELECT name FROM schema_migrations')).rows.map((r) => r.name))
-  if (process.argv.includes('--status')) {
+  if (process.argv.includes('--copy-owner')) {
+    // So you can sign in to `npm run dev:finance` with your usual login. Only owner accounts are copied.
+    const { neon } = await import('@neondatabase/serverless')
+    const owners = await neon(process.env.DATABASE_URL)`SELECT row_to_json(u) AS u FROM users u WHERE role = 'owner' AND username = ${process.env.FINANCE_OWNER_USERNAME || 'omer'}`
+    for (const { u } of owners) {
+      // A fresh id (test users may already hold low ids); matched by username so re-running is safe
+      const cols = Object.keys(u).filter((k) => k !== 'id')
+      const r = await client.query(`INSERT INTO users (${cols.join(', ')}) SELECT ${cols.join(', ')} FROM json_populate_record(null::users, $1)
+        WHERE NOT EXISTS (SELECT 1 FROM users WHERE lower(username) = lower($2)) RETURNING username`, [JSON.stringify(u), u.username])
+      console.log(r.rowCount ? `owner login copied: ${u.username}` : `owner login already there: ${u.username}`)
+    }
+    await client.query(`SELECT setval(pg_get_serial_sequence('users', 'id'), GREATEST((SELECT max(id) FROM users), 1))`)
+  } else if (process.argv.includes('--status')) {
     for (const f of migrations()) console.log(`${done.has(f) ? 'applied' : 'PENDING'}  ${f}`)
   } else {
     await client.query('BEGIN')

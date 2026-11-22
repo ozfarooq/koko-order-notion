@@ -1,10 +1,11 @@
 import {
   LayoutDashboard, ClipboardList, Kanban, PlusCircle, Users, Store, FileText, Images, Contact, Shirt,
-  Truck, ReceiptText, Settings, Building2, Boxes, HelpCircle,
+  Truck, ReceiptText, Settings, Building2, Boxes, HelpCircle, BookOpen, Settings2,
 } from 'lucide-react'
 
 // Screens switched on as each phase ships
-export const FEATURES = { dashboard: true, customers: true, catalogue: true, inventory: true }
+// finance: switched on per environment (VITE_FINANCE=1, e.g. npm run dev:finance) until it goes live
+export const FEATURES = { dashboard: true, customers: true, catalogue: true, inventory: true, finance: import.meta.env.VITE_FINANCE === '1' }
 
 // One navigation model, used by the sidebar, the phone "More" sheet and the command palette.
 // Items are filtered by permission; reseller sections are built from the resellers in the database.
@@ -50,6 +51,13 @@ export function buildNav({ can, user, resellers = [] }) {
         ].filter((i) => i.when !== false),
       })),
     })
+  }
+
+  if (FEATURES.finance && can('finance:read')) {
+    sections.push({ title: 'Finance', items: [
+      { to: '/finance/journals', label: 'Journals', icon: BookOpen },
+      { to: '/finance/settings', label: 'Finance settings', icon: Settings2 },
+    ] })
   }
 
   if (!isReseller && can('orders:read')) sections.push({ title: 'Help', items: [{ to: '/help', label: 'Help', icon: HelpCircle }] })

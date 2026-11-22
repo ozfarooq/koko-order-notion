@@ -14,6 +14,7 @@
 --   010: reseller payments: statement month, PKR received, difference reason, attached files
 --   011: reseller code prefix and running number (resellers.code_prefix, next_code) for automatic codes
 --   012: damaged pieces for sale (stock_pieces.damaged, damage_note, asking_price_pkr)
+--   013: finance core: settings, chart of accounts, periods, journal entries and lines, numbering, FX rates, files
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (
