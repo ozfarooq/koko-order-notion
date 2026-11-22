@@ -34,6 +34,8 @@ const Journals        = lazy(() => import('./pages/finance/Journals'))
 const JournalEditor   = lazy(() => import('./pages/finance/JournalEditor'))
 const EntryView       = lazy(() => import('./pages/finance/EntryView'))
 const FinanceSettings = lazy(() => import('./pages/finance/FinanceSettings'))
+const FinanceReports  = lazy(() => import('./pages/finance/Reports'))
+const Ledgers         = lazy(() => import('./pages/finance/Ledgers'))
 const Inventory       = lazy(() => import('./pages/inventory/Inventory'))
 
 function Spinner({ full }) {
@@ -112,6 +114,8 @@ export default function App() {
                 <Route path="/inventory" element={<Require permission="inventory:read"><Inventory /></Require>} />
                 <Route path="/help" element={<Require permission="orders:read"><Help /></Require>} />
                 {FEATURES.finance && <>
+                  <Route path="/finance/reports" element={<Require permission="finance:read"><FinanceReports /></Require>} />
+                  <Route path="/finance/ledgers" element={<Require permission="finance:read"><Ledgers /></Require>} />
                   <Route path="/finance/journals" element={<Require permission="finance:read"><Journals /></Require>} />
                   <Route path="/finance/journals/new" element={<Require permission="finance:write"><JournalEditor /></Require>} />
                   <Route path="/finance/journals/:id" element={<Require permission="finance:read"><EntryView /></Require>} />

@@ -31,6 +31,9 @@ These decisions and corrections override anything later in this document that sa
 | C5 | **F3 additions**: (a) Trax tracking number on orders, needed to match settlements; (b) `customer_payments` becomes the single source of the advance: a database trigger keeps `orders.advance_paid_pkr` equal to the sum of payments, so the existing balance column and screens keep working; (c) order lines filled from a damaged studio piece or a shoot sample post to Sale of damaged / sample pieces 4500, not retail sales; (d) a reseller sale whose month is already closed posts into the current open period with the sale month in the memo | Sections 4.3, 7.1, F3 |
 | C6 | **Ledger rules in the database**: posted entries and lines are immutable except one change, Posted → Reversed on the original when it is reversed. The app passes the acting user to the database (`set_config` at the start of each finance transaction) so the period check can allow an owner override with a reason | P2, P4, F0 |
 | C7 | **Resellers in the CRM today**: Fashion Collage only (FPL is not set up). Reseller stock is stitched for a shipment, not held at the studio in advance | Sections 2.2, 3 |
+| C8 | **Who sees finance**: owners (Omer and Usman both have the owner role) and a new **Finance Manager** role (`users.role = 'finance'`), which has every `finance:*` permission and sees nothing else in the CRM. Migration 014 adds the role, so later migration numbers shift by one (F2a starts at 015) | D2, Section 11.1, Section 10.2 |
+| C9 | **Opening balances in reports**: the opening-balance entry (OB) is dated the go-live day but stands for the position the day before (30 June 2026), so every report treats OB entries as that day. They appear in the prior year-end position and opening cash, never as the year's flows | Sections 6.4 to 6.6, 9.3 |
+| C10 | **Year-end closing entries (CL)** are left out of profit, cash flows and equity movements (they only move profit into retained earnings) but count in balances | Sections 6.2, 9.3 |
 
 ## 1. Purpose and how to use this document
 
@@ -920,7 +923,7 @@ Phases are ordered so that each one is useful on its own and later phases build 
 | # | Topic | Decision | Where applied |
 | --- | --- | --- | --- |
 | D1 | Opening figures | Accountant figures at 30 June 2026 will be uploaded. Expense receipts exist for the period since then | F0 opening balances wizard; F2 bulk receipt upload |
-| D2 | Who sees finance | Owner / admin login only. Usman and other roles see no costs or profit | Section 11.1 |
+| D2 | Who sees finance | Owners and the Finance Manager role only (v1.6, C8). Other roles see no costs or profit | Section 11.1 |
 | D3 | Bank and wallets | Bank Alfalah PKR only; Collage Dubai remittances arrive there in PKR. No AED account, no wallets | Chart of accounts, F4 |
 | D4 | Custom work money | Omer handles all accounts; custom work income is recorded directly into bank or cash | Section 7.1, F2 |
 | D5 | When a sale counts | **Revenue counts once payment is received (order Paid)** (v1.6, C1). Advances are a liability until then | Sections 0, 7.1; F3 |

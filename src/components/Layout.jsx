@@ -12,7 +12,7 @@ import ChangePasswordModal from './ChangePasswordModal'
 import { useTheme } from '../ui/theme'
 import { ease } from '../ui/motion'
 
-const ROLE_LABELS = { owner: 'Owner', manager: 'Manager', staff: 'Staff', reseller: 'Reseller' }
+const ROLE_LABELS = { owner: 'Owner', manager: 'Manager', staff: 'Staff', reseller: 'Reseller', finance: 'Finance Manager' }
 const COLLAPSE_KEY = 'koko-sidebar-collapsed'
 const readCollapsed = () => { try { return localStorage.getItem(COLLAPSE_KEY) === '1' } catch { return false } }
 

@@ -9,6 +9,7 @@ const ROLES = [
   { value: 'owner',    label: 'Owner',    help: 'Everything, including staff accounts and commission rates' },
   { value: 'manager',  label: 'Manager',  help: 'Orders (incl. delete), Fashion Collage prices and statements, revenue' },
   { value: 'staff',    label: 'Staff',    help: 'Create and edit orders; Fashion Collage stock without money' },
+  { value: 'finance',  label: 'Finance Manager', help: 'The finance module only: books, reports, expenses, payroll. No orders or customers' },
   { value: 'reseller', label: 'Reseller', help: "Read-only view of their own reseller's stock" },
 ]
 const roleLabel = (r) => ROLES.find((x) => x.value === r)?.label || r

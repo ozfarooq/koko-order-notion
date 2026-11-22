@@ -49,3 +49,7 @@ export async function openFinanceFile(id) {
 
 export const TYPE_LABELS = { asset: 'Assets', liability: 'Liabilities', equity: 'Equity', income: 'Income', cogs: 'Cost of sales', expense: 'Expenses', tax: 'Tax' }
 export const ENTRY_LABELS = { JV: 'Journal', OB: 'Opening balances', SI: 'Sale', RC: 'Receipt', EX: 'Expense', PY: 'Payroll', PU: 'Purchase', IN: 'Inventory', BK: 'Bank', TX: 'Tax', CL: 'Closing' }
+
+// ── Reports and ledgers (F1) ───────────────────────────────────────────
+export const getLedger = (accountId, f = {}) => api(`/finance/ledger/${accountId}?${query(f)}`)
+export const getReport = (name, f = {}) => api(`/finance/reports/${name}?${query(f)}`)
