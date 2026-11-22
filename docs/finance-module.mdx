@@ -1,0 +1,983 @@
+---
+title: "Koko Atelier CRM: Finance Module"
+description: "Requirements, analysis and phased development plan"
+---
+
+# Koko Atelier CRM: Finance Module
+
+_Requirements, analysis and phased development plan_
+
+| Item | Detail |
+| --- | --- |
+| Repository | `ozfarooq/koko-order-notion` (Koko Atelier CRM) |
+| Target document path | `docs/finance-module.mdx` (the MDX version of this document, for Claude Code) |
+| Owner | Omer Farooq |
+| Date | 22 November 2026 |
+| Version | 1.6 (23 Nov 2026: revenue at payment, F2 split, development database, file storage in the database until Drive, F3 additions; see Section 0) |
+| Company | Koko Atelier (Private) Limited, Lahore. Fiscal year 1 July to 30 June |
+| Base currency | PKR. Reseller trade in AED is converted at transaction date |
+| Reporting framework | IFRS-based recognition and measurement; statutory output under the framework the company qualifies for (Section 9) |
+
+## 0. Changes in v1.6 (23 November 2026)
+
+These decisions and corrections override anything later in this document that says otherwise.
+
+| # | Change | Replaces |
+| --- | --- | --- |
+| C1 | **Revenue is recognised when payment is received**: when an order reaches **Paid** (full payment), the `SI` entry posts: Dr Customer advances 2200 (advances taken) and Dr Bank / Cash (final payment), Cr Sales 4100 / 4110. Advances stay a contract liability until then. No `delivered_on` date is added. Note for the accountant: IFRS 15 recognises revenue at delivery; for Koko, Paid and delivery are normally the same day, and any year-end difference is a manual adjustment in the adjustment period | D5, Sections 4.3, 7.1 (order delivered row), 9.2 (IFRS 15 row), F3 "revenue on delivery" |
+| C2 | **Development database**: all finance development and tests run on `koko_finance_dev` (same Neon project, separate database, same structure as live, no live data), built by `scripts/finance-dev-db.js`, connection in `FINANCE_DEV_DATABASE_URL`. Posted journals are permanent, so tests never run on the live database. Live data needed for testing (orders, resellers) is copied in by a script when a phase needs it | Section 13.2 |
+| C3 | **File storage until Google Drive**: finance files are stored in the database (`fin_files` metadata + `fin_file_blobs` content), with the same 2.5 MB limit and types as reseller payment proofs. All access goes through `lib/finance/files.js`, so switching to Google Drive later changes that module and a migration script only, not the screens. Drive needs a Google Workspace Shared Drive (a service account has no storage of its own) or OAuth with the owner's account | D13, Section 7.6 storage, F0 `drive.js` |
+| C4 | **F2 is split**: **F2a** suppliers, staff, expenses with receipts, weekly studio claims, recurring expenses, weekly payroll, custom work and commission income, director accounts. **F2b** receipt and screenshot intake (inbox, Claude vision extraction, review queue, file-away) | Section 12 F2 |
+| C5 | **F3 additions**: (a) Trax tracking number on orders, needed to match settlements; (b) `customer_payments` becomes the single source of the advance: a database trigger keeps `orders.advance_paid_pkr` equal to the sum of payments, so the existing balance column and screens keep working; (c) order lines filled from a damaged studio piece or a shoot sample post to Sale of damaged / sample pieces 4500, not retail sales; (d) a reseller sale whose month is already closed posts into the current open period with the sale month in the memo | Sections 4.3, 7.1, F3 |
+| C6 | **Ledger rules in the database**: posted entries and lines are immutable except one change, Posted → Reversed on the original when it is reversed. The app passes the acting user to the database (`set_config` at the start of each finance transaction) so the period check can allow an owner override with a reason | P2, P4, F0 |
+| C7 | **Resellers in the CRM today**: Fashion Collage only (FPL is not set up). Reseller stock is stitched for a shipment, not held at the studio in advance | Sections 2.2, 3 |
+
+## 1. Purpose and how to use this document
+
+This document specifies a finance module for the Koko Atelier CRM. It covers eight capabilities requested by the owner: Balance Sheet, Profit and Loss, Ledgers, Trial Balance, Manufacturing Cost (costing per design, cost per piece, profit per order and per collection), Pakistan tax reporting, Expense Tracking and Bank Reconciliation.
+
+It is written to be handed to Claude Code in VS Code at the repo root, one phase at a time. Each phase in Section 12 is self-contained, lists its migrations, routes, screens and a "Done when" check, and ends with a review gate before the next phase starts.
+
+- **Sections 2 to 4** explain the existing system and the business so the code fits what is already there.
+- **Sections 5 to 8** are the functional requirements for each capability. **Section 9** covers IFRS compliance.
+- **Sections 10 and 11** are the data model and the API / screen plan.
+- **Section 12** is the phased plan. **Section 15** is the prompt to paste into Claude Code.
+
+> **Tax is a later phase, switched off at launch.** Koko does not tax orders today but plans to. The full Pakistan tax design (Section 8) is kept and built as the last phase, F7. From Phase F0 the ledger carries the hooks it needs (a `tax_enabled` setting, a `tax_code` on every line and inactive tax accounts), so tax is switched on later without rebuilding anything. While `tax_enabled` is false, prices are final revenue and courier or bank deductions are costs.
+
+> **Tax disclaimer.** Pakistan tax rates and rules in this document reflect Finance Act 2026 as publicly summarised in November 2026. They are inputs to a configurable rate table, not hard-coded logic. Every rate and treatment must be confirmed by Koko's tax advisor before returns are filed from this system.
+
+## 2. Existing system (what the finance module must fit)
+
+### 2.1 Stack and conventions
+
+| Area | Current implementation | Rule for the finance module |
+| --- | --- | --- |
+| Frontend | React 18 + Vite + Tailwind, react-router, lucide icons, recharts, sonner toasts, `src/ui/kit.jsx` components | Reuse kit components and theme. New pages under `src/pages/finance/` |
+| API | Single Vercel function `api/index.js` -&gt; `lib/router.js` route table; Express `server.js` in dev | Add routes to the same table with a permission per route |
+| Database | Neon Postgres via `@neondatabase/serverless`; baseline `db/schema.sql`; changes in `db/migrations/NNN_*.sql` applied by `scripts/migrate.js` | Next migration is **013**. Never edit `schema.sql` except the header comment |
+| Business logic | One module per domain in `lib/` (db, inventory, resellers, catalog, customers, shopify, dashboard) | New modules: `lib/finance/ledger.js`, `posting.js`, `reports.js`, `expenses.js`, `costing.js`, `bank.js`, `tax.js` |
+| Auth | Roles owner / manager / staff / reseller with fixed permission lists in `lib/auth.js` | Add `finance:*` permissions (Section 11.1) |
+| Audit | `audit_log` table, `auth.audit(user, action, entity, id, changes)` | Every finance write is audited. Posted journals are immutable |
+| Files | Reseller payment proofs are stored as BYTEA in Neon (`reseller_payment_files`) | **Changed:** every finance file (receipts, payment screenshots, statements, worksheet photos) goes to the Koko **Google Drive shared folder**, never to Vercel or the database. The DB keeps only the Drive file id and metadata (Section 7.6). Existing reseller proofs can be moved to Drive later |
+| Feature flags | `FEATURES` in `src/app/nav.js` | Add `finance: false`, switched on per phase |
+| Exports | `xlsx`, `jspdf`, `html2canvas` already installed | All reports export to XLSX and PDF |
+
+### 2.2 Data already in the CRM that finance will use
+
+| Table | What it holds | Finance use |
+| --- | --- | --- |
+| `orders`, `order_items` | Retail orders (SO-000123), channel, status, `amount_pkr`, `advance_paid_pkr`, `balance_due_pkr`, `order_type` Sale/PR | Revenue, receivables, customer advances, PR cost, profit per order |
+| `customers` | Retail customers | Customer sub-ledger |
+| `collections`, `products` | Collections (e.g. VÉLORA KO26-WC1) and outfits, retail price | Bill of materials per design, profit per collection |
+| `resellers`, `consignments`, `consignment_items`, `consignment_items_detail` | Stock handed to Fashion Collage / FPL, price in AED, discounts, commission, alteration, net to Koko, status At Store/Sold/Paid/Returned | Export sales, reseller receivable, commission expense |
+| `reseller_payments` (+ files) | Payments received, `amount` in AED, `amount_pkr` credited, `difference_reason` | Receipt postings, FX gain/loss, bank matching |
+| `stock_pieces`, `stock_movements` | Every piece made ahead of an order, status history incl. Gifted, Damaged, damaged-for-sale | Finished goods valuation, write-offs, cost per piece |
+| `users`, `audit_log` | Logins and history | Who created / posted / approved |
+
+## 3. Business context for finance
+
+The design is driven by how Koko actually earns and spends money. Claude Code must treat these as requirements, not background.
+
+- **Stitch-to-order retail.** A customer order takes an advance, is tailored, then delivered. The balance arrives at delivery: cash in studio, bank transfer, or cash on delivery (COD) collected by Trax courier.
+- **Trax COD settlements.** Trax pays out by invoice: collections less delivery charges, less taxes withheld, plus an IBFT charge of Rs 100 per invoice. A negative net disbursement means a charge-only entry; a positive one means collection and charge entries. Amount Received values must sum to the invoice total. This logic already exists in Omer's CSV process and must be reproduced.
+- **Bank.** Bank Alfalah (BAF) PKR is the only bank account. Reseller money from Fashion Collage Dubai also arrives in this account, already converted to PKR. A studio petty cash float also exists. No AED account and no mobile wallets.
+- **Resellers (consignment).** Stock is made in advance and handed to Fashion Collage Dubai (AED) and FPL (Pakistan). Revenue happens when the reseller sells, not at handover. The reseller deducts commission and alteration/laundry charges, then remits. The PKR that reaches BAF can differ from the AED statement because of bank charges and exchange rate.
+- **PR orders.** Outfits sent to influencers are stitched and delivered but never revenue. Their cost is a marketing expense.
+- **Studio labour.** Abdul Rahman (main tailor), Jahangir (embroidery, Rs 15,000/week) and Master Iftikhar (cutting master) are on fixed weekly salaries, Monday to Saturday. Tailors and embroidery work 10 hours/day, the master 4 hours/day. Hours and job entries come from a handwritten Saturday worksheet.
+- **Per-piece tailor.** Manaf works per piece, is not paid by Koko, and the studio earns a commission on his output through Master Iftikhar. This is commission income.
+- **Custom work income.** When salaried staff do custom work outside normal duties, the amount is noted and the money comes to Omer, who handles all accounts. It is recorded straight into the bank or cash as studio revenue, not extra wages.
+- **Weekly studio expense claim.** Abdul Rahman submits a weekly claim (water, fabric top-ups, electrician / carpenter labour etc.) for reimbursement.
+- **Directors pay personally.** Omer and Usman sometimes pay business costs from personal funds or receive business money personally. Director current accounts are required so this is never lost.
+- **Payment proof = phone screenshots.** Most money movements are bank-app screenshots (Bank Alfalah alfa app, Askari etc.) with a sticker note added on the image, e.g. "Funds added OmerF 31700/-" (Omer moving personal money into the Koko account) or "Nov 26 Week 3, Tailor Salary 17500/-, Market 5700/-, Final Payment 23200/-" (one transfer paying the main tailor's weekly salary plus his market expense claim). These screenshots, together with paper receipts, are the source to build the year's data from 1 July 2026.
+- **Fabric is bought in bulk at shoot time.** For each collection the fabric for the shoot samples is bought in bulk (by yard, per colour), so there is leftover fabric in stock that later customer and reseller orders use.
+- **Weekly stitching consumables.** During the week the studio buys small items (thread, pins, needles, chalk, interlining, etc.), usually through the main tailor's weekly market claim.
+- **Standard cost is set at the shoot.** When a collection is shot, a costing sheet fixes each outfit's standard cost (fabric yards x rate, stitching, extras such as lace, dye, tassels, buttons) and the price (Section 7.4.4).
+- **Deliveries.** Mostly Trax (with COD). Some orders go directly by Uber; the ride cost is a delivery expense of that order and any cash the rider brings back is a cash receipt.
+- **Lean made-to-order model** after an earlier restructuring. Fixed costs are low, so per-order and per-collection margin is the key management number.
+
+## 4. Analysis and design principles
+
+### 4.1 Key decision: a real double-entry ledger underneath everything
+
+All eight requested reports are views over one general ledger. If the ledger is right, the Trial Balance, P&amp;L and Balance Sheet are queries, not separate features. So the module is built as:
+
+1. **A double-entry core**: chart of accounts, journal entries, journal lines, fiscal periods.
+2. **Sub-ledgers that post automatically**: orders, reseller sales and payments, expenses, payroll, material purchases, inventory moves, bank lines. Users work in familiar screens; the system writes the journals.
+3. **Reports** that read only from posted journal lines.
+
+### 4.2 Principles Claude Code must follow
+
+| # | Principle | Implementation rule |
+| --- | --- | --- |
+| P1 | Balanced always | A posted entry must have total debit = total credit (to the paisa). Enforced by a deferred constraint trigger in Postgres, not only in JS |
+| P2 | Immutable once posted | Posted entries are never edited or deleted. Corrections are reversal entries (one click "Reverse") plus a new entry |
+| P3 | Idempotent auto-posting | Every system entry carries `(source_type, source_id, source_event)` with a unique index, so re-running a posting or backfill never doubles it |
+| P4 | Periods and locking | Monthly periods inside fiscal years (Jul to Jun). Closed periods reject new postings except by owner with a reason; locked periods reject all |
+| P5 | PKR base, multi-currency lines | Every line stores PKR amount; foreign lines also store currency, foreign amount and rate. Reports are in PKR |
+| P6 | Accrual basis, IFRS recognition | Revenue when control passes to the customer (delivery) or when a reseller sells to its customer (IFRS 15); costs when incurred. Cash collection is tracked separately and never drives revenue |
+| P7 | Tax is switchable and rules are data | `fin_settings.tax_enabled` (default false) and `tax_enabled_from` date decide whether tax lines are posted. Rates live in an effective-dated `tax_rates` table editable by owner. No tax percentage appears in code. Entries dated before `tax_enabled_from` are never re-taxed |
+| P8 | Money as NUMERIC | `NUMERIC(14,2)` in SQL; in JS use integer paisa or string decimals, never floating-point sums |
+| P9 | Traceability | Every report figure drills down: report line -&gt; account ledger -&gt; journal entry -&gt; source document (order, expense, payment, statement line) |
+| P10 | Do not break existing flows | Order, reseller and inventory screens keep working when finance is off. Posting failures are logged and shown in a "Posting exceptions" queue; they never block an order save |
+| P11 | Framework-aware reporting | One ledger, recognition per IFRS; statements presented under the framework set in `fin_settings.reporting_framework` (Section 9) |
+
+### 4.3 Gaps and risks found in the current data
+
+- **Payments are not individual records.** Orders hold a single `advance_paid_pkr` number; there is no table of each customer payment (date, method, bank). Finance needs one, so Phase F3 adds `customer_payments` and migrates existing advances as opening records.
+- **Revenue timing (decided, adjusted for IFRS).** The owner marks an order Paid when funds reach the account. IFRS 15 recognises revenue when the customer receives the outfit, not when cash arrives, so the module adds a `delivered_on` date to orders: set at studio handover, from Trax delivery status, or by hand. Revenue posts on `delivered_on`; Paid posts the cash receipt. For most studio and transfer orders both happen the same day. If `delivered_on` is missing when an order reaches Paid, the Paid date is used and the order is flagged.
+- **Cancelled orders with advances (decided).** The advance is refunded. Cancelling an order with an advance opens a Refund step (amount, date, account) that posts the refund. A rare "keep advance" option stays available to the owner only, with a reason.
+- **Tax starts later.** Koko does not tax orders today. Posting rules must produce correct entries in both modes: tax off (full price is revenue, courier deductions are an expense) and tax on (output tax separated from price, deductions held as tax credits). See Section 8 and Open Questions.
+- **Costs are not captured anywhere yet.** No materials, purchases or BOMs exist. Costing (Phase F5) starts with standard costs per design and adds actuals later.
+- **History before go-live.** Backfilling every past transaction is costly. Recommended: go live from 1 July 2026 (start of FY 2026-27) with opening balances at 30 June 2026, then backfill July to go-live from CRM data.
+
+## 5. Chart of accounts (seed)
+
+Seeded by migration 013. Codes are 4-digit; owner can add accounts but not delete one with postings. Every account also carries an **FS line mapping** (financial statement line item), a **current / non-current** flag and an **IAS 7 cash-flow class** (operating / investing / financing / cash), which drive the IFRS statements in Section 9. Accounts marked **Control** can only be posted by the system (they mirror a sub-ledger). Accounts marked **Tax** in the notes are seeded **inactive** and are activated automatically when tax is switched on. The `system_key` column lets code find an account without hard-coding its code.
+
+| Code | Account | Type | System key / notes |
+| --- | --- | --- | --- |
+| 1100 | Cash in hand: studio petty cash | Asset | `cash_studio` |
+| 1110 | Bank Alfalah current account (PKR) | Asset | `bank_baf` |
+| 1150 | Trax COD clearing | Asset | `clearing_trax`. Trax is the only COD courier; Uber deliveries do not use a clearing account |
+| 1160 | Shopify / gateway clearing | Asset | `clearing_gateway`. Seeded inactive; only if online card payments start |
+| 1200 | Trade receivables: retail customers | Asset (Control) | `ar_customers` |
+| 1210 | Trade receivables: resellers | Asset (Control) | `ar_resellers`, line party = reseller, currency AED or PKR |
+| 1300 | Raw materials: fabric, trims, lining, packaging | Asset (Control) | `inv_materials` |
+| 1310 | Work in progress | Asset | `inv_wip` |
+| 1320 | Finished goods: at studio | Asset | `inv_fg_studio` |
+| 1340 | Inventory write-down to net realisable value | Asset (contra) | `inv_nrv_allowance` (IAS 2) |
+| 1350 | Right to recover returned goods | Asset | `return_asset` (IFRS 15 refund asset) |
+| 1330 | Finished goods: with resellers (consignment) | Asset | `inv_fg_consigned` |
+| 1400 | Advance income tax / tax withheld by others | Asset | `tax_wht_suffered` (Tax: inactive until enabled) |
+| 1410 | Sales tax withheld by couriers / intermediaries | Asset | `st_withheld` (Tax: inactive until enabled) |
+| 1420 | Input sales tax | Asset | `st_input` (Tax: inactive until enabled) |
+| 1450 | Deposits and prepayments | Asset | Rent deposit, prepaid subscriptions |
+| 1500 | Machinery and equipment | Asset | Sewing, embroidery, pressing machines |
+| 1510 | Furniture and fixtures | Asset |  |
+| 1520 | Computers and phones | Asset |  |
+| 1250 | Allowance for expected credit losses | Asset (contra) | `ecl_allowance` (IFRS 9 / framework equivalent) |
+| 1590 | Accumulated depreciation | Asset (contra) |  |
+| 1600 | Right-of-use asset: studio lease | Asset | `rou_asset`. Only if full IFRS (IFRS 16) is selected |
+| 2100 | Trade payables: suppliers | Liability (Control) | `ap_suppliers` |
+| 2110 | Staff expense claims payable | Liability (Control) | `ap_staff_claims` |
+| 2120 | Salaries and wages payable | Liability | `wages_payable` |
+| 2130 | Accrued employee benefits | Liability | `employee_benefits_accrued` (unpaid days at month-end, IAS 19) |
+| 2200 | Customer advances (contract liabilities) | Liability (Control) | `customer_advances` (IFRS 15 contract liability) |
+| 2210 | Refund liabilities | Liability | `refund_liability` (expected returns, refunds owed on cancellations) |
+| 2600 | Lease liability | Liability | `lease_liability`. Only if full IFRS (IFRS 16) is selected |
+| 2300 | Output sales tax payable | Liability | `st_output` (Tax: inactive until enabled) |
+| 2310 | Withholding tax deducted, payable to FBR | Liability | `wht_payable` (Tax: inactive until enabled) |
+| 2320 | Income tax payable | Liability | `income_tax_payable` (Tax: inactive until enabled) |
+| 2400 | Director current account: Omer Farooq | Liability / Equity | `director_omer`. "Funds added" transfers from Omer's personal account post here (credit) |
+| 2410 | Director current account: Usman | Liability / Equity | `director_usman` |
+| 2500 | Accrued expenses | Liability |  |
+| 3100 | Share capital | Equity |  |
+| 3200 | Retained earnings | Equity | `retained_earnings`. Year-end close posts here; prior-period corrections (IAS 8) post to opening balance |
+| 4100 | Retail sales: studio, WhatsApp, Instagram | Income | `sales_retail` |
+| 4110 | Retail sales: website (Shopify) | Income | `sales_web` |
+| 4200 | Export / reseller sales | Income | `sales_reseller`. Sub-account per reseller |
+| 4300 | Custom tailoring and alteration income | Income | `income_custom` (staff custom work; money received by Omer) |
+| 4400 | Commission income: per-piece tailoring | Income | `income_commission` (Manaf) |
+| 4500 | Sale of damaged / sample pieces | Income | `sales_damaged` |
+| 4800 | Sales returns and discounts | Income (contra) | `sales_returns` |
+| 4900 | Other income, exchange gain | Income | `fx_gain`. Realised and unrealised (IAS 21) kept as separate sub-accounts |
+| 5100 | Materials consumed | Cost of sales | `cogs_materials` |
+| 5200 | Direct labour (production wages) | Cost of sales | `cogs_labour` |
+| 5300 | Outsourced work: embroidery, dyeing, printing | Cost of sales | `cogs_outsourced` |
+| 5410 | Stitching consumables (thread, pins, needles, chalk, interlining) | Cost of sales | `consumables`. Variable production overhead; absorbed into WIP per piece stitched (Section 7.4) |
+| 5400 | Production overhead applied | Cost of sales | `cogs_overhead`. Overhead absorbed into inventory then released to cost of sales (IAS 2) |
+| 5450 | Unabsorbed production overhead (idle capacity) | Cost of sales | `overhead_unabsorbed`. Expensed, never put into stock (IAS 2) |
+| 5500 | Inventory write-offs and damage | Cost of sales | `inv_writeoff` |
+| 5600 | Costing variances (actual vs standard) | Cost of sales | `cost_variance` |
+| 6100 | Studio rent | Expense |  |
+| 6110 | Utilities: electricity, water, gas, internet | Expense |  |
+| 6120 | Repairs and maintenance: electrician, carpenter | Expense |  |
+| 6200 | Salaries: admin and non-production | Expense |  |
+| 6300 | Marketing: paid ads (Meta etc.) | Expense |  |
+| 6310 | Marketing: PR gifts (cost of PR orders) | Expense | `pr_cost` |
+| 6320 | Photoshoots and content | Expense | Tag to collection |
+| 6330 | Events and exhibitions | Expense | e.g. Collage Dubai participation |
+| 6400 | Courier and delivery charges | Expense | `courier_charges` |
+| 6410 | Packaging | Expense |  |
+| 6420 | Courier deductions on COD payouts | Expense | `courier_deductions`. Used while tax is off; when tax is on the same deduction goes to 1400 / 1410 |
+| 6500 | Reseller commission | Expense | `reseller_commission`. Decided: reseller sales are recorded at full selling price and commission is a selling cost here |
+| 6510 | Reseller alteration / laundry charges | Expense | `reseller_alteration` |
+| 6600 | Bank charges (incl. IBFT) | Expense | `bank_charges` |
+| 6610 | Payment gateway fees | Expense |  |
+| 6700 | Software and subscriptions (Shopify, Vercel, Neon, Claude) | Expense |  |
+| 6800 | Professional fees: accountant, legal, SECP | Expense |  |
+| 6900 | Travel and conveyance | Expense |  |
+| 6950 | Depreciation | Expense |  |
+| 6960 | Impairment loss on receivables | Expense | `ecl_expense` |
+| 6970 | Finance cost on lease | Expense | `lease_interest`. Full IFRS only |
+| 6990 | Exchange loss | Expense | `fx_loss` |
+| 7100 | Income tax expense (current, minimum tax) | Tax | `tax_expense` (Tax: inactive until enabled) |
+
+## 6. Functional requirements: core accounting
+
+### 6.1 Journal entries
+
+- Entry number format `JV-2627-000123` (fiscal year 2026-27, running number per year). System entries use prefixes by source: `SI` sales, `RC` receipt, `EX` expense, `PY` payroll, `PU` purchase, `IN` inventory, `BK` bank, `TX` tax, `CL` closing.
+- Fields: date, period, memo, source (type, id, event), status (Draft / Posted / Reversed), reversal link, created by, posted by, posted at.
+- Lines: account, debit or credit (exactly one non-zero), party (customer / reseller / supplier / staff / director / courier), currency, foreign amount, FX rate, and analysis tags: `order_id`, `collection_id`, `product_id`, `consignment_item_id`, `tax_code`, free-text description.
+- Manual journal screen: grid entry with running debit/credit totals; Post button disabled until balanced; attach files.
+- Reverse: creates a mirror entry dated today (or a chosen date in an open period) and marks the original Reversed.
+- Recurring journals (e.g. monthly depreciation, rent accrual): template + "generate for period".
+
+### 6.2 Fiscal years and periods
+
+- Fiscal year Jul to Jun, labelled both `FY 2026-27` and `Tax Year 2027` (FBR naming).
+- Monthly periods with status Open / Closed / Locked. Owner closes; closing runs checks (Section 6.7).
+- Year-end close: zero income and expense accounts into Retained Earnings with a `CL` entry; opens next year.
+
+### 6.3 Ledgers
+
+Ledger screens all share one component: date range, opening balance, lines with running balance, closing balance, drill-down to entry and source, XLSX/PDF export.
+
+| Ledger | Filter | Notes |
+| --- | --- | --- |
+| General ledger (any account) | Account, date range, tags | Core view. Also "account statement" PDF |
+| Customer ledger | Customer | Advances, invoices on delivery, receipts, refunds. Shown as a tab on the existing Customer Profile page |
+| Reseller ledger | Reseller, currency | Sales per statement month, commission, alteration, payments, FX difference. Shown in reseller section next to Statements |
+| Supplier ledger | Supplier | Bills, payments, WHT deducted |
+| Staff ledger | Staff member | Weekly salary, advances to staff, expense claims, reimbursements |
+| Director current accounts | Omer / Usman | Money in and out personally; balance owed to / by each director |
+| Bank and cash books | Bank / cash account | With reconciliation status per line |
+| Tax ledgers | Tax code | Output tax, input tax, WHT suffered, WHT deducted |
+
+Ageing reports for receivables (customers, resellers) and payables (suppliers, staff claims) in buckets 0-30, 31-60, 61-90, 90+ days.
+
+### 6.4 Trial Balance
+
+- As at any date or for a period: account code, name, opening, period debit, period credit, closing; debit and credit columns must total equal, shown with a green "Balanced" or red difference banner.
+- Options: hide zero-balance accounts, group by account type, compare with previous period.
+- Drill-down from any row to the account ledger.
+
+### 6.5 Profit and Loss
+
+- Layout: Revenue (by channel) less returns = Net revenue; Cost of sales (materials, labour, outsourced, overhead, write-offs, variance) = **Gross profit and margin %**; Operating expenses by group = **Operating profit**; Other income/expense, FX; **Profit before tax**; Tax; **Profit after tax**.
+- Periods: month, quarter, fiscal year to date, custom. Comparison columns: previous period, same period last year, and budget (optional, later).
+- Segment filters using line tags: by channel, by collection, by reseller. "P&amp;L by collection" is a column-per-collection view.
+- Until costing is live (Phase F5) the report shows a banner: "Cost of sales is incomplete before costing is enabled".
+
+### 6.6 Balance Sheet
+
+- As at any date, in the Companies Act style: Non-current assets; Current assets (inventories, receivables, tax refundable, cash and bank); Equity (share capital, retained earnings, current-year profit computed live); Non-current and current liabilities (payables, customer advances, taxes payable, director accounts).
+- Must balance: Assets = Equity + Liabilities. If not, show the difference and a link to the Trial Balance.
+- Comparison with prior year-end (30 June).
+
+### 6.7 Month-end close checklist
+
+1. All orders delivered in the month have revenue posted (no items in Posting exceptions).
+2. Bank and cash accounts reconciled to month-end statement.
+3. Trax and other courier clearing accounts reconciled to settlement invoices.
+4. Weekly payroll runs for all weeks ending in the month are posted.
+5. Staff claims for the month approved and posted.
+6. Reseller statements for the month entered (sales and commission).
+7. Depreciation and recurring journals generated.
+8. Inventory count variance posted (optional, quarterly).
+9. Tax summary reviewed (sales tax, WHT).
+10. Close period.
+
+## 7. Functional requirements: operational modules
+
+### 7.1 Automatic posting rules
+
+These are the entries the system writes from CRM events. Each rule lives in `lib/finance/posting.js` as a pure function `(event, settings, accounts) -> lines[]` so it is unit-testable. Amounts are PKR unless noted. Tax lines (output tax, input tax, withholding) are produced only when `tax_enabled` is true for the entry date; otherwise they are omitted and the full price is revenue.
+
+| Event (source) | Debit | Credit | Notes |
+| --- | --- | --- | --- |
+| Customer payment received before delivery (advance) | Bank / Cash / Gateway clearing | Customer advances 2200 | New `customer_payments` record; party = customer; tag order |
+| Order delivered (`delivered_on` set; IFRS 15 control transfer) | Customer advances 2200 (advance taken)<br />Receivables 1200 (balance due) | Sales 4100 / 4110 by channel (net of tax)<br />Output sales tax 2300 (if registered) | One `SI` entry per order. Discounts recorded on order lines go to 4800 |
+| Order delivered: cost of sales (after F5) | Materials 5100, Labour 5200, Outsourced 5300, Overhead 5400 | WIP 1310 | Uses the order's job cost |
+| Balance paid in studio / by transfer | Bank / Cash | Receivables 1200 |  |
+| COD collected by Trax (on delivery) | Trax clearing 1150 | Receivables 1200 | Per order, from courier booking |
+| Trax settlement invoice imported | Bank 1110 (net disbursed)<br />Courier charges 6400<br />Courier deductions 6420, or tax credits 1400 / 1410 when tax is on and `cod_wht_treatment` = Adjustable<br />Bank charges 6600 (IBFT Rs 100) | Trax clearing 1150 (gross COD of the orders in the invoice) | Reproduce current CSV logic: negative net = charges only; rows must sum to invoice total or import is rejected |
+| Order returned after delivery | Sales returns 4800, Output tax 2300 | Receivables 1200 / Bank (refund) | Plus stock entry if the piece comes back to studio (FG at cost, credit COGS) |
+| Order cancelled with advance | Customer advances 2200 | Bank / Cash (refund) | Default and normal case is a refund. Owner-only exception: keep advance to Other income 4900 with a reason |
+| Uber delivery | Courier charges 6400 (tagged to the order) | Cash / Bank | If the rider collects cash from the customer: Dr Cash, Cr Receivables 1200 |
+| PR order delivered | PR gifts 6310 (at cost) | WIP 1310 or FG 1320 | Never revenue (matches migration 009) |
+| Reseller handover | FG with resellers 1330 | FG at studio 1320 | At cost; optional until F5 |
+| Reseller piece sold (from statement) | Reseller receivable 1210 (net payable, AED at rate)<br />Commission 6500<br />Alteration 6510 | Reseller sales 4200 (net price after designer + reseller discounts) | Uses `consignment_items_detail`. Zero-rated export for Collage Dubai (tax code `ZR`) |
+| Reseller sold: cost | COGS accounts | FG with resellers 1330 | After F5 |
+| Reseller payment received | Bank 1110 (`amount_pkr`)<br />Bank charges 6600 / WHT on export proceeds 1400<br />FX loss 6990 (if any) | Reseller receivable 1210 (AED amount at booked rate)<br />FX gain 4900 (if any) | Rate difference between sale date and receipt date becomes FX gain/loss. `difference_reason` copied to memo |
+| Reseller piece returned | FG at studio 1320 | FG with resellers 1330 | If already invoiced: reverse sale line |
+| Damaged piece written off (status Damaged) | Write-offs 5500 | FG 1320 |  |
+| Damaged piece sold | Bank / Receivable | Sale of damaged 4500; FG cost to 5500 |  |
+| Supplier bill / expense entered | Expense account or Materials 1300; Input tax 1420 (if claimable) | Payables 2100, or Bank / Cash if paid now; WHT payable 2310 if Koko deducts |  |
+| Weekly staff claim approved | Expense accounts per line | Staff claims payable 2110 | Reimbursed: Dr 2110 Cr Cash / Bank |
+| Weekly payroll posted | Direct labour (to WIP via allocation) or Salaries 6200 | Wages payable 2120 | Paid: Dr 2120 Cr Cash / Bank. Allocation in Section 7.3 |
+| Custom work income | Bank 1110 or Cash 1100 (where Omer receives it) | Custom tailoring income 4300 | Entered from the payroll run custom-work lines when the money is received |
+| Per-piece tailor commission | Cash / Director account | Commission income 4400 |  |
+| Director pays a business cost personally | Expense | Director current account |  |
+| Owner funds added to Koko account (screenshot "Funds added") | Bank 1110 | Director current account: Omer 2400 | Matched to the BAF statement line by the bank reference number |
+| One transfer paying salary + market claim (screenshot with split) | Wages payable 2120 (salary part)<br />Staff claims payable 2110 (claim part) | Bank 1110 (total) | The split on the screenshot must add up to the amount, or the item stays in review |
+| Stitching consumables bought (market claim line) | Stitching consumables 5410 | Staff claims payable 2110 / Cash | Absorbed into WIP each month-end per piece stitched |
+| Bulk fabric bought for a collection | Raw materials 1300 (yards per fabric lot) | Payables 2100 / Bank / Director account | Leftover yards stay in stock at average cost |
+| Material issued to an order / batch | WIP 1310 | Materials 1300 | At weighted average cost |
+| Production batch completed (stock pieces) | FG at studio 1320 | WIP 1310 | Cost per piece = batch cost / pieces |
+
+### 7.2 Expense tracking
+
+- **Suppliers**: name, phone, CNIC/NTN, STRN, Active Taxpayer List (ATL) status and last-checked date, default expense account, WHT category.
+- **Expense entry**: date, supplier (optional for petty cash), category (expense account), amount, tax amount, paid-from (bank / cash / director / unpaid), collection tag, order tag, receipt photo or PDF (multiple), notes. Mobile-friendly: snap receipt on phone, fill 4 fields, save.
+- **Weekly studio expense claim** (Abdul Rahman): one claim per week with lines (water, fabric, electrician, carpenter, other), photo of the handwritten sheet, status Submitted -&gt; Approved -&gt; Reimbursed. Approval posts the claim; reimbursement posts the payment.
+- **Recurring expenses**: rent, internet, subscriptions with day-of-month and amount; generated as drafts for approval.
+- **Budgets (optional, later)**: monthly budget per expense group; P&amp;L shows budget vs actual.
+- **Expense reports**: by category, by month, by supplier, by collection; top 10 expenses; petty cash book.
+
+### 7.3 Staff and weekly payroll
+
+- **Staff register**: name, role (tailor, embroidery, cutting master, other), pay type (`weekly_salary` or `per_piece_external`), weekly salary (effective-dated history), standard hours/day, working days (Mon-Sat), CNIC (optional; do not show in lists), payment method.
+- **Weekly payroll run** (week ending Saturday): one line per salaried staff with salary, days present, hours worked (from the Saturday worksheet), deductions/advances, net pay, and a split of hours across jobs: collection batches, specific orders, samples, idle/other. Upload photo of the worksheet.
+- **Custom work lines** on the same run: amount noted by staff for custom jobs; posts as custom tailoring income into bank or cash when received (Section 7.1), not wages.
+- **Labour rate**: per person per week = weekly salary / hours worked. Used by costing to charge labour to jobs. Unallocated hours are reported as idle time (and go to production overhead only if overhead allocation is switched on).
+- **Salary withholding (section 149)**: current staff salaries are below the taxable threshold, but the run must compute it from the rate table if annualised salary ever exceeds the exemption limit.
+
+### 7.4 Manufacturing cost (costing)
+
+Goal: know the cost of every design, every piece, every order and every collection, and therefore real profit. Two layers, built in order:
+
+#### Layer 1: Standard cost per design (bill of materials)
+
+- **Materials master**: code, name, category (fabric, lining, trims, laces, buttons, embroidery thread, dye, packaging, label), unit (metre, yard, piece, gram, cone), current average cost, supplier, colour/shade notes.
+- **Material purchases**: supplier bill with lines (material, quantity, unit price); updates weighted average cost and stock on hand.
+- **Bulk fabric lots**: each fabric bought for a collection is a material lot named the way the costing sheet names it ("Notebook ref": Brown, Zinc, Red, Black velvet, Blue velvet, Ivory velvet), with yards bought, rate per yard and collection tag. Shoot samples draw yards from the lot; the **leftover yards stay in stock** and are drawn by later orders and reseller batches at the lot's average cost. A new purchase of the same fabric at a new rate updates the average. The Inventory page shows yards left per lot and how many more outfits that covers (yards left / yards per outfit). Monthly or quarterly fabric count posts any difference; small unusable remnants are written down (IAS 2 NRV).
+- **Stitching consumables** (thread, pins, needles, chalk, interlining) are not tracked by quantity. They are entered as market-claim or expense lines with category Consumables (5410). At month-end they are spread over the pieces stitched that month (consumables / pieces) and absorbed into WIP and finished goods, so every piece carries its share. The BOM also holds a **standard consumables allowance per piece** (owner setting, e.g. Rs 150) so the cost card is complete; the monthly difference goes to costing variance.
+- **BOM per product (design)**: versioned with effective date. Lines of four kinds:
+  - **Material**: material, quantity per piece, wastage % (fabric often 5-10%), size factor (XS 0.9 ... XL 1.15, configurable) so large sizes consume more fabric.
+  - **Stitching / labour**: standard stitching cost per piece as on the shoot costing sheet (e.g. MOKA 3,000), optionally split into operations and hours.
+  - **Outsourced**: dyeing, printing, machine embroidery, adda work: cost per piece.
+  - **Overhead**: management order profit shows contribution before overheads by default (owner setting). Separately, for IFRS (IAS 2) the month-end inventory valuation always absorbs fixed production overhead (studio rent, studio electricity, cutting master salary) into WIP and finished goods based on normal capacity (Section 9.3).
+- **Standard cost card** per design and size: materials, labour, outsourced, overhead, total, retail price, gross margin %, and the minimum price for a target margin. Printable PDF for Usman.
+
+#### Seed data: VÉLORA KO26-WC1 standard costs (from the shoot costing sheet)
+
+Loaded as BOM version 1 for each VÉLORA product in Phase F5 (pilot). Fabric lines become material lots; stitching is the standard labour line; extras are material or outsourced lines.
+
+| Code | Outfit | Fabric lot | Fabric | Stitching | Extras | Unit cost |
+| --- | --- | --- | --- | --- | --- | --- |
+| KO26-WC1-001 | MOKA | Brown | 5 yd x 450 = 2,250 | 3,000 | None | 5,250 |
+| KO26-WC1-002 | ONDINE | Zinc | 8 yd x 750 = 6,000 | 4,000 | None | 10,000 |
+| KO26-WC1-003 | VELOURS | Red | 5 yd x 780 = 3,900 | 2,000 | Lace 400, Dye 500 | 6,800 |
+| KO26-WC1-004 | OPHÉRA | Black velvet | 4 yd x 450 = 1,800 + scarf 750 | 3,000 | Tassels 1,120, Buttons 1,120 | 7,790 |
+| KO26-WC1-005 | MINUIT | Blue velvet | 5.5 yd x 450 = 2,475 | 3,500 | None | 5,975 |
+| KO26-WC1-006 | DUNE | Ivory velvet | 8 yd x 450 = 3,600 | 3,000 | Lace 400, Dye 500 | 7,500 |
+
+#### Layer 2: Actual cost per job
+
+- A **production job** is either a customer order (stitch-to-order) or a stock batch (reseller stock, samples). Created automatically when an order moves to In Tailoring, or when a batch is recorded in Inventory.
+- Actual (spent) cost = fabric yards actually issued x lot average rate + extras issued + labour allocated from weekly payroll (salary / pieces or hours) + outsourced bills (dye, lace work) tagged to the job + consumables per piece for the month (+ fixed overhead per piece where switched on or for IFRS stock value).
+- **Standard vs actual report** per design and per collection: standard cost from the shoot sheet, actual spent cost, difference by element (fabric, stitching, extras, consumables) and the margin at the final price on both bases.
+- If actuals are not recorded for a job, standard cost is used and flagged "standard". The difference between actual and standard posts to Costing variances 5600.
+- **Cost per piece** for a batch = batch actual cost / pieces produced; stored on each `stock_piece` (`unit_cost_pkr`).
+
+#### 7.4.4 Pricing (standard cost at the shoot, then actual)
+
+The module reproduces the pricing method on the VÉLORA costing sheet and then keeps checking it against spent cost.
+
+- **Pricing policy** (owner settings, per collection with defaults): marketing / packaging allowance per piece (VÉLORA: Rs 3,000), profit % on cost (20%), courier % (2%), rounding rule (round up to the next 500 for the "without" price; final price confirmed by the owner).
+- **Koko method (default, matches the sheet)**: Unit cost = production cost + allowance. Price = Unit cost x (1 + profit % + courier %) = Unit cost x 1.22. Final price = owner-confirmed rounded price. The "without allowance" price and the difference are shown alongside, as on the sheet.
+- **Check at final price**: margin = final price - unit cost - courier deduction actually taken (2% of the **selling price**, not of cost). Shown as % on cost and % of price, so the owner sees the real profit after Trax's cut.
+- **Optional gross-up method** (setting): Price = Unit cost x (1 + profit %) / (1 - courier %). This recovers the 2% on the selling price exactly; offered for future collections, not forced.
+- **Repricing alert**: when the actual spent cost of a design (from Layer 2) moves its margin at the final price below the target profit %, the design is flagged on the Costing page with the price the policy would now suggest.
+- **Allowance check**: actual marketing and packaging spend tagged to the collection / pieces sold, against the Rs 3,000 allowance, so the owner sees whether the allowance covered the real spend.
+- Price history is stored per product (standard cost snapshot, computed price, final price, approved by, date); the confirmed final price can be pushed to the CRM product price (`products.price_pkr`).
+
+Worked check for VÉLORA at the confirmed final prices (unit cost includes the Rs 3,000 allowance; courier at 2% of final price):
+
+| Outfit | Unit cost | Sheet price (x1.22) | Final price | Courier 2% of price | Margin | % on cost | % of price | Gross-up price |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| MOKA | 8,250 | 10,065 | 10,500 | 210 | 2,040 | 24.7% | 19.4% | 10,102 |
+| ONDINE | 13,000 | 15,860 | 16,000 | 320 | 2,680 | 20.6% | 16.8% | 15,918 |
+| VELOURS | 9,800 | 11,956 | 12,000 | 240 | 1,960 | 20.0% | 16.3% | 12,000 |
+| OPHÉRA | 10,790 | 13,164 | 14,500 | 290 | 3,420 | 31.7% | 23.6% | 13,212 |
+| MINUIT | 8,975 | 10,950 | 12,000 | 240 | 2,785 | 31.0% | 23.2% | 10,990 |
+| DUNE | 10,500 | 12,810 | 13,500 | 270 | 2,730 | 26.0% | 20.2% | 12,857 |
+
+> All six final prices reach at least the 20% profit target on cost after the courier's 2% of the selling price; VELOURS sits exactly at 20%, so any rise in its actual spent cost (fabric at 780 per yard is the most expensive per yard) puts it below target. These figures are the acceptance test for the pricing engine.
+
+#### Profit reports
+
+| Report | Formula |
+| --- | --- |
+| Profit per order | Net revenue (after discounts; ex tax once tax is on) - job cost - courier charge - payment/IBFT charges allocated - Trax 2% COD deduction = contribution and margin % |
+| Profit per reseller piece | Net price - commission - alteration - piece cost - share of shipping to Dubai - FX difference |
+| Profit per design | Sum of order and reseller profits for the product, units sold, average selling price, average cost |
+| Profit per collection | Sum of design profits + collection-level costs tagged to the collection (shoot, samples written off, launch ads, exhibition) = collection net contribution; break-even units; unsold stock at cost |
+| Channel profitability | Studio vs WhatsApp vs Instagram vs Shopify vs each reseller |
+
+> Order and collection profit is a **management** view. It reads the same journal lines through their `order_id`, `product_id` and `collection_id` tags, so it always reconciles to the P&amp;L.
+
+### 7.5 Bank reconciliation
+
+- **Accounts to reconcile**: Bank Alfalah PKR (the only bank account; reseller remittances from Dubai land here in PKR), studio cash (count) and Trax clearing.
+- **Statement import**: CSV / XLSX upload with a saved column mapping per bank (date, description, reference, debit, credit, balance). BAF mapping seeded. Duplicate-line protection by hash of (date, amount, reference, balance). Store the original file.
+- **Auto-match rules** (in order): (1) exact amount and reference contains an SO number, Trax invoice number or reseller payment reference; (2) exact amount within +/- 3 days and same party; (3) one statement line equals the sum of several book lines (Trax batches); (4) user-defined rules, e.g. description contains "IBFT CHG" -&gt; Bank charges 6600.
+- **Review screen**: two columns (statement lines, unreconciled book lines) with suggested matches, accept / reject, split, and "Create entry from this line" for items not yet in the books (bank charges, profit on deposit, unknown receipts to a suspense account).
+- **Reconciliation statement** per period: balance per bank, add deposits in transit, less unpresented payments, = balance per books; difference must be zero to mark the period reconciled. PDF export.
+- **Trax settlement import** reuses the same screen: imports the Trax invoice CSV, validates the sum rule, matches to orders by tracking/SO number, posts the settlement entry, and matches the net disbursement to the BAF line.
+
+### 7.6 File storage on Google Drive and receipt / screenshot intake
+
+#### Storage
+
+- All finance uploads go to the Koko **Google Drive shared folder**. Nothing is stored on Vercel or in Neon except metadata (file id, name, type, size, SHA-256 hash, link, what it is attached to).
+- Access through a Google service account that is a member of the shared folder (env: `GOOGLE_SERVICE_ACCOUNT_JSON`, `GDRIVE_FINANCE_FOLDER_ID`). Implemented in `lib/finance/drive.js` with `fetch` and Node `crypto` (JWT) so no new dependency is needed; if the Google SDK is preferred, ask first.
+- Folder layout created automatically: `Koko Finance / FY 2026-27 / Inbox`, `/ Receipts / 2026-11`, `/ Payments / 2026-11`, `/ Payroll / 2026-11`, `/ Bank statements`, `/ Opening balances`, `/ Reseller statements`.
+- Uploads from the app: the browser asks the API for a Drive resumable upload session and sends the file straight to Drive (avoids the Vercel request size limit). Files are shown in the app through an owner-only proxy route; Drive sharing stays restricted to the folder members.
+- Duplicate protection: the same file (same hash) is never stored twice.
+- Later (optional): move existing `reseller_payment_files` from Neon to Drive with a one-off script.
+
+#### Intake: building the year from receipts and screenshots
+
+Omer drops every receipt photo, bill PDF and bank-app screenshot for the year into the **Inbox** folder. The system turns them into draft entries for review, so the July 2026 to date data is built from the files instead of typed by hand.
+
+1. **Scan**: "Sync inbox" button (and an optional daily scheduled run) lists new files in Inbox.
+2. **Read**: each file is sent to the Claude API (vision) with a fixed extraction prompt (env `ANTHROPIC_API_KEY`). It returns JSON: source app / bank, transaction reference number, date and time, amount, from account (name + last 4 digits only), to account (name + last 4), purpose field, and the **sticker note text** with any split lines (e.g. Tailor Salary 17,500 + Market 5,700 = 23,200), or for a paper receipt: shop, items, total.
+3. **Classify**: rules first, then the model's suggestion: from Omer's personal account to Koko BAF = owner funding; from Koko to a staff member = salary / claim (by sticker words Salary, Market, Advance); from Koko to a supplier = supplier payment; into Koko from a customer = customer receipt (suggest matching order by amount, name and date); Collage remittance = reseller payment.
+4. **Draft**: creates the draft entry or document (payroll payment, claim reimbursement, expense, owner funding, customer payment) with the file attached and a confidence score. Splits must add up to the amount, otherwise the item is marked "needs attention".
+5. **Review queue**: owner sees image and proposed entry side by side, edits if needed, approves (posts) or rejects. Bulk approve for high-confidence items.
+6. **File away**: after approval the file is renamed `2026-11-22_PY_323447769421_23200.jpg` (date, type, bank reference, amount) and moved from Inbox to the right month folder.
+7. **No duplicates**: the bank reference number is unique; a second screenshot of the same transfer is flagged, and the bank statement import (F4) matches on the same reference.
+
+**Sticker note convention** (recommended so extraction is reliable): first line the period ("Nov 26 Week 3"), then one line per part as "Label amount" (Tailor Salary 17500, Market 5700), then "Final Payment" or "Total". For owner funding: "Funds added OmerF 31700". Keep using the same words; the label list is editable in settings (e.g. Salary, Market, Advance, Fabric, Lace, Dye, Courier, Funds added).
+
+Examples from 22 November 2026: Askari transfer ref 326622377526 from Omer Farooq to Koko Atelier BAF, Rs 31,700, note "Funds added OmerF" -&gt; Dr Bank 31,700 / Cr Director current account Omer 31,700. BAF transfer ref 323447769421 from Koko Atelier to Abdur Rehman, Rs 23,200, note "Nov 26 Week 3, Tailor Salary 17,500, Market 5,700" -&gt; payroll week 3 salary 17,500 and market claim 5,700 settled by one bank payment of 23,200; the market claim lines are then categorised (consumables, water, repairs...) in review.
+
+> Privacy: only names and the last 4 digits of account numbers are stored. Full account numbers, CNIC numbers and balances shown on screenshots are never saved to the database.
+
+## 8. Functional requirements: Pakistan tax reporting (Phase F7, switched off at launch)
+
+This section is built last (Phase F7) and stays dormant until the owner switches tax on in Finance Settings with a start date. Earlier phases only add the hooks listed in Section 8.0.
+
+### 8.0 Hooks built in earlier phases
+
+- `fin_settings.tax_enabled` (false) and `tax_enabled_from` (planned: **1 July 2027**, start of FY 2027-28), added in migration 013.
+- `fin_lines.tax_code` column present from 013 (null while tax is off).
+- Tax accounts 1400, 1410, 1420, 2300, 2310, 2320 and 7100 seeded inactive.
+- Every posting rule written with a `taxEnabled` branch and unit tests for both modes, even before F7 ships the screens.
+- Supplier, expense and order records keep optional fields for NTN / CNIC and tax amount, hidden in the UI while tax is off.
+- Switching on: owner sets the date, the system activates tax accounts, shows tax fields and starts the tax calendar. Earlier periods are not changed.
+
+> All rates below are seed values for an owner-editable `tax_rates` table with effective dates. They must be confirmed with Koko's tax advisor. The system prepares figures and registers; filing stays manual on FBR IRIS / PRA portals.
+
+### 8.1 Tax profile (settings)
+
+- Company NTN, STRN (if registered), PRA registration (if any), filer / ATL status, company size (small company or not), sales tax registered yes/no, POS integration required yes/no.
+- Tax year mapping: FY 2026-27 = Tax Year 2027 (1 July 2026 to 30 June 2027).
+
+- **Planned start date: 1 July 2027.** F7 must be built and tested on a copy of the data before June 2027.
+- **Setting `prices_include_tax`** (yes/no): whether order prices already include sales tax (tax is extracted from the price) or tax is added on top. To be decided before July 2027.
+- **Setting `cod_wht_treatment`** (Final / Adjustable): how the % Trax deducts on COD is treated. Final: posted as a cost (6420). Adjustable: posted as a tax credit (1400) and offset against income tax. Owner can change it with an effective date; earlier entries are not changed.
+
+### 8.2 Seed rates and rules (Finance Act 2026, to be confirmed)
+
+| Tax | Seed rule / rate | What the system does |
+| --- | --- | --- |
+| Corporate income tax | 29% for companies; 20% for a qualifying small company | Estimated tax on accounting profit adjusted for disallowables; quarterly estimate |
+| Super tax (section 4C) | Under Finance Act 2026: nil for most persons with income up to Rs 500 million; 8% above | Computes 0 at Koko's scale but keeps the rule in the table |
+| Minimum tax on turnover (section 113) | Generally 1.25% of turnover where higher than normal tax; excess carried forward (2 years) | Compares normal tax vs minimum tax each quarter; tracks carry-forward |
+| Advance income tax (section 147) | Quarterly instalments | Calendar reminders and computed instalment |
+| E-commerce WHT on COD (section 6A, SRO 1429(I)/2025) | Courier deducts 2% on COD; 1% on digital payments via intermediaries | Captured from Trax settlements; posted to 1400 (Adjustable) or 6420 (Final) according to the `cod_wht_treatment` setting; register of tax suffered with courier invoice reference |
+| Sales tax withheld on online sales | Couriers / intermediaries withhold sales tax on COD and online sales; adjustable against output tax in the return | Captured into 1410; appears in the sales tax summary |
+| Sales tax on goods (FBR) | 18% standard rate; monthly return | Output tax register (sales), input tax register (purchases), withheld tax, net payable; export of Annex-style registers to XLSX |
+| Exports (reseller Dubai) | Zero-rated for sales tax; WHT on export proceeds deducted by bank | Tax code `ZR`; export proceeds WHT from reseller receipts into 1400 |
+| Withholding as agent (section 153, 149, 155) | Koko deducts tax when paying suppliers / services / rent / salaries above thresholds; rates differ for ATL and non-ATL | Suggests WHT on supplier bills based on supplier category and ATL status; WHT payable ledger; monthly deduction register |
+| Provincial sales tax on services (PRA, Punjab) | Provincial rate on services Koko buys or provides (e.g. custom tailoring if treated as a service) | Tax code available; advisor decides applicability |
+
+### 8.3 Tax reports
+
+- **Sales tax summary** (monthly): taxable sales, zero-rated exports, exempt, output tax, input tax, tax withheld by couriers, net payable / carried forward. Drill to invoices.
+- **Sales register and purchase register** exports in the column order FBR return annexes expect (buyer/supplier NTN/CNIC, invoice no, date, value, tax).
+- **Withholding deducted register** (Koko as agent): per payment, section, rate, amount, challan (CPR) number once paid; supports the monthly / quarterly withholding statements.
+- **Withholding suffered register** (tax taken from Koko): courier 6A, export proceeds, bank, others; with certificate reference. Total feeds the income tax computation as credit (if adjustable).
+- **Income tax computation (estimate)**: accounting profit, add-backs, normal tax, minimum tax, super tax, tax credits, payable / refundable.
+- **Tax calendar**: monthly sales tax return, withholding statements, quarterly advance tax, annual return (companies with June year-end: due 31 December), SECP annual return. Due dates editable; dashboard reminders 7 days before.
+
+## 9. Financial reporting framework and IFRS compliance
+
+The owner requires the books to meet IFRS. The module therefore records every transaction using IFRS recognition and measurement rules and produces a complete set of IFRS-style financial statements. This section is a requirement for every phase, not a separate feature.
+
+### 9.1 Which framework applies in Pakistan
+
+Under the Companies Act 2017 (Third Schedule) the statutory framework depends on company size. A setting `fin_settings.reporting_framework` records which one Koko uses; recognition in the ledger is the same for all three, only presentation and a few options differ.
+
+| Company size (Third Schedule) | Required framework | May opt for |
+| --- | --- | --- |
+| Small-sized: paid-up capital up to Rs 10 million, turnover up to Rs 100 million, up to 250 employees | Revised AFRS for SSEs (ICAP) | IFRS for SMEs or full IFRS |
+| Medium-sized | IFRS for SMEs | Full IFRS |
+| Large / public interest / listed | Full IFRS as adopted in Pakistan |  |
+
+> Koko Atelier (Private) Limited very likely falls in the small-sized class today. Default setting: **IFRS for SMEs**, which is permitted for a small company, closer to full IFRS than AFRS for SSEs, and easy to switch. The accountant confirms the final choice; the system supports all three (Section 9.4).
+
+### 9.2 Recognition and measurement rules (apply in all frameworks)
+
+| Standard | Requirement | How the module implements it | Phase |
+| --- | --- | --- | --- |
+| IFRS 15 Revenue (SMEs s23) | Revenue when control of the outfit passes to the customer, at the price after discounts. Advances are contract liabilities | `delivered_on` drives revenue; advances in 2200; order and reseller discounts reduce revenue (4800). Paid status records cash only | F3 |
+| IFRS 15 Consignment and principal / agent | Goods with a reseller stay Koko inventory until the reseller sells. Koko sets the price and carries stock risk, so Koko is principal | No revenue at handover (stock moves 1320 to 1330). Revenue at reseller sale at the end-customer price after discounts; commission and alteration are costs (D8) | F3 |
+| IFRS 15 Right of return and refunds | Expected returns reduce revenue; a refund liability and a right-to-recover-goods asset are recognised | Month-end estimate from return history (setting: % of last 3 months sales, default 0 until history exists): Dr 4800 Cr 2210, and Dr 1350 Cr COGS. Cancellation refunds owed sit in 2210 until paid | F3 |
+| IAS 2 Inventories (SMEs s13) | Cost = materials + direct labour + systematic allocation of fixed and variable production overhead based on normal capacity. Unabsorbed overhead is expensed. Weighted average cost allowed. Lower of cost and net realisable value | Weighted average materials; labour from payroll hours; month-end overhead absorption into WIP / FG using normal capacity (hours per month setting); idle capacity to 5450. Month-end NRV review lists damaged, ageing (over 180 days) and below-cost pieces for write-down (1340) | F5 |
+| IAS 2: samples and PR | Items used for promotion are expenses, not inventory | Shoot samples held for sale stay in stock at cost (NRV-tested); samples consumed by shoots and PR pieces go to marketing expense | F3, F5 |
+| IAS 16 Property, plant and equipment (SMEs s17) | Asset register at cost, depreciation over useful life from date available for use, residual value, disposals, review of lives | Fixed asset register (machine, furniture, computer) with cost, date, life, method (straight-line), residual; monthly depreciation journal; disposal gain/loss; capitalisation threshold setting (e.g. Rs 25,000) | F6 |
+| IAS 21 Foreign currency (SMEs s30) | AED items at spot rate on the transaction date; monetary balances (reseller receivables in AED) retranslated at the closing rate each period end; differences in profit or loss | Rate per transaction; month-end revaluation job for AED receivables with an automatic reversing entry; realised and unrealised FX kept apart | F3 |
+| IFRS 9 Financial instruments (SMEs s11) | Receivables at amortised cost less expected credit losses (simplified approach) | Provision matrix on AR and reseller ageing buckets with owner-set loss rates; month-end Dr 6960 Cr 1250; write-off of uncollectable balances against the allowance | F3 |
+| IAS 19 Employee benefits (SMEs s28) | Short-term benefits accrued in the period the work is done | Month-end accrual for days worked but not yet paid (weekly payroll crosses month-ends): Dr wages Cr 2130, reversed on the next payroll | F2 |
+| IAS 37 Provisions (SMEs s21) | Provisions for present obligations; contingencies disclosed | Manual provision journal type with a disclosure note field | F6 |
+| IFRS 16 Leases | Full IFRS only: studio lease as right-of-use asset and lease liability unless short-term or low value. IFRS for SMEs and AFRS for SSEs expense operating lease rent | Lease register used only when framework = full IFRS: present value of payments, monthly depreciation (1600) and interest (6970). Otherwise rent stays in 6100 | F6 (optional) |
+| IAS 12 Income taxes (SMEs s29) | Current tax; deferred tax under full IFRS / IFRS for SMEs | Built with tax in F7: current tax from the tax computation; deferred tax schedule for fixed asset and provision timing differences | F7 |
+| IAS 8 Policies, estimates, errors | Policies applied consistently; prior-period errors corrected retrospectively | Accounting policies stored as text in settings and printed in the notes. Prior-period adjustment journal type posts to opening retained earnings with a note | F6 |
+| IAS 10 Events after the reporting period | Adjusting events change the year-end figures | A 13th "adjustment period" per fiscal year for audit and year-end adjustments, dated 30 June but kept separate from June operations | F0 |
+| IAS 24 Related parties | Disclose transactions and balances with directors | Directors (Omer, Usman) flagged as related parties; report of all director current account movements and year-end balances | F2 |
+
+### 9.3 Financial statements produced
+
+All statements show the current period and a comparative, use the FS line mapping on accounts, and export to PDF (company header "Koko Atelier (Private) Limited") and XLSX.
+
+- **Statement of financial position** with current and non-current classification (IAS 1 / SMEs s4).
+- **Statement of profit or loss** (and other comprehensive income under full IFRS), expenses analysed by function (cost of sales, selling and distribution, administrative, finance cost) with a by-nature view available.
+- **Statement of changes in equity**: share capital, retained earnings, profit for the year, prior-period adjustments, dividends.
+- **Statement of cash flows** (IAS 7 / SMEs s7), indirect method, built from the cash-flow class on each account, with a direct-method view of bank and cash receipts and payments.
+- **Notes pack**: accounting policies text, PPE movement schedule, inventory breakdown and NRV write-downs, receivables ageing and ECL, payables, contract liabilities (advances) movement, related party transactions, revenue by channel and by geography (Pakistan / UAE).
+- Management reports (order and collection profit) stay separate and are labelled as management information.
+
+### 9.4 Framework switch
+
+| Item | AFRS for SSEs | IFRS for SMEs (default) | Full IFRS |
+| --- | --- | --- | --- |
+| Studio lease | Rent expense | Rent expense | Right-of-use asset + lease liability |
+| Deferred tax (from F7) | Not required | Required | Required |
+| Other comprehensive income | No | Usually none | Shown |
+| Statements and notes | Simplified set | Full set | Full set |
+
+### 9.5 Controls that support IFRS and the audit
+
+- Double-entry, immutable posted entries and full audit trail (Section 4.2).
+- Month-end close checklist extended with: FX revaluation, ECL provision, employee benefit accrual, overhead absorption, NRV review, expected returns estimate, depreciation.
+- Year-end pack: trial balance, all statements, notes schedules, list of journals posted in the adjustment period, export for the auditor.
+- Books and source files retained for at least 10 years; nothing is hard-deleted.
+
+### 9.6 IFRS work by phase
+
+| Phase | IFRS items Claude Code must build in that phase |
+| --- | --- |
+| F0 | `reporting_framework` setting; FS line mapping, current / non-current flag and cash-flow class on accounts; adjustment period 13; new IFRS accounts (Section 5) |
+| F1 | Statement of financial position, profit or loss by function, changes in equity, cash flows (indirect and direct), comparatives |
+| F2 | Employee benefit month-end accrual; related party flags and report; capitalisation threshold check on expenses (suggest moving to fixed assets) |
+| F3 | `delivered_on` and revenue at delivery; consignment principal treatment; refund liability and returns estimate; month-end FX revaluation; ECL provision matrix |
+| F4 | Reconciliations kept as audit evidence (PDF per month) |
+| F5 | IAS 2 cost build-up, normal-capacity overhead absorption, unabsorbed overhead, NRV review and write-downs, samples and PR treatment |
+| F6 | Fixed asset register and depreciation, provisions, IAS 8 adjustments, IFRS 16 lease register (full IFRS only), notes pack, year-end pack |
+| F7 | Current and deferred tax (IAS 12) once tax is on |
+
+## 10. Data model (migrations 013 onward)
+
+Indicative SQL. Claude Code should keep the naming and comment style of existing migrations, add each migration number to the header comment of `db/schema.sql`, and add CHECK constraints generously.
+
+### 10.1 Migration 013: ledger core
+
+```
+-- 013: finance core. Double-entry ledger: accounts, fiscal periods, journal entries and lines.
+CREATE TABLE fin_accounts (
+  id          SERIAL PRIMARY KEY,
+  code        TEXT NOT NULL UNIQUE CHECK (code ~ '^[0-9]{4}(-[0-9]{2})?$'),
+  name        TEXT NOT NULL,
+  type        TEXT NOT NULL CHECK (type IN ('asset','liability','equity','income','cogs','expense','tax')),
+  parent_id   INTEGER REFERENCES fin_accounts(id),
+  system_key  TEXT UNIQUE,                 -- e.g. bank_baf, ar_customers; code never hard-coded
+  is_control  BOOLEAN NOT NULL DEFAULT false,  -- system posts only
+  currency    CHAR(3) NOT NULL DEFAULT 'PKR',
+  is_active   BOOLEAN NOT NULL DEFAULT true,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- fin_settings also holds tax_enabled BOOLEAN DEFAULT false and tax_enabled_from DATE (see Section 8.0),
+-- reporting_framework ('AFRS_SSE','IFRS_SMES','IFRS') DEFAULT 'IFRS_SMES' and accounting_policies TEXT (Section 9).
+-- fin_accounts also holds fs_line TEXT, is_current BOOLEAN, cash_flow_class TEXT
+--   CHECK (cash_flow_class IN ('operating','investing','financing','cash')).
+-- fin_periods includes a 13th adjustment period per fiscal year (is_adjustment BOOLEAN).
+CREATE TABLE fin_periods (
+  id          SERIAL PRIMARY KEY,
+  fiscal_year TEXT NOT NULL,               -- '2026-27'
+  starts_on   DATE NOT NULL, ends_on DATE NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'Open' CHECK (status IN ('Open','Closed','Locked')),
+  closed_by   INTEGER REFERENCES users(id), closed_at TIMESTAMPTZ,
+  UNIQUE (starts_on)
+);
+
+CREATE TABLE fin_entries (
+  id            BIGSERIAL PRIMARY KEY,
+  entry_no      TEXT NOT NULL UNIQUE,      -- JV-2627-000123, SI-2627-000045 ...
+  entry_date    DATE NOT NULL,
+  period_id     INTEGER NOT NULL REFERENCES fin_periods(id),
+  memo          TEXT,
+  source_type   TEXT,                      -- order, customer_payment, reseller_item, expense, payroll ...
+  source_id     TEXT,
+  source_event  TEXT,                      -- delivered, cogs, settled, reversed ...
+  status        TEXT NOT NULL DEFAULT 'Posted' CHECK (status IN ('Draft','Posted','Reversed')),
+  reversal_of   BIGINT REFERENCES fin_entries(id),
+  created_by    INTEGER REFERENCES users(id),
+  posted_at     TIMESTAMPTZ DEFAULT now(),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX fin_entries_source_key ON fin_entries (source_type, source_id, source_event)
+  WHERE source_type IS NOT NULL AND status <> 'Reversed';
+
+CREATE TABLE fin_lines (
+  id            BIGSERIAL PRIMARY KEY,
+  entry_id      BIGINT NOT NULL REFERENCES fin_entries(id) ON DELETE CASCADE,
+  account_id    INTEGER NOT NULL REFERENCES fin_accounts(id),
+  debit         NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (debit  >= 0),
+  credit        NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (credit >= 0),
+  currency      CHAR(3) NOT NULL DEFAULT 'PKR',
+  amount_fc     NUMERIC(14,2),             -- foreign amount when currency <> PKR
+  fx_rate       NUMERIC(14,6),
+  party_type    TEXT CHECK (party_type IN ('customer','reseller','supplier','staff','director','courier')),
+  party_id      TEXT,
+  order_id      UUID REFERENCES orders(id),
+  product_id    INTEGER REFERENCES products(id),
+  collection_id INTEGER REFERENCES collections(id),
+  consignment_item_id UUID REFERENCES consignment_items(id),
+  tax_code      TEXT,
+  description   TEXT,
+  CHECK ((debit > 0) <> (credit > 0))
+);
+CREATE INDEX fin_lines_account_idx ON fin_lines (account_id, entry_id);
+CREATE INDEX fin_lines_party_idx   ON fin_lines (party_type, party_id);
+CREATE INDEX fin_lines_order_idx   ON fin_lines (order_id);
+CREATE INDEX fin_lines_coll_idx    ON fin_lines (collection_id);
+
+-- Deferred constraint trigger: a posted entry must balance; posted entries are immutable;
+-- closed/locked periods reject new postings.
+-- fin_settings: one-row table (go_live_date, revenue_event, sales_tax_registered, ntn, strn ...)
+-- fin_fx_rates (rate_date, currency, rate_to_pkr)
+-- Seed: chart of accounts (Section 5) and periods Jul 2026 - Jun 2027.
+```
+
+### 10.2 Later migrations (one per phase)
+
+| Migration | Tables | Phase |
+| --- | --- | --- |
+| 014_fin_parties_expenses | `fin_files` (Drive file id, name, mime, size, sha256 unique, folder, linked entity), `intake_items` (file, extracted JSON, bank_ref unique, classification, proposed entry, confidence, status), `intake_labels`, `suppliers`, `staff`, `expenses`, `expense_claims`, `expense_claim_lines`, `recurring_expenses` | F2 |
+| 015_fin_payroll | `staff_salary_history`, `payroll_runs`, `payroll_lines`, `payroll_job_hours` (hours per job), `payroll_files` | F2 |
+| 016_fin_receipts | `customer_payments` (order, date, amount, method, account, reference), `courier_settlements`, `courier_settlement_lines`; order cancellation outcome column; opening migration of existing advances | F3 |
+| 017_fin_bank | `bank_accounts`, `bank_import_mappings`, `bank_statements` (+ file), `bank_lines` (hash unique), `bank_matches`, `bank_rules`, `bank_reconciliations` | F4 |
+| 018_fin_costing | `materials` (incl. fabric lots: collection, notebook ref, yards, rate), `material_purchases`, `material_purchase_lines`, `material_moves`, `boms`, `bom_lines`, `size_factors`, `production_jobs`, `job_costs`, `pricing_policies`, `product_price_history`; `stock_pieces.unit_cost_pkr`; views `v_order_profit`, `v_product_profit`, `v_collection_profit` | F5 |
+| 019_fin_close | `fin_recurring_journals`, `fin_close_checklists`, `fin_budgets` (optional) | F6 |
+| 020_fin_tax | `tax_codes`, `tax_rates` (effective_from, effective_to), `wht_deductions` (CPR no.), `wht_suffered`, `tax_calendar` | F7 |
+
+## 11. API, permissions and screens
+
+### 11.1 Permissions (add to lib/auth.js)
+
+| Permission | Allows | owner | manager | staff |
+| --- | --- | --- | --- | --- |
+| `finance:read` | View ledgers and reports | Yes | No | No |
+| `finance:write` | Enter expenses, purchases, staff claims, payments; draft journals | Yes | No | No |
+| `finance:post` | Post / reverse manual journals, approve claims and payroll | Yes | No | No |
+| `finance:close` | Close / lock periods, edit chart of accounts, opening balances | Yes | No | No |
+| `finance:tax` | Tax settings, rate table, tax reports | Yes | No | No |
+| `expenses:submit` | Submit own studio claim from phone (for a future studio login; off at launch) | Yes | No | No |
+
+**Decided: finance is owner (admin) only.** Owner keeps `*`. Managers (including Usman), staff and resellers see no finance screens, no cost cards and no profit figures anywhere, including the hooks on Order detail, Catalogue and Customer profile. Permissions can be granted to other roles later without code changes to the screens.
+
+### 11.2 API routes (prefix /finance)
+
+```
+GET    /finance/accounts                 POST /finance/accounts         PATCH /finance/accounts/:id
+GET    /finance/periods                  POST /finance/periods/:id/close  POST /finance/periods/:id/reopen
+GET    /finance/entries?from&to&source   GET  /finance/entries/:id      POST /finance/entries (manual)
+POST   /finance/entries/:id/post         POST /finance/entries/:id/reverse
+GET    /finance/ledger/:accountId?from&to&party
+GET    /finance/reports/trial-balance?asOf|from&to
+GET    /finance/reports/profit-loss?from&to&compare&segment=channel|collection|reseller
+GET    /finance/reports/balance-sheet?asOf&compare
+GET    /finance/reports/ageing?type=ar|ap&asOf
+GET    /finance/exceptions               POST /finance/exceptions/:id/retry
+CRUD   /finance/suppliers  /finance/staff  /finance/expenses  /finance/claims  /finance/payroll
+CRUD   /finance/materials  /finance/purchases  /finance/boms  /finance/jobs
+GET    /finance/costing/cost-card/:productId   GET /finance/profit/orders|products|collections
+POST   /finance/bank/:accountId/import   GET /finance/bank/:accountId/unmatched   POST /finance/bank/match
+POST   /finance/courier-settlements/import (Trax CSV)
+GET    /finance/tax/sales-tax?month      GET /finance/tax/wht?from&to   GET /finance/tax/income-estimate?ty
+GET    /finance/export/:report.xlsx|pdf
+```
+
+### 11.3 Navigation and screens
+
+Add a **Finance** section to `buildNav` (shown when `FEATURES.finance && can("finance:read")`):
+
+| Menu item | Screen | Key contents |
+| --- | --- | --- |
+| Overview | `/finance` | Cash and bank balances, receivables, payables, this month revenue / gross profit / net profit, tax due soon, posting exceptions, close checklist status |
+| Expenses | `/finance/expenses` | List, quick add (phone), receipts, weekly studio claims, recurring |
+| Payroll | `/finance/payroll` | Weekly runs, worksheet upload, hours per job, custom work lines |
+| Banking | `/finance/banking` | Accounts, statement import, reconcile, Trax settlements |
+| Costing | `/finance/costing` | Materials, purchases, BOM per design, cost cards, jobs |
+| Profitability | `/finance/profit` | Per order, per design, per collection, per channel |
+| Ledgers | `/finance/ledgers` | General, customer, reseller, supplier, staff, director, bank |
+| Reports | `/finance/reports` | Trial Balance, P&amp;L, Balance Sheet, ageing, cash summary |
+| Tax | `/finance/tax` | Sales tax summary, registers, WHT, income tax estimate, calendar |
+| Journals | `/finance/journals` | All entries, manual journal, reversals |
+| Settings | `/finance/settings` | Chart of accounts, periods, opening balances, tax profile and rates, bank mappings, posting rules |
+
+Existing screens gain small finance hooks: Order detail shows a "Payments" card (list and add payment) and a "Profit" card (owner only); Customer profile gets a Ledger tab; reseller Statements gets a Ledger link and FX result; Catalogue product page shows the cost card and margin (owner only).
+
+## 12. Phased development plan
+
+Phases are ordered so that each one is useful on its own and later phases build on posted data. Effort assumes Omer driving Claude Code part-time; "sessions" are focused 2 to 4 hour working blocks including review.
+
+| Phase | Name | Delivers | Depends on | Effort |
+| --- | --- | --- | --- | --- |
+| F0 | Ledger foundation | Chart of accounts (tax accounts inactive), periods, journal engine with balance and lock triggers, settings incl. tax switch (off), permissions, nav section behind flag, manual journals, opening balances at 30 Jun 2026 + IFRS items (Section 9.6) | None | 3-4 sessions |
+| F1 | Ledgers and statements | General ledger, Trial Balance, P&amp;L, Balance Sheet, exports, drill-down. Works on manual and opening entries + IFRS items (Section 9.6) | F0 | 3-4 sessions |
+| F2a | Expenses and payroll | Suppliers, staff, expenses with receipts, weekly studio claims, recurring expenses, weekly payroll with hours per job, custom work and commission income, director accounts + IFRS items (Section 9.6) | F0 | 4-5 sessions |
+| F2b | Receipt and screenshot intake | Inbox of receipts and payment screenshots, Claude vision extraction, classification, split handling, review queue, bulk approve, file-away, bank reference de-duplication | F2a | 3-4 sessions |
+| F3 | Sales and receipts posting | Customer payments table, revenue on delivery, advances, returns, cancellations, PR cost, reseller sales/commission/payments with FX, Trax settlement import, posting exceptions queue, backfill from go-live, customer and reseller ledgers, ageing + IFRS items (Section 9.6) | F0, F1 | 5-6 sessions |
+| F4 | Bank reconciliation | Statement import (BAF mapping), matching rules, reconcile screen, reconciliation statement, cash count | F2, F3 | 3-4 sessions |
+| F5 | Manufacturing costing and pricing | Fabric lots with leftover yards, consumables per piece, VÉLORA seed, pricing engine, standard vs actual, materials, purchases, average cost, BOM per design with size factors, cost cards, production jobs, labour allocation from payroll, COGS posting, cost per piece, profit per order / design / collection / channel + IFRS items (Section 9.6) | F2, F3 | 6-8 sessions |
+| F6 | Close and dashboard | Month-end checklist, period close, year-end close, recurring journals, depreciation, finance overview dashboard, optional budgets + IFRS items (Section 9.6) | All | 2-3 sessions |
+| F7 | Pakistan tax (live 1 July 2027) | Tax profile, rate table, tax codes on documents, sales tax summary and registers, WHT deducted / suffered, income tax estimate incl. minimum tax, tax calendar | F2, F3, F5; owner switches tax on | 4-5 sessions |
+
+> **Recommended first milestone:** F0 + F1 + F2. After these, Omer can record every expense and the weekly payroll, and see a real Trial Balance, P&amp;L and Balance Sheet (with sales entered as a monthly journal until F3). This is about 10 to 13 sessions.
+
+### F0: Ledger foundation
+
+**Goal.** A correct, enforced double-entry ledger that nothing else can corrupt.
+
+**Build**
+
+- Migration 013 (Section 10.1) with seed accounts and FY 2026-27 periods.
+- Postgres functions/triggers: balance check on post (deferred), immutability of posted entries and their lines, period status check, entry number generation per prefix and fiscal year.
+- `lib/finance/ledger.js`: `postEntry({date, memo, source, lines}, user)` (single transaction via `transaction()`), `reverseEntry(id, date, user)`, `accountBySystemKey()`, money helpers (paisa integers).
+- Permissions and `FEATURES.finance` flag; Finance nav section with Journals and Settings only.
+- Settings: chart of accounts editor, periods, `fin_settings` (go-live date 2026-07-01, revenue event, `tax_enabled` = false, `tax_enabled_from` = null).
+- Opening balances wizard: upload or enter the accountant's 30 June 2026 figures (XLSX template + manual grid: cash, bank, stock, receivables, payables, fixed assets, director balances, capital); posts one `OB` entry; difference must be zero.
+- `lib/finance/drive.js`: Google Drive shared-folder storage (Section 7.6) with folder layout, resumable upload, owner-only file proxy, hash de-duplication. Opening balance files are stored there.
+- Unit tests (node:test) for money helpers and posting validation.
+
+**Done when**
+
+- An unbalanced entry cannot be posted, even by a direct SQL insert followed by commit.
+- A posted entry cannot be updated or deleted; Reverse produces a mirror entry.
+- Posting into a Closed period is rejected for manager, allowed for owner with a reason in audit_log.
+- `npm run build` passes; existing screens unaffected with the flag off.
+
+### F1: Ledgers, Trial Balance, P&amp;L, Balance Sheet
+
+**Goal.** All four statements from posted lines, with drill-down and exports.
+
+**Build**
+
+- `lib/finance/reports.js` with SQL aggregations (one query per report; no row-by-row JS sums).
+- Shared `LedgerTable` component with running balance and drill-down drawer showing the entry and its source link.
+- Report pages with date pickers, comparison columns, hide-zero toggle, XLSX and branded PDF export ("Koko Atelier (Private) Limited").
+- Ledgers page: general ledger by account; director current accounts.
+
+**Done when**
+
+- Trial Balance totals equal; Balance Sheet balances; P&amp;L profit equals change in equity for the period.
+- Every figure clicks through to the lines behind it.
+- A 12-month P&amp;L for 5,000 lines loads in under 2 seconds on Neon.
+
+### F2: Expenses, payroll and receipt intake
+
+**Goal.** Every rupee spent is recorded, with proof, from a phone, in under a minute.
+
+**Build**
+
+- Migrations 014 and 015. Suppliers and staff registers (seed the studio staff: Abdur Rehman main tailor, weekly salary 17,500 as per the 22 Nov 2026 payment; Jahangir embroidery 15,000; Master Iftikhar cutting master; Manaf as external per-piece).
+- Receipt and screenshot intake from the Drive Inbox (Section 7.6): Claude vision extraction, classification rules, split handling, review queue, bulk approve, file-away and rename, bank reference de-duplication.
+- Combined payments: one bank transfer settling a payroll line and a market claim together.
+- Expense quick-add (mobile first), receipt upload, bulk receipt upload into a draft review queue (for the July to November 2026 backlog), list with filters, recurring expenses.
+- Weekly studio claim flow Submitted -&gt; Approved -&gt; Reimbursed with postings at approve and reimburse.
+- Weekly payroll run per Saturday: salary, hours, hours split by job (orders, batches, samples, other), worksheet photo, custom work lines (posted as income into bank or cash), per-piece commission income, payment posting.
+- Supplier, staff and director ledgers.
+
+**Done when**
+
+- A week of real data (claim + payroll) produces correct entries and staff balances.
+- The two 22 Nov 2026 screenshots (owner funding 31,700; tailor salary 17,500 + market 5,700 = 23,200) are read, classified and posted correctly from the Inbox, and their files end up renamed in the November folders on Drive.
+- No finance file is stored in Neon or on Vercel.
+- Expense report by category for October and November 2026 matches Omer's records.
+
+### F3: Sales, receipts and reseller posting
+
+**Goal.** Revenue, receivables and advances flow automatically from the CRM.
+
+**Build**
+
+- Migration 016. `customer_payments` with an "Add payment" card on Order detail; existing `advance_paid_pkr` values migrated as one opening payment each; `advance_paid_pkr` kept in sync for the existing UI.
+- Posting rules from Section 7.1 as pure functions with unit tests; hooks in `lib/db.js` order status changes and in `lib/resellers.js` (sold, paid, returned, payments).
+- Posting exceptions queue: failures stored with error, retry button; order save never fails because of finance.
+- Trax settlement CSV import with the existing rules (negative net = charges only; IBFT Rs 100 row; Amount Received must sum to total).
+- FX rates table with manual entry; reseller receipt FX gain/loss.
+- Idempotent backfill script `scripts/finance-backfill.js --from 2026-07-01` that posts all events since go-live; safe to re-run.
+- Customer ledger tab, reseller ledger, AR ageing.
+
+**Done when**
+
+- Re-running the backfill creates zero new entries.
+- For a sample of 20 orders, revenue, advances and balances in the ledger match the order screens.
+- Fashion Collage September 2026 statement and payment reconcile to the reseller ledger with the FX difference explained.
+
+### F4: Bank reconciliation
+
+**Goal.** Books agree with Bank Alfalah every month.
+
+**Build**
+
+- Migration 017. Statement import with column mapper (BAF seeded), duplicate protection, file stored.
+- Matching engine with the four rule levels (Section 7.5), review screen, create-entry-from-line, rules editor.
+- Reconciliation statement PDF; period marked reconciled only when difference is zero.
+- Cash count screen for studio petty cash.
+
+**Done when**
+
+- October 2026 BAF statement reconciles to zero difference.
+- At least 80% of lines auto-match after rules are set up.
+
+### F5: Manufacturing costing and profitability
+
+**Goal.** Know the true cost and profit of each design, piece, order and collection.
+
+**Build**
+
+- Migration 018. Materials, purchases with weighted average cost, material issues to jobs.
+- BOM editor per product with versions, size factors, labour operations, outsourced and overhead lines; cost card PDF.
+- Production jobs: auto-created per order at In Tailoring and per inventory batch; labour from payroll job hours; COGS posting on delivery / reseller sale; `stock_pieces.unit_cost_pkr` from batch cost.
+- Profit views and pages: order, design, collection (with collection-level costs), channel.
+- Start with VÉLORA (KO26-WC1): six designs costed first as the pilot, seeded from the table in Section 7.4.
+- Fabric lots with leftover yards; consumables absorption per piece; standard vs actual report; pricing policy, price calculator (Koko method and optional gross-up), repricing alerts, allowance check, price history.
+
+**Done when**
+
+- Every VÉLORA design has a cost card matching the shoot costing sheet to the rupee, and the pricing screen reproduces the worked check table in Section 7.4.4.
+- Leftover yards for each VÉLORA fabric lot are visible, and a test order consumes yards from the lot at its average rate.
+- Collection profit for VÉLORA reconciles to the P&amp;L filtered by collection tag.
+
+### F6: Close and dashboard
+
+**Goal.** A repeatable month-end and a single finance overview.
+
+**Build**
+
+- Migration 019. Close checklist (Section 6.7) with automatic checks, period close, year-end close entry to Retained Earnings.
+- Recurring journals and straight-line depreciation by asset class.
+- Finance overview page; optional budgets and budget vs actual.
+
+**Done when**
+
+- November 2026 closed end-to-end using the checklist.
+
+### F7: Pakistan tax reporting (build when Koko starts taxing orders)
+
+**Goal.** Switch tax on from a chosen date, with accurate figures and registers ready for the advisor to file.
+
+**Build**
+
+- Migration 020. Tax on/off switch in Finance Settings with start date; activates tax accounts and shows tax fields.
+- Migration 020 tables: Tax profile, tax codes on order, expense and purchase lines, effective-dated rate table seeded per Section 8.2.
+- Sales tax summary and registers; WHT deducted and suffered registers; income tax estimate with minimum tax comparison; tax calendar and reminders on the dashboard.
+
+**Done when**
+
+- Advisor reviews one month of sales tax and WHT output and confirms the treatment.
+- Changing a rate in the table changes calculations from its effective date only.
+
+## 13. Go-live, data migration and testing
+
+### 13.1 Go-live approach
+
+1. Accountant provides the trial balance at 30 June 2026 (or last audited figures): cash, bank, receivables, stock at cost, fixed assets, payables, director balances, share capital, retained earnings.
+2. Enter it with the Opening balances wizard (F0).
+3. From F2 onward, record expenses and payroll from 1 July 2026. Omer has expense receipts for this period: F2 includes a **bulk receipt upload** (drop many photos/PDFs at once; each becomes a draft expense with the file attached, to be completed and approved from a review queue) plus an XLSX import template.
+4. F3 backfill posts orders and reseller activity since 1 July 2026.
+5. Stock at studio and with resellers is valued at standard cost once F5 is live; the difference to opening stock value posts to Costing variances with an owner-approved entry.
+
+### 13.2 Testing
+
+- Unit tests (node:test, no new dependency) for money helpers, every posting rule, the Trax import rules, matching engine and tax calculators.
+- A seed script that builds a small fake month (5 orders, 1 reseller statement, 1 payroll run, 10 expenses, 1 bank statement) and asserts Trial Balance totals, P&amp;L and Balance Sheet figures.
+- Manual acceptance per phase using the "Done when" list.
+
+### 13.3 Non-functional requirements
+
+- **Security**: finance routes require finance permissions; files only served to authorised users; CNIC and bank details masked in lists.
+- **Audit**: every create / post / reverse / approve / close is in `audit_log` with before/after values.
+- **Performance**: reports are SQL aggregations with indexes on `(account_id, entry_id)` and tag columns; consider a materialised monthly balance table only if needed.
+- **Rounding**: tax computed per line and rounded to 2 decimals; rounding differences under Rs 1 to a rounding account.
+- **Backups**: monthly XLSX export of the full journal to Google Drive (manual button first).
+- **Mobile**: expenses, claims, payments and the overview must work well on a phone.
+- **Language**: UI in English; amounts formatted `Rs 1,234,567` with PKR; AED shown as `AED 1,234.00`.
+
+## 14. Owner decisions and remaining questions
+
+### 14.1 Decisions (22 November 2026)
+
+| # | Topic | Decision | Where applied |
+| --- | --- | --- | --- |
+| D1 | Opening figures | Accountant figures at 30 June 2026 will be uploaded. Expense receipts exist for the period since then | F0 opening balances wizard; F2 bulk receipt upload |
+| D2 | Who sees finance | Owner / admin login only. Usman and other roles see no costs or profit | Section 11.1 |
+| D3 | Bank and wallets | Bank Alfalah PKR only; Collage Dubai remittances arrive there in PKR. No AED account, no wallets | Chart of accounts, F4 |
+| D4 | Custom work money | Omer handles all accounts; custom work income is recorded directly into bank or cash | Section 7.1, F2 |
+| D5 | When a sale counts | **Revenue counts once payment is received (order Paid)** (v1.6, C1). Advances are a liability until then | Sections 0, 7.1; F3 |
+| D6 | Cancelled orders | Advance is refunded | Section 7.1, F3 |
+| D7 | Couriers | Trax (COD) mostly; Uber directly at times | Section 7.1, F3 |
+| D8 | Reseller commission | Standard treatment: full selling price as sales, commission as a selling cost | Chart of accounts 6500 |
+| D9 | Overheads in costing | Not shown in order profit by default. For IFRS (IAS 2) the stock and WIP value at each month-end absorbs production overhead automatically | Sections 7.4, 9; F5 |
+| D12 | IFRS | Books must meet IFRS requirements | Section 9; every phase |
+| D13 | File storage | Google Drive shared folder later; **until then files are stored in the database** through `lib/finance/files.js` (v1.6, C3) | Section 7.6; F0 |
+| D18 | Development database | `koko_finance_dev` on Neon; finance tests never run on live data (v1.6, C2) | Section 13.2 |
+| D14 | Building the year | Receipts and payment screenshots (with sticker notes) are dropped in the Drive folder and the system builds the data from them | Section 7.6; F2 |
+| D15 | Fabric | Bought in bulk at the shoot; leftover fabric stays in stock for later orders | Section 7.4; F5 |
+| D16 | Weekly consumables | Thread, pins etc. bought during the week are spread per piece stitched | Section 7.4; F5 |
+| D17 | Pricing | Standard cost fixed at the shoot (VÉLORA sheet); price = unit cost incl. 3,000 allowance x 1.22, rounded; then checked against actual spent cost | Section 7.4.4; F5 |
+| D10 | Tax start | Tax on orders from 1 July 2027 | Section 8, F7 |
+| D11 | Trax COD deduction | Setting to choose Final (cost) or Adjustable (tax credit) | Section 8.1, F7 |
+
+### 14.2 Still open
+
+| # | Question | Needed by |
+| --- | --- | --- |
+| Q1 | From July 2027, will order prices include sales tax, or will tax be added on top of the price? | F7 |
+| Q2 | On Uber deliveries, does the rider ever collect cash from the customer, or is the customer always paid up before dispatch? | F3 |
+| Q3 | Is Abdur Rehman (screenshot spelling) the same person as the main tailor, and is 17,500 his current weekly salary? | F2 |
+| Q4 | Is the stitching amount on the costing sheet (e.g. 3,000 for MOKA) the in-house salaried cost or paid to outside karigars per piece? | F5 |
+| Q5 | Should future collections switch to the gross-up price formula, or keep the x1.22 method? | F5 |
+| Q6 | Google Drive: which shared folder (or shared drive) should the system use? The service account email must be added as a member. | F0 |
+
+## 15. Prompt for Claude Code
+
+Save the MDX version of this document at `docs/finance-module.mdx` in the repo (Claude Code reads Markdown far better than .docx). Then paste the prompt below in Claude Code at the repo root, changing the phase each time.
+
+```
+Read docs/finance-module.mdx in full. Then read db/schema.sql, every file in db/migrations/,
+lib/router.js, lib/auth.js, lib/db.js, lib/resellers.js, lib/inventory.js, src/app/nav.js,
+src/ui/kit.jsx and docs/inventory-phase-1.md to learn the conventions.
+
+Implement PHASE F0 ONLY (Section 12, "F0: Ledger foundation").
+
+Rules:
+- Next migration number is 013. Never edit db/schema.sql except to add 013 to its header comment.
+- Follow principles P1 to P11 in Section 4.2 and build this phase's IFRS items from Section 9.6.
+  Balance, immutability and period checks must be
+  enforced in Postgres, not only in JavaScript.
+- Finance is owner-only (Section 11.1). Tax is switched off (fin_settings.tax_enabled = false, planned start 2027-07-01). Add the tax hooks from Section 8.0
+  (tax_code column, inactive tax accounts, settings flags) but build no tax screens until Phase F7.
+- No tax rate or account code may be hard-coded; use fin_settings, tax_rates and system_key.
+- Money: NUMERIC(14,2) in SQL; integer paisa in JS.
+- Files: never store uploads in Neon or on Vercel. Use lib/finance/drive.js (Google Drive shared
+  folder, Section 7.6); the database keeps only file metadata.
+- Keep everything behind FEATURES.finance; existing screens must behave exactly as before.
+- Add node:test unit tests; do not add new npm dependencies without asking me.
+- Before writing code, show me a short plan: files to add/change, the migration SQL, and
+  anything in the spec you think is wrong or ambiguous. Wait for my OK.
+- When done: run npm run build and the tests, list what you changed, and check every item in
+  the phase's "Done when" list. Work on branch feat/finance-f0.
+```
+
+For later phases replace "PHASE F0 ONLY" with the next phase and add: "Phases F0 to Fn are merged; do not change their behaviour except where this phase says so."
+
