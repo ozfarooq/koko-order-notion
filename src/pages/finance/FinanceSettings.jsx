@@ -272,7 +272,8 @@ function SettingsTab() {
   useEffect(() => { getFinanceSettings().then(setS).catch((e) => toast.error(e.message)) }, [])
   const save = async () => {
     setSaving(true)
-    try { setS(await updateFinanceSettings({ companyName: s.companyName, reportingFramework: s.reportingFramework, goLiveDate: s.goLiveDate, accountingPolicies: s.accountingPolicies })); toast.success('Settings saved') }
+    try { setS(await updateFinanceSettings({ companyName: s.companyName, reportingFramework: s.reportingFramework, goLiveDate: s.goLiveDate, accountingPolicies: s.accountingPolicies,
+      capitalisationThreshold: s.capitalisationThreshold, workingDaysPerWeek: s.workingDaysPerWeek })); toast.success('Settings saved') }
     catch (err) { toast.error(err.message) } finally { setSaving(false) }
   }
   if (!s) return <SkeletonRows rows={4} />
@@ -287,6 +288,8 @@ function SettingsTab() {
       </Field>
       <Field label="Go-live date" hint="Opening balances are dated this day; fixed once anything is posted"><input type="date" className="input" value={s.goLiveDate} onChange={set('goLiveDate')} /></Field>
       <Field label="Revenue counts when"><p className="input bg-subtle text-ink-soft">The order is paid</p></Field>
+      <Field label="Capitalisation threshold (Rs)" hint="Expenses at or above this get a 'fixed asset?' hint"><input inputMode="decimal" className="input" value={s.capitalisationThreshold} onChange={set('capitalisationThreshold')} /></Field>
+      <Field label="Working days a week" hint="Payroll pays for days present out of these"><input type="number" min={1} max={7} className="input" value={s.workingDaysPerWeek} onChange={set('workingDaysPerWeek')} /></Field>
       <Field label="Tax"><p className="input bg-subtle text-ink-soft">{s.taxEnabled ? `On from ${fmtDate(s.taxEnabledFrom)}` : 'Off · planned from 1 July 2027 (Phase F7)'}</p></Field>
       <Field label="Accounting policies" hint="Printed in the notes to the financial statements" className="sm:col-span-2">
         <textarea className="input" rows={4} value={s.accountingPolicies} onChange={set('accountingPolicies')} />

@@ -36,6 +36,11 @@ const EntryView       = lazy(() => import('./pages/finance/EntryView'))
 const FinanceSettings = lazy(() => import('./pages/finance/FinanceSettings'))
 const FinanceReports  = lazy(() => import('./pages/finance/Reports'))
 const Ledgers         = lazy(() => import('./pages/finance/Ledgers'))
+const Expenses        = lazy(() => import('./pages/finance/Expenses'))
+const Claims          = lazy(() => import('./pages/finance/Claims'))
+const Payroll         = lazy(() => import('./pages/finance/Payroll'))
+const PayrollWeek     = lazy(() => import('./pages/finance/Payroll').then((m) => ({ default: m.PayrollWeek })))
+const People          = lazy(() => import('./pages/finance/People'))
 const Inventory       = lazy(() => import('./pages/inventory/Inventory'))
 
 function Spinner({ full }) {
@@ -121,6 +126,11 @@ export default function App() {
                   <Route path="/finance/journals/:id" element={<Require permission="finance:read"><EntryView /></Require>} />
                   <Route path="/finance/journals/:id/edit" element={<Require permission="finance:write"><JournalEditor /></Require>} />
                   <Route path="/finance/settings" element={<Require permission="finance:read"><FinanceSettings /></Require>} />
+                  <Route path="/finance/expenses" element={<Require permission="finance:read"><Expenses /></Require>} />
+                  <Route path="/finance/claims" element={<Require permission="finance:read"><Claims /></Require>} />
+                  <Route path="/finance/payroll" element={<Require permission="finance:read"><Payroll /></Require>} />
+                  <Route path="/finance/payroll/:id" element={<Require permission="finance:read"><PayrollWeek /></Require>} />
+                  <Route path="/finance/people" element={<Require permission="finance:read"><People /></Require>} />
                 </>}
 
                 <Route path="/resellers/:resellerId" element={<Require permission="fc:read"><ResellerScope><ResellerHome /></ResellerScope></Require>} />

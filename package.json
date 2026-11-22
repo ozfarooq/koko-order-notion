@@ -8,7 +8,7 @@
     "dev": "concurrently \"npm run api\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview",
-    "test:finance": "node --env-file=.env --test tests/finance/*.test.js",
+    "test:finance": "node --env-file=.env --test --test-concurrency=1 tests/finance/*.test.js",
     "dev:finance": "node scripts/dev-finance.js"
   },
   "dependencies": {

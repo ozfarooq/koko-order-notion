@@ -16,6 +16,7 @@
 --   012: damaged pieces for sale (stock_pieces.damaged, damage_note, asking_price_pkr)
 --   013: finance core: settings, chart of accounts, periods, journal entries and lines, numbering, FX rates, files
 --   014: Finance Manager role (users.role finance); contra accounts in operating cash flows
+--   015: finance F2a: suppliers, staff, expenses, weekly claims, recurring expenses, payroll, staff payments
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (
