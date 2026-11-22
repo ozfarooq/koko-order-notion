@@ -4,8 +4,8 @@ import {
 } from 'lucide-react'
 
 // Screens switched on as each phase ships
-// finance: switched on per environment (VITE_FINANCE=1, e.g. npm run dev:finance) until it goes live
-export const FEATURES = { dashboard: true, customers: true, catalogue: true, inventory: true, finance: import.meta.env.VITE_FINANCE === '1' }
+// finance: on everywhere (only owners and the Finance Manager role ever see it); VITE_FINANCE=0 switches it off
+export const FEATURES = { dashboard: true, customers: true, catalogue: true, inventory: true, finance: import.meta.env.VITE_FINANCE !== '0' }
 
 // One navigation model, used by the sidebar, the phone "More" sheet and the command palette.
 // Items are filtered by permission; reseller sections are built from the resellers in the database.
