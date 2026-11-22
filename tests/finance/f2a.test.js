@@ -72,7 +72,7 @@ after(async () => { if (staff) await pay.updateStaff(staff.id, { isActive: false
 
 test('the seeded studio staff and the staff advances account exist', async () => {
   const names = (await pay.listStaff()).map((s) => s.name)
-  for (const n of ['Abdur Rehman', 'Jahangir', 'Master Iftikhar', 'Manaf']) assert.ok(names.includes(n), n)
+  for (const n of ['Abdur Rahman', 'Jhangir', 'Master Sarfaraz', 'Manaf']) assert.ok(names.includes(n), n)
   assert.ok(acct.staff_advances, '1460 Advances to staff')
   const s = await ledger.getSettings()
   assert.equal(s.capitalisationThreshold, '25000.00'); assert.equal(s.workingDaysPerWeek, 6)

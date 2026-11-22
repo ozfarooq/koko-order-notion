@@ -41,6 +41,7 @@ const Claims          = lazy(() => import('./pages/finance/Claims'))
 const Payroll         = lazy(() => import('./pages/finance/Payroll'))
 const PayrollWeek     = lazy(() => import('./pages/finance/Payroll').then((m) => ({ default: m.PayrollWeek })))
 const People          = lazy(() => import('./pages/finance/People'))
+const FinanceInbox    = lazy(() => import('./pages/finance/Inbox'))
 const Inventory       = lazy(() => import('./pages/inventory/Inventory'))
 
 function Spinner({ full }) {
@@ -131,6 +132,7 @@ export default function App() {
                   <Route path="/finance/payroll" element={<Require permission="finance:read"><Payroll /></Require>} />
                   <Route path="/finance/payroll/:id" element={<Require permission="finance:read"><PayrollWeek /></Require>} />
                   <Route path="/finance/people" element={<Require permission="finance:read"><People /></Require>} />
+                  <Route path="/finance/inbox" element={<Require permission="finance:read"><FinanceInbox /></Require>} />
                 </>}
 
                 <Route path="/resellers/:resellerId" element={<Require permission="fc:read"><ResellerScope><ResellerHome /></ResellerScope></Require>} />

@@ -85,6 +85,8 @@ function StaffForm({ s: initial, onClose, onSaved }) {
         <Field label="Hours a day"><input inputMode="decimal" className="input" value={s.hoursPerDay ?? ''} onChange={(e) => set({ hoursPerDay: e.target.value })} /></Field>
         <label className="flex items-center gap-2 text-sm text-ink sm:col-span-2"><input type="checkbox" checked={s.isProduction} onChange={(e) => set({ isProduction: e.target.checked })} />
           Works on production (wages are cost of sales); untick for admin staff</label>
+        <Field label="Other spellings" hint="Comma separated; how the name appears on bank screenshots" className="sm:col-span-2">
+          <input className="input" value={Array.isArray(s.aliases) ? s.aliases.join(', ') : s.aliases || ''} onChange={(e) => set({ aliases: e.target.value })} placeholder="e.g. Abdur Rehman, Abdul Rahman" /></Field>
         <Field label="CNIC" hint="Kept private; never shown in lists"><input className="input" value={s.cnic || ''} onChange={(e) => set({ cnic: e.target.value })} /></Field>
         <Field label="How they are paid"><input className="input" value={s.paymentMethod || ''} onChange={(e) => set({ paymentMethod: e.target.value })} placeholder="e.g. Easypaisa 0300…" /></Field>
         {!s.id && s.payType === 'weekly_salary' && <>

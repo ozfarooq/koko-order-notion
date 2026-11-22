@@ -27,6 +27,11 @@ const STATUS = {
   Rejected: 'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-300',
   Void: 'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-300',
   Unpaid: 'bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-300',
+  New: 'bg-subtle2 text-ink-soft ring-line',
+  Ready: 'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-950/40 dark:text-sky-300',
+  'Needs attention': 'bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-300',
+  Parked: 'bg-subtle2 text-ink-soft ring-line',
+  Duplicate: 'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-950/40 dark:text-rose-300',
 }
 export function FinBadge({ status }) {
   return <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${STATUS[status] || STATUS.Draft}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{status}</span>

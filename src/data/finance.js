@@ -104,3 +104,18 @@ export async function uploadFiles(fileList, folder) {
   return ids
 }
 export const PAID_FROM = { bank: 'Bank Alfalah', cash: 'Studio petty cash', director_omer: 'Omer paid personally', director_usman: 'Usman paid personally', unpaid: 'Not paid yet (owed to supplier)' }
+
+// ── F2b: receipt and screenshot inbox ──
+export const getIntake = (group) => api(`/finance/intake?${query({ group })}`)
+export const getIntakeItem = (id) => api(`/finance/intake/${id}`)
+export const addToIntake = (fileIds) => post('/finance/intake', { fileIds })
+export const readIntakeItem = (id) => post(`/finance/intake/${id}/read`)
+export const saveIntakeItem = (id, b) => patch(`/finance/intake/${id}`, b)
+export const approveIntakeItem = (id, b) => post(`/finance/intake/${id}/approve`, b)
+export const rejectIntakeItem = (id, reason) => post(`/finance/intake/${id}/reject`, { reason })
+export const parkIntakeItem = (id, reason) => post(`/finance/intake/${id}/park`, { reason })
+export const reopenIntakeItem = (id) => post(`/finance/intake/${id}/reopen`)
+export const approveReadyIntake = () => post('/finance/intake/approve-ready')
+export const getIntakeLabels = () => api('/finance/intake-labels')
+export const saveIntakeLabel = (id, b) => (id ? patch(`/finance/intake-labels/${id}`, b) : post('/finance/intake-labels', b))
+export const INTAKE_KINDS = { staff_payment: 'Staff payment', expense: 'Expense / supplier', owner_funding: 'Funds added by a director', customer_receipt: 'Customer payment (F3)', reseller_payment: 'Reseller payment (F3)', other: 'Not sure yet' }

@@ -17,6 +17,8 @@
 --   013: finance core: settings, chart of accounts, periods, journal entries and lines, numbering, FX rates, files
 --   014: Finance Manager role (users.role finance); contra accounts in operating cash flows
 --   015: finance F2a: suppliers, staff, expenses, weekly claims, recurring expenses, payroll, staff payments
+--   016: current studio staff (Master Sarfaraz, Abdur Rahman, Jhangir) and other spellings
+--   017: finance F2b: receipt and screenshot intake (inbox items, sticker-note words)
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (
