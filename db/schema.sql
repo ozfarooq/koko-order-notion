@@ -23,6 +23,7 @@
 --   019: finance F4: bank statements, statement lines, counterparty rules; bank_last4 on accounts
 --   020: finance F5a: pricing policies, fabric lots and moves, cost cards (versioned), price history; VÉLORA seed
 --   021: country on customers (saved address) and on orders (delivery_country)
+--   022: finance F5b: 5050 Change in inventories, monthly stock valuations, fabric purchases linked to their payment
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (

@@ -37,6 +37,7 @@ description: "What has been delivered, the roadmap, phase-by-phase deliverables,
 | 23 Nov 2026 | Finance F2a | Suppliers, staff, expenses, recurring bills, studio claims, payroll, staff payments |
 | 23 Nov 2026 | Finance F2b | Receipt and screenshot inbox with Claude vision, rules, review, file away |
 | 23 Nov 2026 | Finance F3 | Customer payments, revenue at Paid, reseller sales and payments with FX, posting exceptions, receivables, backfill |
+| 24 Nov 2026 | Finance F5b | Actual cost: month-end stock valuation (fabric left, WIP, studio and reseller stock at cost-card cost, damaged at net realisable value) posted against 5050 Change in inventories; fabric bought with its payment; standard vs actual by element with labour from payroll hours; repricing at current fabric prices |
 | 23 Nov 2026 | Finance F5a | Costing and pricing: cost cards per design (versioned), fabric lots with yards left, pricing policy and calculator (Koko ×1.22 and gross-up), price history, profit by order / design / collection / channel at standard cost; VÉLORA seeded from the shoot cost sheet |
 | 23 Nov 2026 | Finance F4 | Bank reconciliation: statements read in the browser (PDF, CSV, Excel; never sent outside the app), balance-chain check, auto-matching, booking lines from the statement, learned counterparty names, reconciliation report |
 
@@ -107,9 +108,9 @@ Spec: [finance-module.mdx › F4](./finance-module.mdx).
 | Reconciliation report | Book balance vs bank balance with unmatched items; month sign-off |
 | Done when | November 2026 Bank Alfalah statement reconciles to zero difference |
 
-### 4.4 F5: Costing and pricing (F5a built 23 Nov 2026; F5b actual cost next)
+### 4.4 F5: Costing and pricing (F5a 23 Nov, F5b 24 Nov 2026: done)
 
-F5a (live): cost cards, fabric lots, pricing, price history, profit at standard cost. Cost of sales is not posted from cost cards yet, because purchases and wages already reach cost of sales when paid. F5b moves purchases into stock (1300), issues fabric and labour to jobs, posts cost of sales on each sale, and adds standard vs actual and repricing alerts.
+F5a: cost cards, fabric lots, pricing, price history, profit at standard cost. F5b: the periodic method (IAS 2). Fabric, wages and outsourced work stay in cost of sales when paid; at each month end the stock still held is valued from the cost cards and one entry per month moves 1300 / 1310 / 1320 / 1330 to that value against 5050 Change in inventories, so cost of sales = spend less the increase in stock. Standard vs actual and repricing alerts read the same data. Stock is understated for designs without a cost card until their cards are entered.
 
 
 | Deliverable | Notes |

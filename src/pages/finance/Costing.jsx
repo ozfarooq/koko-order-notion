@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Calculator, Plus, Trash2, AlertTriangle, CheckCircle2, Save, FileDown, Ruler, Settings2, Scissors } from 'lucide-react'
+import { Calculator, Plus, Trash2, AlertTriangle, CheckCircle2, Save, FileDown, Ruler, Settings2, Scissors, Warehouse, Scale } from 'lucide-react'
 import {
   getCostingDesigns, getCostingDesign, saveCostCard, activateCostCard, confirmPrice, getFabricLots, saveFabricLot, getLotMoves, addFabricMove,
-  getPricingPolicies, savePricingPolicy, deletePricingPolicy, getProfit, getFinCollections,
+  getPricingPolicies, savePricingPolicy, deletePricingPolicy, getProfit, getFinCollections, getSuppliers, PAID_FROM,
+  getStockAt, getStockValuations, postStockValuation, getVariance,
 } from '../../data/finance'
 import { PageHeader, Modal, Field, Segmented, SkeletonRows, EmptyState, StatCard, fmtDate } from '../../ui/kit'
 import { FinBadge, fmtRs, formatRs, safePaisa, todayPk } from './shared'
 import { PeriodPicker, presetRange, Num, ReportSheet } from './reportKit'
 import { downloadElementPdf } from '../../utils/statementPdf'
 
-const TABS = [{ value: 'designs', label: 'Designs' }, { value: 'lots', label: 'Fabric lots' }, { value: 'profit', label: 'Profit' }, { value: 'policy', label: 'Pricing policy' }]
+const TABS = [{ value: 'designs', label: 'Designs' }, { value: 'lots', label: 'Fabric lots' }, { value: 'stock', label: 'Stock value' }, { value: 'variance', label: 'Standard vs actual' },
+  { value: 'profit', label: 'Profit' }, { value: 'policy', label: 'Pricing policy' }]
 const KIND_LABELS = { fabric: 'Fabric', stitching: 'Stitching', extra: 'Extra (lace, buttons…)', outsourced: 'Outsourced (dye, embroidery…)', consumables: 'Consumables', overhead: 'Overhead' }
 const pct = (v) => (v == null ? '—' : `${v.toFixed(1)}%`)
 
@@ -28,13 +30,15 @@ export default function Costing() {
       <PageHeader eyebrow="Finance" title="Costing & pricing" icon={Calculator}
         subtitle="Cost cards from the shoot cost sheet, fabric left in each lot, the price your margins give, and real profit by design and collection." />
       <div className="flex flex-wrap items-center gap-2">
-        <Segmented options={TABS} value={tab} onChange={(v) => setParams({ tab: v, ...(collectionId ? { collection: collectionId } : {}) })} />
+        <div className="overflow-x-auto"><Segmented options={TABS} value={tab} onChange={(v) => setParams({ tab: v, ...(collectionId ? { collection: collectionId } : {}) })} /></div>
         {['designs', 'lots'].includes(tab) && (
           <select className="input w-auto" value={collectionId} onChange={(e) => setColl(e.target.value)}>
             <option value="">All collections</option>{collections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>)}
       </div>
       {tab === 'lots' ? <Lots collectionId={collectionId} collections={collections} />
+        : tab === 'stock' ? <StockValue />
+        : tab === 'variance' ? <Variance />
         : tab === 'profit' ? <Profit />
         : tab === 'policy' ? <Policies collections={collections} />
         : <Designs collectionId={collectionId} />}
@@ -76,7 +80,9 @@ function Designs({ collectionId }) {
                     <td className="px-3 py-2 text-right"><Num v={r.computedPrice} /></td>
                     <td className="px-3 py-2 text-right"><Num v={r.finalPrice || r.websitePrice} strong />{r.priceDiffers && <p className="text-[11px] text-amber-700">website {fmtRs(r.websitePrice, { decimals: false })}</p>}{!r.finalPrice && <p className="text-[11px] text-faint">website price</p>}</td>
                     <td className="px-3 py-2 text-right"><Num v={r.margin} /></td>
-                    <td className={`px-4 py-2 text-right font-semibold tabular-nums ${r.belowTarget ? 'text-rose-600' : 'text-emerald-700 dark:text-emerald-400'}`}>{pct(r.marginOnCost)}</td>
+                    <td className={`px-4 py-2 text-right font-semibold tabular-nums ${r.belowTarget ? 'text-rose-600' : 'text-emerald-700 dark:text-emerald-400'}`}>{pct(r.marginOnCost)}
+                      {r.reprice && <p className={`text-[11px] font-normal ${r.reprice.belowTarget ? 'text-rose-600' : 'text-muted'}`} title={`At current fabric prices the production cost is ${fmtRs(r.reprice.productionCost, { decimals: false })}`}>
+                        now {pct(r.reprice.marginOnCost)}{r.reprice.belowTarget && ` · price ${fmtRs(r.reprice.suggestedPrice, { decimals: false })}`}</p>}</td>
                   </> : <td colSpan={6} className="px-3 py-2 text-xs text-muted">No cost card yet · website price {r.websitePrice ? fmtRs(r.websitePrice, { decimals: false }) : '—'}</td>}
                 </tr>
               ))}
@@ -84,7 +90,7 @@ function Designs({ collectionId }) {
           </table>
         </div>
       )}
-      <p className="text-xs text-muted">Unit cost = production cost + the marketing / packaging allowance. Margin is at the selling price after the courier's cut, which is taken on the price, not the cost.</p>
+      <p className="text-xs text-muted">Unit cost = production cost + the marketing / packaging allowance. Margin is at the selling price after the courier's cut, which is taken on the price, not the cost. "Now" is the margin at current fabric prices (the average paid for each lot); in red with the price your policy would now ask when it falls below target.</p>
     </>
   )
 }
@@ -294,13 +300,15 @@ function LotModal({ lot, collections, onClose, onSaved }) {
         <Field label="Unit"><select className="input" value={b.unit} onChange={(e) => setB({ ...b, unit: e.target.value })}><option value="yard">Yard</option><option value="metre">Metre</option><option value="piece">Piece</option></select></Field>
         <Field label="Notes" className="sm:col-span-2"><input className="input" value={b.notes || ''} onChange={(e) => setB({ ...b, notes: e.target.value })} /></Field>
         {lot.id && <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={b.isActive} onChange={(e) => setB({ ...b, isActive: e.target.checked })} />In use</label>}
-        {moves?.length > 0 && <div className="space-y-1 text-xs sm:col-span-2"><p className="section-title">Purchases and counts</p>{moves.map((m) => <p key={m.id} className="text-ink-soft">{fmtDate(m.date)} · {m.kind === 'purchase' ? `bought ${m.quantity} at ${fmtRs(m.rate, { decimals: false })}` : `count ${m.quantity > 0 ? '+' : ''}${m.quantity}`}{m.note && ` · ${m.note}`}{m.by && ` · ${m.by}`}</p>)}</div>}
+        {moves?.length > 0 && <div className="space-y-1 text-xs sm:col-span-2"><p className="section-title">Purchases and counts</p>{moves.map((m) => <p key={m.id} className="text-ink-soft">{fmtDate(m.date)} · {m.kind === 'purchase' ? `bought ${m.quantity} at ${fmtRs(m.rate, { decimals: false })}` : `count ${m.quantity > 0 ? '+' : ''}${m.quantity}`}{m.entryNo && ` · paid, ${m.entryNo}`}{m.note && ` · ${m.note}`}{m.by && ` · ${m.by}`}</p>)}</div>}
       </div>
     </Modal>
   )
 }
 function MoveModal({ lot, kind, onClose, onSaved }) {
-  const [b, setB] = useState({ kind, quantity: '', rate: kind === 'purchase' ? String(Number(lot.rate)) : '', date: todayPk(), note: '' })
+  const [b, setB] = useState({ kind, quantity: '', rate: kind === 'purchase' ? String(Number(lot.rate)) : '', date: todayPk(), note: '', paidFrom: '', supplierId: '', reference: '' })
+  const [suppliers, setSuppliers] = useState([])
+  useEffect(() => { if (kind === 'purchase') getSuppliers().then(setSuppliers).catch(() => {}) }, [kind])
   const save = async () => { try { onSaved(await addFabricMove(lot.id, b)); toast.success('Saved') } catch (err) { toast.error(err.message) } }
   return (
     <Modal open size="sm" onClose={onClose} title={kind === 'purchase' ? `Bought: ${lot.name}` : `Count: ${lot.name}`} subtitle={kind === 'adjust' ? `The app thinks ${lot.left} ${lot.unit}s are left` : ''}
@@ -309,6 +317,15 @@ function MoveModal({ lot, kind, onClose, onSaved }) {
         <Field label={kind === 'purchase' ? `${lot.unit}s bought` : `${lot.unit}s found (+) or lost (−)`}><input inputMode="decimal" autoFocus className="input" value={b.quantity} onChange={(e) => setB({ ...b, quantity: e.target.value })} /></Field>
         {kind === 'purchase' ? <Field label="Rate (Rs)"><input inputMode="decimal" className="input" value={b.rate} onChange={(e) => setB({ ...b, rate: e.target.value })} /></Field>
           : <Field label="Date"><input type="date" className="input" value={b.date} onChange={(e) => setB({ ...b, date: e.target.value })} /></Field>}
+        {kind === 'purchase' && <>
+          <Field label="Date"><input type="date" className="input" value={b.date} onChange={(e) => setB({ ...b, date: e.target.value })} /></Field>
+          <Field label="Paid" hint={b.paidFrom ? `Booked as fabric bought: ${fmtRs((Number(b.quantity) || 0) * (Number(b.rate) || 0), { decimals: false })}` : 'Already entered as an expense? Leave this'}>
+            <select className="input" value={b.paidFrom} onChange={(e) => setB({ ...b, paidFrom: e.target.value })}><option value="">Only record the yards</option>{Object.entries(PAID_FROM).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+          {b.paidFrom && <>
+            <Field label="Supplier"><select className="input" value={b.supplierId} onChange={(e) => setB({ ...b, supplierId: e.target.value })}><option value="">{b.paidFrom === 'unpaid' ? 'Choose…' : 'None'}</option>{suppliers.filter((x) => x.isActive).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+            <Field label="Reference"><input className="input" value={b.reference} onChange={(e) => setB({ ...b, reference: e.target.value })} /></Field>
+          </>}
+        </>}
         <Field label={kind === 'adjust' ? 'Why' : 'Note'} className="sm:col-span-2"><input className="input" value={b.note} onChange={(e) => setB({ ...b, note: e.target.value })} placeholder={kind === 'adjust' ? 'e.g. Remnant too small to use' : ''} /></Field>
       </div>
     </Modal>
@@ -402,6 +419,115 @@ function Policies({ collections }) {
           </div>
         </Modal>
       )}
+    </div>
+  )
+}
+
+// ── Stock value (month end) ────────────────────────────────────────────
+const BUCKET_LABELS = { materials: ['1300 Fabric left', 'Yards left in each lot at the average price paid'], wip: ['1310 Being stitched', 'Orders started and not yet paid'],
+  studio: ['1320 At the studio', 'Finished pieces and samples; damaged ones at their asking price if lower'], reseller: ['1330 At resellers', 'Pieces at the reseller\'s store'] }
+const monthEndOf = (m) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).toISOString().slice(0, 10)
+function StockValue() {
+  const [month, setMonth] = useState(todayPk().slice(0, 7))
+  const [d, setD] = useState(null)
+  const [hist, setHist] = useState([])
+  const [busy, setBusy] = useState(false)
+  const asOf = monthEndOf(month) > todayPk() ? todayPk() : monthEndOf(month)
+  const load = () => { setD(null); getStockAt(asOf).then(setD).catch((e) => toast.error(e.message)); getStockValuations().then(setHist).catch(() => {}) }
+  useEffect(() => { load() }, [asOf]) // eslint-disable-line react-hooks/exhaustive-deps
+  const posted = hist.find((h) => h.month === month)
+  const post = async () => {
+    setBusy(true)
+    try { const r = await postStockValuation(month); toast.success(r.entryNo ? `Stock value posted: ${r.entryNo}` : 'Stock value recorded; the books already matched'); load() }
+    catch (err) { toast.error(err.message) } finally { setBusy(false) }
+  }
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="month" className="input w-auto" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
+        <button className="btn-primary" onClick={post} disabled={busy || !d}><Warehouse size={15} />{busy ? 'Posting…' : posted ? `Value again and update ${month}` : `Post stock value for ${month}`}</button>
+        {posted && <span className="text-xs text-muted">Posted {fmtDate(posted.updatedAt)}{posted.entryNo && ` · ${posted.entryNo}`}</span>}
+      </div>
+      <p className="text-xs text-muted">Fabric, wages and outsourced work go to cost of sales when paid. At each month end the stock still held is valued and the stock accounts are moved to that value against 5050 Change in inventories, so cost of sales = what was spent less what is still in stock. Value {asOf < monthEndOf(month) ? 'so far this month' : `at ${fmtDate(asOf)}`}; posting dates it {fmtDate(monthEndOf(month))}. Running it again replaces the month's entry.</p>
+      {!d ? <SkeletonRows rows={6} /> : <>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {Object.keys(BUCKET_LABELS).map((k) => <StatCard key={k} label={BUCKET_LABELS[k][0]} value={safePaisa(d.buckets[k].value) / 100} prefix="Rs " />)}
+          <StatCard label="Total stock" value={safePaisa(d.total) / 100} prefix="Rs " sub={`${d.pieces} pieces`} />
+        </div>
+        {d.missing.length > 0 && (
+          <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            <p className="flex items-center gap-2 font-semibold"><AlertTriangle size={14} />{d.missing.reduce((s, m) => s + m.pieces, 0)} pieces of {d.missing.length} designs have no cost card, so they count as nothing. Stock is understated until their cards are entered:</p>
+            <p className="mt-1">{d.missing.map((m, i) => <span key={m.productId}>{i > 0 && ' · '}<Link className="underline" to={`/finance/costing/${m.productId}`}>{m.name}</Link> ({m.pieces})</span>)}</p>
+          </div>
+        )}
+        {Object.keys(BUCKET_LABELS).map((k) => d.buckets[k].rows.length > 0 && (
+          <section key={k} className="space-y-2">
+            <h2 className="section-title">{BUCKET_LABELS[k][0]} · {BUCKET_LABELS[k][1]}</h2>
+            <div className="card overflow-x-auto"><table className="w-full min-w-[560px] text-sm"><tbody className="divide-y divide-line">
+              {d.buckets[k].rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-2"><p className="font-medium text-ink">{r.productId ? <Link to={`/finance/costing/${r.productId}`} className="hover:text-accent">{r.name}</Link> : r.name}</p><p className="text-xs text-muted">{[r.collection, r.size, r.note].filter(Boolean).join(' · ')}</p></td>
+                  <td className="px-3 py-2 text-right text-xs text-muted">{k === 'materials' ? `${r.quantity} ${r.unit}s × ${fmtRs(r.rate, { decimals: false })}` : `${r.pieces} × ${r.unitCost == null ? 'no cost card' : fmtRs(r.unitCost, { decimals: false })}`}</td>
+                  <td className="px-4 py-2 text-right"><Num v={r.value} strong /></td>
+                </tr>
+              ))}
+            </tbody></table></div>
+          </section>
+        ))}
+      </>}
+      {hist.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="section-title">Posted stock values</h2>
+          <div className="card divide-y divide-line">
+            {hist.map((h) => (
+              <div key={h.month} className="flex flex-wrap items-center gap-3 px-4 py-2 text-sm">
+                <span className="w-24 font-medium text-ink">{h.month}</span><span className="flex-1 text-xs text-muted">{h.pieces} pieces{h.missing.length ? ` · ${h.missing.length} designs without a cost card` : ''}{h.by && ` · ${h.by}`}</span>
+                <span className="tabular-nums text-ink">{fmtRs(h.total, { decimals: false })}</span>{h.entryNo && <Link to={`/finance/journals/${h.entryId}`} className="font-mono text-xs text-accent">{h.entryNo}</Link>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}
+
+// ── Standard vs actual ─────────────────────────────────────────────────
+const ELEMENTS = { materials: ['Materials', 'Fabric and extras (5100)'], labour: ['Labour', 'Production wages (5200)'], outsourced: ['Outsourced', 'Dye, embroidery… (5300)'], consumables: ['Consumables', 'Thread, needles… (5410)'] }
+function Variance() {
+  const [month, setMonth] = useState(todayPk().slice(0, 7))
+  const [d, setD] = useState(null)
+  useEffect(() => { setD(null); getVariance(month).then(setD).catch((e) => toast.error(e.message)) }, [month])
+  return (
+    <div className="space-y-4">
+      <input type="month" className="input w-auto" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" />
+      <p className="text-xs text-muted">Standard: the outfits started this month (studio pieces made, reseller pieces handed over, orders begun) at their cost cards. Actual: what was booked to each cost account this month. A positive variance means more was spent than the cost cards allow; timing (fabric bought for later) shows here too.</p>
+      {!d ? <SkeletonRows rows={5} /> : <>
+        <div className="card overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead className="bg-surface-accent text-left font-label text-[10.5px] uppercase tracking-wider text-ink">
+              <tr><th className="px-4 py-2.5 font-medium">Element</th><th className="px-3 py-2.5 text-right font-medium">Standard</th><th className="px-3 py-2.5 text-right font-medium">Actual</th><th className="px-4 py-2.5 text-right font-medium">Variance</th></tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {d.rows.map((r) => (
+                <tr key={r.element}><td className="px-4 py-2"><p className="font-medium text-ink">{ELEMENTS[r.element][0]}</p><p className="text-xs text-muted">{ELEMENTS[r.element][1]}</p></td>
+                  <td className="px-3 py-2 text-right"><Num v={r.standard} /></td><td className="px-3 py-2 text-right"><Num v={r.actual} /></td>
+                  <td className={`px-4 py-2 text-right font-semibold tabular-nums ${safePaisa(r.variance) > 0 ? 'text-rose-600' : 'text-emerald-700 dark:text-emerald-400'}`}>{fmtRs(r.variance, { decimals: false })}</td></tr>
+              ))}
+              <tr className="border-t-2 border-ink/70 font-semibold"><td className="px-4 py-2 text-ink">Total</td><td className="px-3 py-2 text-right"><Num v={d.total.standard} strong /></td><td className="px-3 py-2 text-right"><Num v={d.total.actual} strong /></td>
+                <td className="px-4 py-2 text-right tabular-nums text-ink">{fmtRs((safePaisa(d.total.actual) - safePaisa(d.total.standard)) / 100, { decimals: false })}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-muted">{d.pieces} outfits at standard{d.uncosted ? `; ${d.uncosted} more have no cost card and are left out` : ''}.</p>
+        <section className="card space-y-2 p-4 text-sm">
+          <p className="flex items-center gap-2 font-semibold text-ink"><Scale size={15} />Labour by the hours logged in payroll</p>
+          {!d.labour.hours ? <p className="text-muted">No hours by job were logged in this month's posted payroll weeks. Split each week's hours by job (Payroll › week › hours) to see labour per order.</p> : <>
+            <p className="text-ink-soft">{d.labour.hours} hours logged · {fmtRs(d.labour.rate)} an hour · idle {d.labour.idle} hours ({fmtRs(d.labour.idleCost, { decimals: false })} of capacity not used)</p>
+            {d.labour.orders.length > 0 && <div className="divide-y divide-line">{d.labour.orders.map((o) => <p key={o.orderNumber} className="flex justify-between py-1 text-xs"><span className="text-ink">{o.orderNumber}</span><span className="text-muted">{o.hours} h · {fmtRs(o.cost, { decimals: false })}</span></p>)}</div>}
+          </>}
+        </section>
+      </>}
     </div>
   )
 }
