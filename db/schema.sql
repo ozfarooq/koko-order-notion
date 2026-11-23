@@ -22,6 +22,7 @@
 --   018: finance F3: customer_payments (source of orders.advance_paid_pkr), orders.paid_on / status_changed_on / tracking_number, posting exceptions
 --   019: finance F4: bank statements, statement lines, counterparty rules; bank_last4 on accounts
 --   020: finance F5a: pricing policies, fabric lots and moves, cost cards (versioned), price history; VÉLORA seed
+--   021: country on customers (saved address) and on orders (delivery_country)
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (

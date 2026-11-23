@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import CountrySelect, { DEFAULT_COUNTRY } from '../ui/CountrySelect'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -12,11 +13,15 @@ import { ease } from '../ui/motion'
 
 const today = () => new Date().toISOString().slice(0, 10)
 const REFERENCES = ['Walkin', 'Outstation', 'Usman Ahmed']
+const sameText = (a, b) => String(a || '').replace(/\s+/g, ' ').trim().toLowerCase() === String(b || '').replace(/\s+/g, ' ').trim().toLowerCase()
 let keySeq = 0
 const lineKey = () => `l${++keySeq}`
 
+// address / city / country are the customer's saved address; the delivery address is the same unless
+// sameAddress is unticked, then deliveryAddress / deliveryCity / deliveryCountry are used for this order only
 const EMPTY = {
-  customerId: null, customer: '', phone: '', email: '', address: '', city: '',
+  customerId: null, customer: '', phone: '', email: '', address: '', city: '', country: '',
+  sameAddress: true, deliveryAddress: '', deliveryCity: '', deliveryCountry: '',
   items: [], status: 'New', orderDate: today(), deliveryDate: '', channel: '', reference: '', shopifyOrderNumber: '',
   amount: '', amountManual: false, advancePaid: '', paymentNotes: '', specialInstructions: '', orderType: 'Sale', prHandle: '',
   measurements: {},
@@ -52,7 +57,7 @@ export default function OrderForm() {
   useEffect(() => {
     if (isEdit || !state?.customerId) return
     getCustomer(state.customerId).then((c) => setForm((f) => ({
-      ...f, customerId: c.id, customer: c.name, phone: c.phone, email: c.email, address: c.address, city: c.city,
+      ...f, customerId: c.id, customer: c.name, phone: c.phone, email: c.email, address: c.address, city: c.city, country: c.country || '',
       measurements: c.latestMeasurements ? Object.fromEntries(Object.entries(c.latestMeasurements).filter(([k]) => !['orderId', 'orderNumber'].includes(k))) : f.measurements,
     }))).catch(() => {})
   }, [state?.customerId, isEdit])
@@ -94,7 +99,11 @@ export default function OrderForm() {
       setOrderNumber(o.orderNumber)
       setForm({
         ...EMPTY,
-        customerId: o.customerId, customer: o.customer, phone: o.phone, email: o.email, address: o.address, city: o.city,
+        customerId: o.customerId, customer: o.customer, phone: o.phone, email: o.email,
+        address: o.customerAddress, city: o.customerCity, country: o.customerCountry,
+        // Delivered somewhere other than the customer's saved address?
+        sameAddress: !o.address || (sameText(o.address, o.customerAddress) && sameText(o.city, o.customerCity)),
+        deliveryAddress: o.address, deliveryCity: o.city, deliveryCountry: o.country,
         items, status: o.status, orderDate: o.orderDate || today(), deliveryDate: o.deliveryDate || '',
         channel: o.channel || '', reference: o.reference || '', shopifyOrderNumber: o.shopifyOrderNumber || '',
         amount: o.amount ?? '', amountManual: o.orderType !== 'PR' && Number(o.amount) !== subtotal, advancePaid: o.advancePaid ?? '',
@@ -159,7 +168,11 @@ export default function OrderForm() {
     if (!validate()) return
     setSaving(true)
     const payload = {
-      customerId: form.customerId, customer: form.customer, phone: form.phone, email: form.email, address: form.address, city: form.city,
+      customerId: form.customerId, customer: form.customer, phone: form.phone, email: form.email,
+      // the customer's saved address, and where this order goes
+      customerAddress: form.address, customerCity: form.city, customerCountry: form.country || DEFAULT_COUNTRY,
+      address: form.sameAddress ? form.address : form.deliveryAddress, city: form.sameAddress ? form.city : form.deliveryCity,
+      country: (form.sameAddress ? form.country : form.deliveryCountry) || DEFAULT_COUNTRY,
       items: form.items.filter((l) => l.productId || l.product.trim()).map((l) => ({
         productId: l.productId, product: l.product, size: l.size, quantity: Number(l.quantity) || 1,
         unitPrice: l.unitPrice === '' ? null : Number(l.unitPrice), note: l.note,
@@ -214,6 +227,9 @@ export default function OrderForm() {
                     <Field label="Name"><input className="input" value={form.customer} onChange={set('customer')} /></Field>
                     <Field label="Phone"><input className="input" type="tel" value={form.phone} onChange={set('phone')} placeholder="03xx xxxxxxx" /></Field>
                     <Field label="Email" className="sm:col-span-2"><input className="input" type="email" value={form.email} onChange={set('email')} /></Field>
+                    <Field label="Address" hint="Saved on the customer's record" className="sm:col-span-2"><textarea className="input" rows={3} value={form.address} onChange={set('address')} placeholder="House, street, area" /></Field>
+                    <Field label="City"><input className="input" value={form.city} onChange={set('city')} placeholder="Lahore" /></Field>
+                    <Field label="Country"><CountrySelect value={form.country} onChange={(v) => setForm((f) => ({ ...f, country: v }))} /></Field>
                   </div>
                 </motion.div>
               )}
@@ -296,10 +312,22 @@ export default function OrderForm() {
           </Section>
 
           <Section icon={Truck} title="Delivery">
-            <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
-              <Field label="Address"><textarea className="input" rows={2} value={form.address} onChange={set('address')} placeholder="House, street, area" /></Field>
-              <Field label="City"><input className="input" value={form.city} onChange={set('city')} placeholder="Lahore" /></Field>
-            </div>
+            <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-ink">
+              <input type="checkbox" checked={form.sameAddress} onChange={(e) => setForm((f) => ({ ...f, sameAddress: e.target.checked,
+                ...(!e.target.checked && !f.deliveryAddress ? { deliveryAddress: f.address, deliveryCity: f.city, deliveryCountry: f.country } : {}) }))} />
+              Deliver to the customer's address
+            </label>
+            {form.sameAddress ? (
+              <p className="mt-3 whitespace-pre-wrap rounded-xl bg-subtle/70 p-3 text-sm text-ink-soft">
+                {form.address || form.city ? [form.address, form.city, form.country || DEFAULT_COUNTRY].filter(Boolean).join('\n') : 'Add the address in the customer details above.'}</p>
+            ) : (
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <Field label="Delivery address" hint="For this order only; the customer's saved address stays as it is" className="sm:col-span-2">
+                  <textarea className="input" rows={3} value={form.deliveryAddress} onChange={set('deliveryAddress')} placeholder="House, street, area" /></Field>
+                <Field label="City"><input className="input" value={form.deliveryCity} onChange={set('deliveryCity')} placeholder="Lahore" /></Field>
+                <Field label="Country"><CountrySelect value={form.deliveryCountry} onChange={(v) => setForm((f) => ({ ...f, deliveryCountry: v }))} /></Field>
+              </div>
+            )}
           </Section>
 
           <Section icon={Ruler} title="Measurements" hint="Inches · leave blank what isn't needed">

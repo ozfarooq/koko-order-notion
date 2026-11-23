@@ -31,15 +31,15 @@ export default function CustomerPicker({ value, onChange, error }) {
     setSelected(c)
     setOpen(false)
     setQuery('')
-    onChange({ customerId: c.id, customer: c.name, phone: c.phone || '', email: c.email || '', address: c.address || '', city: c.city || '' })
+    onChange({ customerId: c.id, customer: c.name, phone: c.phone || '', email: c.email || '', address: c.address || '', city: c.city || '', country: c.country || '' })
   }
   const startNew = () => {
     setSelected(null)
     setOpen(false)
-    onChange({ customerId: null, customer: query.trim(), phone: /^[+\d\s-]{6,}$/.test(query.trim()) ? query.trim() : '', email: '', address: '', city: '' })
+    onChange({ customerId: null, customer: query.trim(), phone: /^[+\d\s-]{6,}$/.test(query.trim()) ? query.trim() : '', email: '', address: '', city: '', country: '' })
     setQuery('')
   }
-  const clear = () => { setSelected(null); onChange({ customerId: null, customer: '', phone: '', email: '', address: '', city: '' }) }
+  const clear = () => { setSelected(null); onChange({ customerId: null, customer: '', phone: '', email: '', address: '', city: '', country: '' }) }
 
   const linked = !!value.customerId
   return (

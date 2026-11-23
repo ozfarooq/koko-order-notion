@@ -132,7 +132,7 @@ export function buildPDFHTML(order, logos, photos) {
     <div style="font-size:15px;font-weight:600;color:${C.ink};">${esc(order.customer) || '—'}</div>
     <div style="font-size:11px;color:${C.ink};line-height:1.7;margin-top:6px;">
       ${order.phone ? `${esc(order.phone)}<br/>` : ''}${order.email ? `${esc(order.email)}<br/>` : ''}
-      ${order.address || order.city ? `<span style="color:${C.muted};">${esc([order.address, order.city].filter(Boolean).join(', '))}</span>` : ''}
+      ${order.address || order.city ? `<span style="color:${C.muted};">${esc([order.address, order.city, order.country && order.country !== 'Pakistan' ? order.country : ''].filter(Boolean).join(', '))}</span>` : ''}
     </div>`
   const dates = `
     <table style="width:100%;border-collapse:collapse;">

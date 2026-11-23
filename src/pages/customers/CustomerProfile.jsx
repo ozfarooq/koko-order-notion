@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import CountrySelect, { DEFAULT_COUNTRY } from '../../ui/CountrySelect'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -24,7 +25,7 @@ function EditModal({ customer, open, onClose, onSaved }) {
   const save = async () => {
     setSaving(true)
     try {
-      onSaved(await updateCustomer(customer.id, { name: form.name, phone: form.phone, email: form.email, address: form.address, city: form.city }))
+      onSaved(await updateCustomer(customer.id, { name: form.name, phone: form.phone, email: form.email, address: form.address, city: form.city, country: form.country || DEFAULT_COUNTRY }))
       toast.success('Customer saved')
       onClose()
     } catch (err) { toast.error(err.message) } finally { setSaving(false) }
@@ -38,6 +39,7 @@ function EditModal({ customer, open, onClose, onSaved }) {
         <Field label="Email"><input className="input" value={form.email} onChange={set('email')} /></Field>
         <Field label="Address" className="sm:col-span-2"><textarea className="input" rows={2} value={form.address} onChange={set('address')} /></Field>
         <Field label="City"><input className="input" value={form.city} onChange={set('city')} /></Field>
+        <Field label="Country"><CountrySelect value={form.country} onChange={(v) => setForm((f) => ({ ...f, country: v }))} /></Field>
       </div>
     </Modal>
   )
@@ -161,7 +163,7 @@ export default function CustomerProfile() {
             <h2 className="section-title mb-2">Contact</h2>
             {c.phone ? <a href={`tel:${c.phone}`} className="flex items-center gap-2 text-ink-soft hover:text-accent"><Phone size={14} className="text-faint" />{c.phone}</a> : <p className="text-faint">No phone</p>}
             {c.email && <a href={`mailto:${c.email}`} className="flex items-center gap-2 truncate text-ink-soft hover:text-accent"><Mail size={14} className="text-faint" />{c.email}</a>}
-            {(c.address || c.city) && <p className="flex gap-2 text-ink-soft"><MapPin size={14} className="mt-0.5 flex-shrink-0 text-faint" /><span className="whitespace-pre-wrap">{[c.address, c.city].filter(Boolean).join('\n')}</span></p>}
+            {(c.address || c.city) && <p className="flex gap-2 text-ink-soft"><MapPin size={14} className="mt-0.5 flex-shrink-0 text-faint" /><span className="whitespace-pre-wrap">{[c.address, c.city, c.country].filter(Boolean).join('\n')}</span></p>}
           </motion.section>
 
           {c.favourites.length > 0 && (

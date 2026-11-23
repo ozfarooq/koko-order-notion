@@ -105,7 +105,8 @@ Row counts are from live on 23 November 2026.
 | id | uuid PK | |
 | name | text, not null | Indexed on `lower(name)` |
 | phone | text | Matched on the last 10 digits |
-| email, address, city | text | Default delivery details |
+| email, address, city | text | The customer's saved address |
+| country | text | Saved address country (021); empty shows as Pakistan |
 | created_at, updated_at | timestamptz | |
 
 #### `orders` (89)
@@ -126,7 +127,7 @@ Row counts are from live on 23 November 2026.
 | amount_pkr | numeric, default 0 | Order total |
 | advance_paid_pkr | numeric, default 0 | **Always = sum of `customer_payments.amount`** (trigger) |
 | balance_due_pkr | numeric, generated | `amount − advance`, or 0 when Cancelled / Returned |
-| delivery_address, delivery_city | text | Snapshot for this order |
+| delivery_address, delivery_city, delivery_country | text | Where this order goes: the customer's address, or a different one for this order only (021) |
 | measurements | jsonb, default `{}` | Standard measurement fields |
 | payment_notes, special_instructions | text | |
 | paid_on | date | Revenue date: set when the order becomes Paid |
@@ -442,6 +443,9 @@ PK (`rate_date`, `currency`) · `rate_to_pkr`. The rate for a date is the latest
 | 016 | fin_staff_current | Current studio staff and other spellings |
 | 017 | fin_intake | Receipt and screenshot inbox, sticker-note words |
 | 018 | fin_sales | customer_payments, paid / status dates, tracking number, posting exceptions |
+| 019 | fin_bank_rec | Bank statements, lines, counterparty rules |
+| 020 | fin_costing | Pricing policies, fabric lots, cost cards, price history |
+| 021 | country | Country on customers and on order delivery addresses |
 
 ## 8. Working with the database
 

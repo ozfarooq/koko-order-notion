@@ -244,7 +244,7 @@ export default function OrderDetail() {
                   {can('orders:write') && <button className="text-xs font-semibold text-accent" onClick={editTracking}>{order.trackingNumber ? 'Change' : 'Add'}</button>}
                 </span></div>
               {(order.address || order.city) && (
-                <p className="flex gap-2 text-ink-soft"><MapPin size={14} className="mt-0.5 flex-shrink-0 text-faint" /><span className="whitespace-pre-wrap">{[order.address, order.city].filter(Boolean).join('\n')}</span></p>
+                <p className="flex gap-2 text-ink-soft"><MapPin size={14} className="mt-0.5 flex-shrink-0 text-faint" /><span className="whitespace-pre-wrap">{[order.address, order.city, order.country || 'Pakistan'].filter(Boolean).join('\n')}</span></p>
               )}
             </div>
           </Card>
