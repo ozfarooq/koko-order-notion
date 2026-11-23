@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ClipboardList, Kanban, PlusCircle, Users, Store, FileText, Images, Contact, Shirt,
-  Truck, ReceiptText, Settings, Building2, Boxes, HelpCircle, BookOpen, Settings2, BarChart3, Library, Receipt, ShoppingBasket, HandCoins, UserCog, Inbox, Banknote,
+  Truck, ReceiptText, Settings, Building2, Boxes, HelpCircle, BookOpen, Settings2, BarChart3, Library, Receipt, ShoppingBasket, HandCoins, UserCog, Inbox, Banknote, Target, Cpu, Workflow, Palette, Database, Map,
 } from 'lucide-react'
 
 // Screens switched on as each phase ships
@@ -69,6 +69,18 @@ export function buildNav({ can, user, resellers = [] }) {
   }
 
   if (!isReseller && can('orders:read')) sections.push({ title: 'Help', items: [{ to: '/help', label: 'Help', icon: HelpCircle }] })
+
+  // Product documents (docs/*.mdx): owners only
+  if (can('docs:read')) {
+    sections.push({ title: 'Product docs', items: [
+      { to: '/docs/product-requirements', label: 'Product requirements', icon: Target },
+      { to: '/docs/technical-requirements', label: 'Technical requirements', icon: Cpu },
+      { to: '/docs/app-flow', label: 'App flow', icon: Workflow },
+      { to: '/docs/design-brief', label: 'Design & brand', icon: Palette },
+      { to: '/docs/database-schema', label: 'Database schema', icon: Database },
+      { to: '/docs/implementation-plan', label: 'Implementation plan', icon: Map },
+    ] })
+  }
 
   if (can('users:manage')) {
     sections.push({ title: 'Admin', items: [

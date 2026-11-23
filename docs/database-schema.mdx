@@ -1,0 +1,452 @@
+---
+title: "Koko Atelier CRM: Database Schema"
+description: "Every table, column, relationship, rule and trigger in the Neon Postgres database"
+---
+
+# Koko Atelier CRM: Database Schema (Backend)
+
+| Item | Detail |
+| --- | --- |
+| Engine | Neon Postgres 16 (serverless). Live database `neondb`; development and test database `koko_finance_dev` (same structure) |
+| Baseline | `db/schema.sql` |
+| Migrations | `db/migrations/002…018`, applied by `scripts/migrate.js`, recorded in `schema_migrations` |
+| Snapshot | Structure and row counts read from the live database on 23 November 2026 |
+| Related | [TRD](./technical-requirements.mdx) · [Finance module spec](./finance-module.mdx) |
+
+## 1. Conventions
+
+| Convention | Rule |
+| --- | --- |
+| Names | snake_case tables and columns; plural table names; finance tables prefixed `fin_` |
+| Keys | `SERIAL` / `BIGSERIAL` integer ids; UUIDs (`gen_random_uuid()`) for orders, customers, consignment items and stock pieces |
+| Money | `NUMERIC(12,2)` (CRM) / `NUMERIC(14,2)` (finance); never floats. Retail in PKR (`_pkr` suffix); reseller prices in the reseller's currency |
+| Dates | `DATE` for business dates (Pakistan date); `TIMESTAMPTZ` for events (`created_at`, `at`) |
+| Audit columns | `created_at`, `updated_at` (kept current by `*_touch` triggers), `created_by` / `updated_by` → `users.id` |
+| Enumerations | `TEXT` with `CHECK (… IN (…))` constraints, listed in Section 4 |
+| Rules | Money rules that must never break live in the database (checks, generated columns, triggers), not only in code |
+
+## 2. Domain map
+
+```
+                 users ─── sessions          audit_log (every write)
+                   │
+        ┌──────────┴───────────┐
+   customers ──< orders ──< order_items >── products >── collections
+                   │  └──< customer_payments              │
+                   │  └──< stock_pieces >───────────────────┤
+                   │          └──< stock_movements           │
+   resellers ──< consignments ──< consignment_items >───────┘
+       │   └──< reseller_products (design codes)       │
+       └──< reseller_payments ──< reseller_payment_files│ (payment_id)
+                                                        │
+ FINANCE  fin_settings · fin_accounts · fin_periods · fin_sequences · fin_fx_rates
+          fin_entries ──< fin_lines (→ orders, products, collections, consignment_items)
+          fin_files ── fin_file_blobs ; fin_entry_files
+          fin_suppliers · fin_staff ──< fin_staff_salary
+          fin_expenses (+files) · fin_recurring · fin_claims ──< fin_claim_lines (+files)
+          fin_payroll_runs ──< fin_payroll_lines ──< fin_payroll_hours ; fin_payroll_income (+files)
+          fin_staff_payments ──< fin_staff_payment_parts (+files)
+          fin_intake_items · fin_intake_labels · fin_post_exceptions
+```
+
+`──<` one-to-many · `>──` many-to-one.
+
+## 3. Tables
+
+Row counts are from live on 23 November 2026.
+
+### 3.1 Access and audit
+
+#### `users` (4)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | serial PK | |
+| username | text, not null | Unique, case-insensitive (index on `lower(username)`) |
+| name | text, not null | Display name |
+| email, phone | text | |
+| password_hash | text, not null | scrypt with salt |
+| role | text, not null | owner, manager, staff, reseller, finance |
+| reseller_id | int → resellers | Set for reseller logins; scopes their data |
+| is_active | bool, default true | Inactive users cannot sign in |
+| failed_logins | int, default 0 | 5 → locked |
+| locked_until | timestamptz | |
+| last_login_at, created_at, updated_at | timestamptz | |
+
+#### `sessions` (95)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| token_hash | text PK | SHA-256 of the cookie token; the token itself is never stored |
+| user_id | int → users, not null | |
+| created_at, last_seen_at, expires_at | timestamptz | 14-day sliding expiry |
+
+#### `audit_log` (258)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | bigserial PK | |
+| user_id | int → users | Null for system actions |
+| action | text, not null | e.g. `order.update`, `reseller.statement`, `finance.expense_post` |
+| entity, entity_id | text | What was changed |
+| changes | jsonb | Request body or a summary (never CNICs) |
+| at | timestamptz, default now() | |
+
+#### `schema_migrations` (17)
+
+`name` (PK, migration file name), `applied_at`.
+
+### 3.2 Customers and orders
+
+#### `customers` (75)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid PK | |
+| name | text, not null | Indexed on `lower(name)` |
+| phone | text | Matched on the last 10 digits |
+| email, address, city | text | Default delivery details |
+| created_at, updated_at | timestamptz | |
+
+#### `orders` (89)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid PK | |
+| order_number | text, unique, not null | `SO-000123` from `order_number_seq` |
+| shopify_order_number | text | `#1151`; only when channel = Shopify; unique |
+| shopify_order_id | bigint, unique | Shopify's internal id (imported orders) |
+| channel | text | Studio, WhatsApp, Instagram, Shopify, Other; null on older orders |
+| order_type | text, default Sale | Sale or PR (gift) |
+| pr_handle | text | Influencer handle for PR orders |
+| customer_id | uuid → customers, not null | |
+| reference | text | How the sale came in |
+| status | text, default New | See Section 4 |
+| order_date, delivery_date | date | |
+| amount_pkr | numeric, default 0 | Order total |
+| advance_paid_pkr | numeric, default 0 | **Always = sum of `customer_payments.amount`** (trigger) |
+| balance_due_pkr | numeric, generated | `amount − advance`, or 0 when Cancelled / Returned |
+| delivery_address, delivery_city | text | Snapshot for this order |
+| measurements | jsonb, default `{}` | Standard measurement fields |
+| payment_notes, special_instructions | text | |
+| paid_on | date | Revenue date: set when the order becomes Paid |
+| paid_on_inferred | bool | True for orders paid before 018 (date estimated) |
+| status_changed_on | date | Date of the last status change (returns, cancellations) |
+| tracking_number | text | Trax tracking number |
+| created_at, updated_at, created_by, updated_by | | |
+
+Checks: PR orders have `amount_pkr = 0` and `advance_paid_pkr = 0`; only Shopify orders carry Shopify numbers.
+
+#### `order_items` (95)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | serial PK | |
+| order_id | uuid → orders, cascade delete | |
+| product_id | int → products | Null only if the product couldn't be identified |
+| description | text | Original wording, e.g. "[Customized size]" |
+| size | text | |
+| quantity | int, default 1, > 0 | |
+| unit_price_pkr | numeric | |
+
+#### `customer_payments` (86) · migration 018
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | serial PK | |
+| order_id | uuid → orders, cascade delete | |
+| paid_on | date, not null | |
+| amount | numeric, not null, ≠ 0 | Negative = refund |
+| method | text, default bank | bank, cash, trax_cod, director_omer, director_usman |
+| method_confirmed | bool, default true | False when recorded from the order form or migrated (shown "check") |
+| reference, notes | text | |
+| source | text | manual, order_screen, migrated |
+| created_by, created_at | | |
+
+### 3.3 Catalogue
+
+#### `collections` (14)
+
+`id` serial PK · `name` text unique (exact website title) · `created_at`.
+
+#### `products` (100)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | serial PK | |
+| collection_id | int → collections | |
+| name | text, unique, not null | Exact website product title |
+| shopify_handle | text | |
+| price_pkr, compare_at_pkr | numeric | Website price and compare-at |
+| image_url | text | Main image |
+| images | text[] | Up to 4 Shopify CDN URLs (007) |
+| tagline | text | First sentence of the description; app edits are never overwritten by sync |
+| is_active | bool | |
+| created_at | timestamptz | |
+
+### 3.4 Studio inventory (migration 008, 009, 012)
+
+#### `stock_pieces` (36)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid PK | One row per physical piece |
+| product_id | int → products, not null | |
+| size | text, not null | X-Small, Small, Medium, Large, X-Large, Custom |
+| kind | text, default Stock | Stock or Sample |
+| status | text, default At Studio | See Section 4 |
+| source | text, default Made | Made, Opening count, Reseller return, Customer return |
+| consignment_item_id | uuid → consignment_items, unique | When the piece went to a reseller |
+| order_id | uuid → orders | Reserved for / sold on an order |
+| location_note, notes, move_note | text | |
+| made_on | date | |
+| damaged | bool, default false | Damaged-for-sale label (still sellable) |
+| damage_note | text | |
+| asking_price_pkr | numeric | Price for a damaged piece |
+| created_by, updated_by, created_at, updated_at | | |
+
+#### `stock_movements` (39)
+
+`id` serial PK · `piece_id` uuid → stock_pieces · `from_status` (null when created) · `to_status` · `note` · `user_id` → users · `at`. Written by the `stock_pieces_log` trigger on every insert and status change.
+
+### 3.5 Resellers (consignment)
+
+#### `resellers` (1)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | serial PK | |
+| name | text, unique | Collage Fashions |
+| address, city, country | text | |
+| currency | char(3), default AED | |
+| commission_pct | numeric, 0–100 | Current rate; copied to each handover |
+| code_prefix | text | Barcode prefix, e.g. KOATLR (011) |
+| next_code | int, default 1 | Next design number (currently 16) |
+| created_at | timestamptz | |
+
+#### `consignments` (2)
+
+`id` serial PK · `reseller_id` → resellers · `handover_date` date · `commission_pct` (fixed for this handover) · `notes` · `created_by`, `created_at`.
+
+#### `consignment_items` (40)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | uuid PK | One row per piece handed over |
+| consignment_id | int → consignments, cascade delete | |
+| product_id | int → products | |
+| size | text | |
+| price | numeric | In the reseller's currency |
+| designer_discount, reseller_discount | numeric, default 0 | (002) |
+| alteration_charge | numeric, default 0 | Deducted from what Koko receives |
+| status | text, default At Store | At Store, Sold, Paid, Returned |
+| sold_on, paid_on, returned_on | date | |
+| reseller_invoice_no | text | |
+| payment_id | int → reseller_payments | Which payment settled it |
+| return_reason | text | |
+| notes, updated_by, created_at, updated_at | | |
+
+#### `reseller_products` (15)
+
+Design codes per reseller. PK (`reseller_id`, `product_id`) · `reseller_code` text (e.g. KOATLR-011); till barcode adds the size suffix.
+
+#### `reseller_payments` (2)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | serial PK | |
+| reseller_id | int → resellers | |
+| paid_on | date | |
+| amount | numeric | In `currency` |
+| currency | char(3) | |
+| amount_pkr | numeric | Rupees that reached the bank (010) |
+| period | date | First day of the month it pays for |
+| reference, notes | text | Hidden from reseller logins |
+| difference_reason | text | Why the amount differs from the statement |
+| created_by, created_at | | |
+
+#### `reseller_payment_files` (2)
+
+Proof files stored in the database: `id`, `payment_id` → reseller_payments, `name`, `mime`, `size`, `data` bytea, `created_by`, `created_at`.
+
+### 3.6 Finance: core ledger (migration 013, 014)
+
+#### `fin_settings` (1 row)
+
+| Column | Notes |
+| --- | --- |
+| id | Always true (single row) |
+| company_name | Koko Atelier (Private) Limited |
+| base_currency | PKR |
+| go_live_date | 2026-07-01 (events before it are in the opening balances) |
+| revenue_event | `paid` (revenue when the order is Paid) |
+| reporting_framework | IFRS_SMES, AFRS_SSE or IFRS |
+| accounting_policies | Text for the notes |
+| tax_enabled, tax_enabled_from, sales_tax_registered, ntn, strn | Tax hooks (off until F7) |
+| capitalisation_threshold | 25,000: expenses above suggest a fixed asset (015) |
+| working_days_per_week | 6 (payroll) |
+| updated_at | |
+
+#### `fin_accounts` (77)
+
+| Column | Notes |
+| --- | --- |
+| id, code (4 digits or `4200-01`), name | |
+| type | asset, liability, equity, income, cogs, expense, tax |
+| parent_id | → fin_accounts (sub-accounts) |
+| system_key | Stable key the code uses (e.g. `bank_baf`, `customer_advances`, `sales_retail`) |
+| is_control | Only the system posts (receivables, payables, advances, inventory) |
+| is_contra, is_tax, is_active | |
+| currency | PKR |
+| fs_line, is_current, cash_flow_class | Financial statement mapping and IAS 7 class |
+| description, created_at | |
+
+The full chart is in the [finance spec, Section 5](./finance-module.mdx).
+
+#### `fin_periods` (13 per fiscal year)
+
+`id` · `fiscal_year` ('2026-27') · `period_no` (1–12, 13 = adjustments) · `name` ('Jul 2026') · `starts_on`, `ends_on` · `is_adjustment` · `status` (Open, Closed, Locked) · `closed_by`, `closed_at`.
+
+#### `fin_sequences`
+
+PK (`prefix`, `fiscal_year`) · `last_no`. Entry numbers `JV-2627-000001`.
+
+#### `fin_entries` (14)
+
+| Column | Notes |
+| --- | --- |
+| id | bigserial PK |
+| entry_no | Assigned when posted |
+| entry_type | JV, OB, SI, RC, EX, PY, PU, IN, BK, TX, CL |
+| entry_date, period_id | Period found from the date |
+| memo | |
+| source_type, source_id, source_event | What posted it (e.g. `order` / id / `revenue`); unique among non-reversed entries, so nothing posts twice |
+| status | Draft, Posted, Reversed |
+| reversal_of, reversed_by | Links between an entry and its reversal |
+| override_reason | Required when an owner posts into a Closed period |
+| created_by, posted_by, posted_at, created_at | |
+
+#### `fin_lines` (28)
+
+| Column | Notes |
+| --- | --- |
+| id, entry_id → fin_entries, line_no | |
+| account_id | → fin_accounts |
+| debit, credit | One of them > 0 |
+| currency, amount_fc, fx_rate | Foreign amount and rate (reseller AED) |
+| party_type, party_id | customer, reseller, supplier, staff, director, courier |
+| order_id, product_id, collection_id, consignment_item_id | Tags for analysis (FK; an order in the books cannot be deleted) |
+| tax_code | Hook for F7 |
+| description | |
+
+#### `fin_fx_rates`
+
+PK (`rate_date`, `currency`) · `rate_to_pkr`. The rate for a date is the latest on or before it.
+
+#### Files: `fin_files`, `fin_file_blobs`, `fin_entry_files`
+
+`fin_files`: `id`, `name`, `mime`, `size`, `sha256` (unique: same file stored once), `storage` ('db'), `external_id` (for Google Drive later), `folder` ('Payroll/2026-11'), `created_by`, `created_at`. `fin_file_blobs`: `file_id` PK, `data` bytea. `fin_entry_files`: links files to entries.
+
+### 3.7 Finance: expenses, staff, payroll (migration 015, 016)
+
+| Table | Key columns |
+| --- | --- |
+| `fin_suppliers` | name (unique), phone, cnic_ntn, strn, atl_status, atl_checked_on, wht_category, default_account_id → fin_accounts, is_related_party, notes, is_active |
+| `fin_staff` (5) | name (unique), role_title, pay_type (weekly_salary, per_piece_external), is_production (wages to cost of sales), hours_per_day, cnic (never listed), payment_method, is_active, notes, aliases text[] (other spellings for screenshot matching) |
+| `fin_staff_salary` | staff_id, weekly_salary, effective_from (history) |
+| `fin_expenses` | expense_date, supplier_id, account_id (category), amount, tax_amount, paid_from (bank, cash, director_omer, director_usman, unpaid), description, reference, collection_id, order_id, status (Draft, Posted, Void), recurring_id, recurring_month, entry_id, paid_entry_id, paid_on |
+| `fin_expense_files` | expense_id, file_id |
+| `fin_recurring` | name, account_id, supplier_id, amount, day_of_month (1–28), paid_from, is_active, last_generated_month |
+| `fin_claims` | staff_id, week_ending, status (Submitted, Approved, Paid, Rejected), notes, approved_entry_id, approved_by, approved_at |
+| `fin_claim_lines` | claim_id, line_no, account_id, description, amount |
+| `fin_claim_files` | claim_id, file_id |
+| `fin_payroll_runs` | week_ending (unique, Saturday), status (Draft, Posted), notes, posted_by, posted_at |
+| `fin_payroll_lines` | run_id, staff_id (unique per run), weekly_salary, days_present, hours_worked, gross_pay, advance_recovered (≤ gross), notes |
+| `fin_payroll_hours` | line_id, job_type (order, batch, sample, other, idle), order_id, collection_id, description, hours |
+| `fin_payroll_income` | run_id, staff_id, kind (custom_work, commission), description, pieces, amount, received_into |
+| `fin_payroll_files` | run_id, file_id |
+| `fin_staff_payments` | staff_id, paid_on, paid_from, amount, reference (unique among posted), notes, entry_id, status (Posted, Void) |
+| `fin_staff_payment_parts` | payment_id, kind (salary, claim, advance), payroll_line_id, claim_id, amount; parts add up to the payment |
+| `fin_staff_payment_files` | payment_id, file_id |
+
+### 3.8 Finance: intake and posting (migration 017, 018)
+
+| Table | Key columns |
+| --- | --- |
+| `fin_intake_labels` (16) | label (unique), kind (salary, claim, advance, expense, owner_funding, ignore), account_id, is_active: the sticker-note words |
+| `fin_intake_items` | file_id (unique), status (New, Ready, Needs attention, Posted, Parked, Rejected, Duplicate), extracted jsonb (names + last 4 digits only), kind, proposal jsonb, confidence, issues text[], bank_ref (unique among open items), txn_date, amount, duplicate_of, read_by (vision, hand), read_error, read_at, result_type, result_id, entry_id, note, reviewed_by, reviewed_at |
+| `fin_post_exceptions` | PK (source_type, source_id), label, error, attempts, first_at, last_at: postings waiting for a retry |
+
+## 4. Enumerations
+
+| Field | Values |
+| --- | --- |
+| `orders.status` | New, In Tailoring, Ready, Payment Pending, Paid, Out for Delivery, Returned, Cancelled |
+| `orders.channel` | Studio, WhatsApp, Instagram, Shopify, Other |
+| `orders.order_type` | Sale, PR |
+| `customer_payments.method` | bank, cash, trax_cod, director_omer, director_usman |
+| `consignment_items.status` | At Store, Sold, Paid, Returned |
+| `stock_pieces.status` | In Production, At Studio, At Shoot, With Reseller, Sold, Gifted, Archived, Damaged |
+| `stock_pieces.kind` | Stock, Sample |
+| `stock_pieces.source` | Made, Opening count, Reseller return, Customer return |
+| `stock_pieces.size` | X-Small, Small, Medium, Large, X-Large, Custom |
+| `users.role` | owner, manager, staff, reseller, finance |
+| `fin_entries.entry_type` | JV journal, OB opening, SI sale, RC receipt, EX expense, PY payroll, PU purchase, IN inventory, BK bank, TX tax, CL closing |
+| `fin_entries.status` | Draft, Posted, Reversed |
+| `fin_periods.status` | Open, Closed, Locked |
+| `fin_accounts.type` | asset, liability, equity, income, cogs, expense, tax |
+
+## 5. Views
+
+| View | Purpose |
+| --- | --- |
+| `consignment_items_detail` | One row per reseller piece with handover date, commission %, reseller name and currency, product name, design code, `net_price` (price − discounts), `commission_amount`, `net_to_koko` (net − commission − alteration). Note: it predates `payment_id` and `return_reason`; join `consignment_items` for those |
+
+## 6. Triggers and database rules
+
+| Table | Trigger / rule | What it does |
+| --- | --- | --- |
+| customers, orders, consignment_items, stock_pieces, users | `*_touch` (before update) | Keeps `updated_at` current |
+| orders | `balance_due_pkr` (generated) | amount − advance; 0 when Cancelled / Returned |
+| orders | `orders_pr_free_chk` (check) | PR orders always free |
+| orders | `orders_status_dates` (before insert/update) | Sets `status_changed_on`; sets `paid_on` when the order becomes Paid |
+| orders | `orders_advance_to_payment` (after insert/update of advance) | Any change to the advance made outside the payments table becomes a payment row |
+| customer_payments | `customer_payments_sync` (after insert/update/delete) | `orders.advance_paid_pkr` = sum of payments |
+| stock_pieces | `stock_pieces_log` (after insert/update) | Writes `stock_movements` |
+| fin_entries | `fin_entries_guard` (before insert/update) | Numbering on post; posted entries immutable except Posted → Reversed; period must be Open (owner may post into Closed with a reason via `set_config('koko.role')`); Locked refuses |
+| fin_entries | `fin_entries_balanced` (deferred constraint trigger) | Debits = credits for every posted entry at commit |
+| fin_entries | `fin_entries_no_delete` | Only drafts can be deleted |
+| fin_lines | `fin_lines_guard` | Lines of posted entries cannot change; control accounts blocked in manual journals |
+| fin_accounts | `fin_accounts_guard` | An account with postings cannot be deleted (make it inactive) and its code and type cannot change |
+| fin_entries | unique index on (source_type, source_id, source_event) where not Reversed | The same business event never posts twice |
+
+## 7. Migration history
+
+| # | File | Change |
+| --- | --- | --- |
+| baseline | `schema.sql` | collections, products, customers, orders, order_items, resellers, consignments, consignment_items, detail view, touch triggers |
+| 002 | consignment_discounts | Designer / reseller discounts, alteration, invoice no.; reseller codes in the view |
+| 003 | users_auth_audit | users, sessions, audit_log, created_by / updated_by |
+| 004 | reseller_payments | Reseller payments linked to the pieces they settle; return reasons |
+| 005 | clear_settled_balances | Paid orders settled in full, Cancelled / Returned owe nothing; every changed advance recorded in the audit log |
+| 006 | sales_channel | `orders.channel`, Shopify order id |
+| 007 | product_gallery | `products.images`, `tagline` |
+| 008 | inventory | stock_pieces, stock_movements |
+| 009 | pr_orders | Order type Sale / PR, Gifted status |
+| 010 | reseller_payment_details | Period, PKR received, difference reason, proof files |
+| 011 | reseller_code_numbering | Barcode prefix and next number |
+| 012 | damaged_for_sale | Damaged label, note, asking price |
+| 013 | finance_core | Ledger, accounts, periods, files, rules |
+| 014 | finance_manager_role | `finance` role; contra accounts in operating cash flows |
+| 015 | fin_expenses_payroll | Suppliers, staff, expenses, claims, recurring, payroll, staff payments |
+| 016 | fin_staff_current | Current studio staff and other spellings |
+| 017 | fin_intake | Receipt and screenshot inbox, sticker-note words |
+| 018 | fin_sales | customer_payments, paid / status dates, tracking number, posting exceptions |
+
+## 8. Working with the database
+
+- Add a table or column only through a new migration file, and add one line to the `db/schema.sql` header.
+- Run migrations with `node scripts/migrate.js` after fingerprinting live data; check `--status` first.
+- Rehearse risky migrations on `koko_finance_dev` after copying live data (`node scripts/finance-copy-live.js`).
+- Never run tests or scripts that post journals against `neondb`.
+- Indexes worth knowing: `orders(status)`, `orders(customer_id)`, `customers(lower(name))`, `customers(phone)`, `consignment_items(status)`, `fin_lines(order_id)`, `fin_lines(collection_id)`, `customer_payments(order_id)`, `fin_intake_items(status, created_at)`.

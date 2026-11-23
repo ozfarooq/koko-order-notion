@@ -43,6 +43,7 @@ const PayrollWeek     = lazy(() => import('./pages/finance/Payroll').then((m) =>
 const People          = lazy(() => import('./pages/finance/People'))
 const FinanceInbox    = lazy(() => import('./pages/finance/Inbox'))
 const FinanceSales    = lazy(() => import('./pages/finance/Sales'))
+const DocPage         = lazy(() => import('./pages/docs/DocPage'))
 const Inventory       = lazy(() => import('./pages/inventory/Inventory'))
 
 function Spinner({ full }) {
@@ -151,6 +152,7 @@ export default function App() {
                 <Route path="/reports/fc-inventory" element={<LegacyReseller to="/reports/inventory" />} />
                 <Route path="/reports/fc-photos" element={<LegacyReseller to="/reports/product-sheet" />} />
 
+                <Route path="/docs/:slug" element={<Require permission="docs:read"><DocPage /></Require>} />
                 <Route path="/users" element={<Require permission="users:manage"><Users /></Require>} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

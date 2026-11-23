@@ -1,0 +1,292 @@
+---
+title: "Koko Atelier CRM: App Flow Document"
+description: "Screens, navigation, and the step-by-step flows for every role"
+---
+
+# Koko Atelier CRM: App Flow Document
+
+| Item | Detail |
+| --- | --- |
+| Version | 1.0 · 23 November 2026 |
+| Audience | Product owner, designers, developers, support |
+| Related | [PRD](./product-requirements.mdx) · [TRD](./technical-requirements.mdx) · [Design brief](./design-brief.mdx) |
+
+This document maps every screen and how people move through them. Flows are written as numbered steps; system actions (what the app does on its own) are in *italics*.
+
+## 1. Entry and navigation
+
+### 1.1 Sign-in
+
+1. User opens the app. *If there is no valid session, the sign-in page opens.*
+2. The sign-in page shows the Koko wordmark and a lookbook of photos from the three newest collections (public `/api/lookbook`).
+3. User enters username and password.
+   - *Wrong password: "Wrong username or password". After 5 failures the account is locked for 15 minutes.*
+4. *On success the app opens the role's home page:*
+
+| Role | Home page |
+| --- | --- |
+| Owner, Manager, Staff | `/dashboard` |
+| Finance Manager | `/finance/reports` |
+| Reseller | `/resellers/:id` (their own dashboard) |
+
+5. Users can change their password from the sidebar footer; "Log out" ends the session.
+
+### 1.2 Layout
+
+```
+┌──────────────┬──────────────────────────────────────────────┐
+│  KOKO  CRM   │  Search (Ctrl K)                    ◐ theme  │
+│──────────────│──────────────────────────────────────────────│
+│ RETAIL       │                                              │
+│  Dashboard   │   Eyebrow                                    │
+│  Orders      │   Page title                    [actions]    │
+│  Status Board│   Subtitle                                   │
+│  New Order   │                                              │
+│  Customers   │   Content (cards, tables, tabs)              │
+│  Catalogue   │                                              │
+│ STUDIO       │                                              │
+│  Inventory   │                                              │
+│ RESELLERS    │                                              │
+│  Collage ▾   │                                              │
+│ FINANCE      │                                              │
+│ HELP · ADMIN │                                              │
+│──────────────│                                              │
+│ Name · ROLE  │                                              │
+└──────────────┴──────────────────────────────────────────────┘
+```
+
+- **Desktop:** dark ink sidebar, collapsible. Active item marked in champagne.
+- **Phone:** bottom tab bar with the main items and a "More" sheet; dialogs open as bottom sheets.
+- **Command palette (Ctrl+K):** search orders, customers and products; jump to any menu item. Results are filtered by permission.
+- **Menu** is built from one model (`src/app/nav.js`) and filtered by role:
+
+| Section | Items | Who sees it |
+| --- | --- | --- |
+| Retail | Dashboard, Orders, Status Board, New Order, Customers, Catalogue | owner, manager, staff |
+| Studio | Inventory | owner, manager, staff |
+| Resellers | one group per reseller: Dashboard, Stock, Handovers, Statements, Inventory report, Product sheet, Reseller help, Settings | owner, manager, staff (Statements need money access; Settings owner only); a reseller sees only their own group |
+| Finance | Inbox, Sales & receipts, Expenses, Studio claims, Payroll, Staff & suppliers, Reports, Ledgers, Journals, Finance settings | owner, Finance Manager |
+| Help | Help (system guide) | everyone except resellers |
+| Admin | Users, Add reseller | owner |
+
+## 2. Screen inventory
+
+| Area | Route | Screen |
+| --- | --- | --- |
+| Auth | `/login` | Sign-in with lookbook |
+| Retail | `/dashboard` | Business dashboard |
+| | `/orders` | Orders list (search, status and date filters, period summary, courier export, website import) |
+| | `/orders/new`, `/orders/:id/edit` | Order form |
+| | `/orders/:id` | Order detail (items, customer, payment and payments list, delivery, activity) |
+| | `/kanban` | Status board (drag between statuses) |
+| | `/board` | Read-only status board (signed-in users with orders access) |
+| | `/customers`, `/customers/:id` | Customer list and profile |
+| | `/catalogue`, `/catalogue/collections/:id`, `/catalogue/products/:id` | Collections, collection, product page |
+| Studio | `/inventory` | Samples · Studio stock · Being made |
+| Resellers | `/resellers/:id` | Reseller dashboard (sales by month, payment due) |
+| | `/resellers/:id/stock` | Stock (At store, Sold, Paid, Returned; Back to studio) |
+| | `/resellers/:id/handovers` | Handovers |
+| | `/resellers/:id/statements` | Month summary, enter sales, import sheet, payments |
+| | `/resellers/:id/reports/inventory`, `/reports/product-sheet` | Inventory report, product sheet with photos and codes |
+| | `/resellers/:id/help` | Reseller and team guide |
+| | `/resellers/:id/settings` | Commission, currency, barcode prefix, design codes |
+| | `/resellers/new` | Add reseller |
+| Finance | `/finance/inbox` | Receipt and screenshot inbox |
+| | `/finance/sales` | Posting status, receivables, exchange rates |
+| | `/finance/expenses` | Expenses, recurring bills, spending |
+| | `/finance/claims` | Studio claims |
+| | `/finance/payroll`, `/finance/payroll/:id` | Payroll weeks, payments to staff; one week |
+| | `/finance/people` | Staff and suppliers, statements |
+| | `/finance/reports` | Trial balance, P&L, balance sheet, cash flows, equity |
+| | `/finance/ledgers` | Account ledger |
+| | `/finance/journals`, `/new`, `/:id`, `/:id/edit` | Journals, journal editor, entry view |
+| | `/finance/settings` | Accounts, periods, opening balances, settings |
+| Other | `/help` | System help |
+| | `/users` | Users (owner) |
+
+Old links `/fashion-collage` and `/reports/fc-*` redirect to the reseller pages; unknown paths go to the home page.
+
+## 3. Retail flows
+
+### 3.1 Create an order (studio, WhatsApp, Instagram)
+
+1. **New Order** (menu, or "Sell this piece" from Inventory).
+2. **Customer:** type a name or phone. *The picker finds existing customers by name or the last 10 digits of the phone.* Pick one or keep typing to create a new customer.
+3. **Channel** (required): Studio, WhatsApp, Instagram, Shopify (with website order number), Other. **Reference:** how the sale came in (Walk-in, Outstation, a person).
+4. **Items:** search the catalogue (photo, collection, price). Set size and quantity; price defaults to the list price.
+   - *If a matching studio piece exists (sample, return, damaged-for-sale), the line can be filled from it; damaged pieces are never picked automatically.*
+5. **Order type:** Sale, or PR / gift (influencer handle; amount and advance forced to 0).
+6. **Dates:** order date (today), delivery date.
+7. **Delivery address and city** (defaults from the customer).
+8. **Measurements** (optional, standard fields).
+9. **Payment:** total amount, advance received, payment notes. *The advance becomes a payment row (method assumed bank, marked "check").*
+10. **Save.** *Order number SO-000123 is assigned; the order opens; audit entry written; finance posts the advance as a customer advance.*
+
+### 3.2 Import website orders (Shopify)
+
+1. Orders › **Import from website**.
+2. *The app lists website orders from the last 60 days that are not yet in the CRM.*
+3. Tick the orders to bring in → **Import**.
+4. *Each becomes an order with channel Shopify and its #number; customer matched or created.*
+
+### 3.3 Work an order through production
+
+```
+New ──► In Tailoring ──► Ready ──► Payment Pending ──► Paid ──► Out for Delivery
+  │                                                    │
+  └──────────────► Cancelled                           └──► Returned
+```
+
+1. Change status from the order page (status menu) or by dragging on the **Status Board**.
+2. *Status change is audited; `status_changed_on` set.*
+3. **Paid:** *the advance is topped up to the total (a "final payment" row), `paid_on` = today, studio pieces on the order become Sold, finance posts the sale (Dr customer advances, Cr sales).*
+4. **Out for Delivery:** *studio pieces on the order become Sold (Gifted for PR).*
+5. **Returned:** *the sale is reversed in the accounts; studio pieces go back to the studio; the app offers to add the returned items to studio stock as "Customer return".*
+6. **Cancelled:** *reserved studio pieces are freed; any advance shows under Finance › Sales & receipts as a refund due.*
+
+### 3.4 Record a payment or refund
+
+1. Order page › Payment card › **Record**.
+2. Amount (defaults to the balance), date, paid into (Bank Alfalah, Cash, Trax COD, paid to Omer / Usman), reference, notes. Tick "This is a refund" for money going back.
+3. **Save.** *Payment row added; advance = sum of payments; balance updates; finance posts the receipt (or refund).*
+4. To correct a payment, tap it (change method, amount, date) or **Remove** it. *The accounting entry is reversed and reposted.*
+
+### 3.5 Delivery and documents
+
+1. Order page › **PDF**: branded receipt with photos, measurements, totals.
+2. Orders list › select orders › **Courier Excel** for Trax booking.
+3. Order page › Delivery card › **Trax tracking** (add or change).
+
+### 3.6 Customers
+
+1. **Customers** list: search by name, phone, city or email; sort by most recent order, total spend, balance due, number of orders or name.
+2. Profile: contact, orders, totals, measurements; edit details.
+3. **Merge** a duplicate into the right profile (orders move across).
+
+## 4. Catalogue flows
+
+1. **Catalogue › Sync from website**: *reads collections and products from kokoatelier.com, shows what is new or changed; owner applies.*
+2. **Import CSV** for pieces not on the website.
+3. Product page: gallery, tagline (editable), where the design is (stock, resellers), reseller codes.
+
+## 5. Studio inventory flows
+
+### 5.1 Add pieces
+
+1. **Inventory › Add pieces** (or **Bulk add**): product, sizes and counts, kind (Stock / Sample), status (In Production, At Studio, At Shoot), source.
+2. *One record per piece; every status change is logged in the piece history.*
+
+### 5.2 Move and sell
+
+1. Open a piece: move status (At Studio ↔ At Shoot, Archived, Damaged written off, Gifted with a "given to" note).
+2. **Damaged-for-sale:** mark damaged with a note and an asking price; the piece stays sellable.
+3. **Sell this piece:** *opens New Order with a line pinned to that piece.*
+
+## 6. Reseller flows (Koko team)
+
+### 6.1 Hand over stock
+
+```
+Studio pieces ──► Handover (date, commission %) ──► At Store at the reseller
+                                                     │
+                       monthly statement ──► Sold ───┤
+                       payment received  ──► Paid ───┘
+                       returned          ──► Returned ──► Back to studio (optional)
+```
+
+1. Reseller › **Handovers** › New handover: date, commission % (copied from the reseller), pieces (product, size, price in AED).
+2. *The oldest At Studio piece of that product and size is used (FIFO); otherwise a newly made piece is recorded as With Reseller.*
+3. *Designs new to this reseller are listed as needing a barcode once the shipment is approved.*
+
+### 6.2 Barcodes
+
+1. Reseller › **Settings** › Design codes: set prefix (KOATLR) and next number (16).
+2. Type the reseller's confirmed code for a design, or give the next number. *Till barcode = code + size (KOATLR-011-S).*
+
+### 6.3 Monthly statement
+
+1. Reseller › **Statements** › **Enter sales**: pick outfits from the collection picker (photos), set sold date, discounts, alteration, invoice number. Or **Import sheet** (the reseller's Excel): *rows are matched to pieces by code and size; review then apply.*
+2. *Pieces move to Sold; month summary updates; finance posts each sale at the AED rate of its sale date.*
+3. **Download PDF** of the month's statement.
+
+### 6.4 Payment from the reseller
+
+1. Statements › **Payments** › Record payment: date, AED amount, PKR received, period (month), reference, difference reason, proof files; choose the sold pieces it pays.
+2. *Pieces move to Paid; month shows paid; finance posts the receipt, clears what was owed and books the exchange difference.*
+
+### 6.5 Returns
+
+1. Stock › select At Store pieces › **Returned** (reason), or **Back to studio** (optionally damaged, with note and asking price).
+2. *Returned pieces leave the reseller; Back to studio creates an At Studio piece (source Reseller return). A sale already posted is reversed.*
+3. *Sold, Paid and returned-to-studio pieces are locked from edits.*
+
+## 7. Reseller portal (Fashion Collage login)
+
+1. Sign in → **their dashboard**: sales by month, what is due, payment-due banner.
+2. **My Stock**: what is at the store, sold and paid.
+3. **Statements**: month summaries and payments received (no Koko notes, references or proof files).
+4. **Inventory report**, **Product sheet** (photos and codes), **Help**.
+5. *Everything is view-only; no buttons that change data are shown.*
+
+## 8. Finance flows (owner, Finance Manager)
+
+### 8.1 Daily: expenses and receipts
+
+1. **Expenses › Add expense** (phone friendly): amount, date, what for, category, paid from (bank, petty cash, Omer / Usman personally, not paid yet), supplier (or new), reference, collection, receipt photo. *Posted at once; a hint suggests a fixed-asset category at Rs 25,000 or more.*
+2. Unpaid bill → later **Pay bill** (date, account, reference).
+3. Correct or void → *reversal and repost.*
+
+### 8.2 Inbox (receipts and bank screenshots)
+
+```
+Upload files ─► Read (Claude vision, or type in) ─► Classify ─► Review beside picture ─► Approve
+                                                       │                                   │
+                                            Duplicate / Needs attention         Expense, staff payment
+                                            / Parked (money coming in)          or funds added posted;
+                                                                                file renamed and filed
+```
+
+1. **Inbox › Add receipts & screenshots** (many at once). *Same file twice is caught.*
+2. *Each file is read automatically (when the API key is set), or the user taps "Type the details in".*
+3. *Rules classify:* director → Koko = funds added; Koko → staff = staff payment split by sticker words (Salary, Market, Advance); Koko → anyone else or a shop receipt = expense; money coming in = parked for F3 matching.
+4. Open an item: picture on the left, proposed entry on the right; fix anything, then **Approve & post**. Or **Park**, **Reject**.
+5. **Approve sure ones**: posts all ready items read with 85%+ confidence.
+
+### 8.3 Weekly: studio claim and payroll
+
+1. **Studio claims › New claim**: who, week ending (Saturday), items with category and amount, receipt photos → Submit. Owner **Approves** (*booked*) or rejects.
+2. **Payroll › Start this week** (week ending Saturday). *Everyone on a weekly salary is filled in at full attendance.*
+3. Adjust days present, pay, advance recovered; split hours by job; add custom-work and commission income → **Post week**. *Wages booked; a week over a month end is split by working days.*
+4. **Payments to staff › Pay someone**: tick the weeks and approved claims the transfer covers, add an advance, reference, screenshot → **Record**. *One bank payment settles salary and claim together.*
+
+### 8.4 Sales & receipts
+
+1. **Posting status:** *orders, payments and reseller statements post on their own.* Anything waiting (missing exchange rate, closed month) is listed with **Retry**. **Check everything now** re-compares all orders and reseller statements with the books.
+2. **Missing rates:** type the AED rate for each listed date → *waiting sales post.*
+3. **Refunds due:** cancelled or returned orders still holding an advance → **Refund** (record on the order) or **Keep** (owner, with reason).
+4. **Receivables:** reseller ageing (0–30, 31–60, 61–90, 90+ days), open customer orders, advances check.
+5. **Exchange rates:** add or delete daily rates.
+
+### 8.5 Month end and reports
+
+1. **Reports:** trial balance, P&L (compare previous / last year), balance sheet, cash flows, changes in equity; Excel and PDF export; click a figure to open its ledger.
+2. **Ledgers:** any account, running balance, quick picks (bank, petty cash, directors, customer advances).
+3. **Journals:** manual journals (control accounts blocked), drafts, post, reverse with reason.
+4. **Finance settings:** chart of accounts, periods (Open → Closed → Locked; owner can post into Closed with a reason), opening balances (grid or Excel template), company settings.
+
+## 9. Admin flows
+
+1. **Users › Add user**: name, username, password, role; for a reseller login, link the reseller. Deactivate users who leave.
+2. **Add reseller**: name, city, country, currency, commission %, barcode prefix.
+
+## 10. System behaviours users should know
+
+| Event | What the app does |
+| --- | --- |
+| Any save | Audit log entry (who, what, when) |
+| Advance changed on the order form | A payment row is recorded (method to confirm) |
+| Order or reseller change | Finance re-checks that order or reseller and posts the difference; never blocks the save |
+| Delete an order already in the accounts | Refused: cancel it instead |
+| Reseller sale in a closed month | Posted into the next open month, sale month in the memo |
+| File uploaded twice | Recognised by fingerprint, stored once |
+| Session idle 14 days | Signed out |

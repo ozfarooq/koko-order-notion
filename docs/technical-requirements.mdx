@@ -1,0 +1,229 @@
+---
+title: "Koko Atelier CRM: Technical Requirements Document"
+description: "Architecture, stack, conventions, security, integrations, testing and operations"
+---
+
+# Koko Atelier CRM: Technical Requirements Document (TRD)
+
+| Item | Detail |
+| --- | --- |
+| Repository | `ozfarooq/koko-order-notion` (branch `master`; every push deploys) |
+| Version | 1.0 · 23 November 2026 |
+| Audience | Developers and Claude Code working in this repository |
+| Related | [PRD](./product-requirements.mdx) · [Database schema](./database-schema.mdx) · [App flow](./app-flow.mdx) · [Implementation plan](./implementation-plan.mdx) · [Finance module spec](./finance-module.mdx) |
+
+## 1. Architecture overview
+
+```
+ Browser (React SPA, Vite build in dist/)
+   │  fetch /api/...  (cookie: koko_session)
+   ▼
+ Vercel ── rewrites /api/(.*) → api/index.js  (one serverless function, maxDuration 60 s)
+   │                                  │
+   │                                  ▼
+   │                         lib/router.js  ── route table: method, path, permission, handler
+   │                                  │          auth.audit() after every write
+   │                                  ▼
+   │                 lib/*.js domain modules (db, customers, catalog, inventory, resellers, shopify,
+   │                 dashboard, auth) and lib/finance/*.js (ledger, reports, expenses, payroll,
+   │                 intake, vision, sales, posting, files, money)
+   │                                  │
+   │                                  ▼
+   │                     Neon Postgres (serverless driver over HTTPS; WebSocket Pool for scripts)
+   │
+   └── static SPA served from dist/; all other paths rewrite to index.html
+
+ External: Shopify (storefront JSON + Dev Dashboard app, read-only) · Anthropic Claude API (vision)
+ Local dev: server.js (Express) mounts the same router on API_PORT (default 3002); Vite proxies /api
+```
+
+Single deployable: one front-end bundle and one API function. No queues, workers or caches; anything long (backfill, migrations) runs as a Node script from a developer machine.
+
+## 2. Technology stack
+
+| Layer | Choice | Notes |
+| --- | --- | --- |
+| UI | React 18, react-router 6 | SPA; pages lazy-loaded with `React.lazy` |
+| Build | Vite 5 | `npm run build` → `dist/` |
+| Styling | Tailwind CSS 3 + CSS variables | Design tokens in `tailwind.config.js` and `src/index.css` (see [Design brief](./design-brief.mdx)) |
+| Motion | framer-motion | Page and list transitions, modal sheets |
+| Icons | lucide-react | Outline icons only |
+| Charts | recharts | Dashboard |
+| Toasts | sonner | Success and error messages |
+| Command palette | cmdk | Ctrl+K search across orders, customers, products |
+| Drag and drop | @dnd-kit | Status board |
+| Spreadsheets | xlsx (SheetJS) | Courier booking export, reseller sheet import, finance exports |
+| PDF | jsPDF + html2canvas | Order receipts, reseller statements, finance reports |
+| API runtime | Node 20+ on Vercel (ES modules) | `api/index.js` → `lib/router.js` |
+| Database | Neon Postgres 16 | `@neondatabase/serverless` (HTTP `neon()`; `db().transaction([...])` for atomic writes) |
+| Dev server | Express 4 (`server.js`) | Same router as production |
+| Tests | `node:test` | Finance suite (48 tests) on a separate development database |
+
+No ORM. SQL is written by hand with tagged templates (parameterised by the driver).
+
+## 3. Repository layout
+
+| Path | Contents |
+| --- | --- |
+| `api/index.js` | The only Vercel function: parses the request, resolves the session, calls the router |
+| `lib/router.js` | Every API route with its permission; audit after writes; finance hooks after order and reseller writes |
+| `lib/auth.js` | Users, sessions, roles, permissions, audit log |
+| `lib/db.js` | Orders, customers (lookup), consignments, shared helpers (`HttpError`, `blank`, `transaction`) |
+| `lib/customers.js` · `catalog.js` · `inventory.js` · `resellers.js` · `shopify.js` · `dashboard.js` | Domain modules |
+| `lib/finance/` | Ledger, reports, expenses, payroll, intake (receipt inbox), vision (Claude), sales (posting engine), posting (pure rules), files, money |
+| `lib/notion.js` | Only used by the old migration scripts |
+| `db/schema.sql` | Baseline schema (header lists every migration) |
+| `db/migrations/NNN_name.sql` | Forward-only migrations, applied once |
+| `scripts/` | `migrate.js`, `create-user.js`, finance scripts (`finance-dev-db.js`, `finance-backfill.js`, `finance-reset.js`, `finance-copy-live.js`, `dev-finance.js`), old Notion/Shopify loaders |
+| `src/app/nav.js` | Feature flags and the single navigation model (sidebar, phone sheet, command palette) |
+| `src/auth/` | `AuthContext` (current user, `can()`, home page per role) |
+| `src/data/` | API clients: `storage.js` (CRM), `finance.js` (finance), measurement fields |
+| `src/ui/` | Kit components (`PageHeader`, `Modal`, `Field`, `Segmented`, `StatCard`, skeletons…), motion presets, theme |
+| `src/pages/` | Screens by area: orders, customers, catalogue, inventory, resellers, finance, login |
+| `src/utils/` | `generatePDF.js` (receipt), `statementPdf.js`, `generateCourierExcel.js`, `resellerCodes.js` |
+| `tests/finance/` | Finance test suite |
+| `docs/` | Product and technical documentation |
+
+## 4. API conventions
+
+- **One route table.** `route(method, path, permission, handler)` in `lib/router.js`. Path params use `:name`. Routes are matched in order; put fixed paths (`/finance/intake/approve-ready`) before parameterised ones (`/finance/intake/:id`).
+- **Permissions.** `public`, `login` (any signed-in user), or a permission string such as `orders:write`. Unauthenticated → 401; missing permission → 403.
+- **Audit.** Every write calls `auth.audit(user, action, entity, entityId, changes)`. Finance writes use the `finWrite` helper, which audits automatically and strips CNICs.
+- **Errors.** Throw `HttpError(status, message)` with a sentence the user can act on ("Choose the sales channel"). Postgres check / unique / foreign-key violations become 400 with a readable message.
+- **JSON in, JSON out.** camelCase in the API, snake_case in SQL; each module maps rows (`rowToOrder`, `rowToExpense`…).
+- **Money.** API sends strings with two decimals for finance (`"23200.00"`) and numbers for CRM screens. Finance arithmetic is integer paisa (`lib/finance/money.js`); SQL uses `NUMERIC`.
+- **Dates.** `YYYY-MM-DD` strings. Postgres `DATE` values that arrive as JavaScript Dates are read with local parts (never `toISOString()`), because the server may run outside UTC. "Today" is the Asia/Karachi date.
+- **Side effects that must not fail the request** (finance posting after an order save) are wrapped: failures go to `fin_post_exceptions` for a retry.
+
+### Route groups
+
+| Group | Prefix | Permission examples |
+| --- | --- | --- |
+| Auth | `/auth/login`, `/auth/logout`, `/auth/password`, `/auth/me` | public / login |
+| Orders | `/orders`, `/orders/:id`, `/orders/:id/history`, `/orders/:id/payments`, `/payments/:id`, `/orders/website` | `orders:read`, `orders:write`, `orders:delete` |
+| Board | `/board` | `orders:read` |
+| Customers | `/customers`, `/customers/:id`, `/customers/:id/merge` | `customers:*` |
+| Catalogue | `/collections`, `/products`, `/catalogue/import`, `/catalogue/store-sync` | `products:read`, `catalog:write` |
+| Lookbook | `/lookbook` | public (sign-in page photos) |
+| Resellers | `/resellers/...`, `/consignments`, `/consignment-items/:id` | `fc:read`, `fc:money`, `fc:write`, `resellers:manage` |
+| Inventory | `/inventory/...` | `inventory:read`, `inventory:write` |
+| Dashboard | `/dashboard` | `orders:read` (+ `dashboard:money` for figures) |
+| Users | `/users` | `users:manage` |
+| Finance | `/finance/...` | `finance:read`, `finance:write`, `finance:post`, `finance:close`, `finance:tax` |
+| Search | `/search` | login (results filtered by permission) |
+
+## 5. Security requirements
+
+| Requirement | Implementation |
+| --- | --- |
+| Password storage | scrypt with per-user salt; constant-time compare |
+| Sessions | 32-byte random token in cookie `koko_session` (httpOnly, SameSite=Lax, Secure in production); only its SHA-256 is stored in `sessions`; 14 days, extended on use |
+| Brute force | 5 wrong passwords → locked for 15 minutes |
+| Authorisation | Fixed role → permission map in `lib/auth.js`; checked on every route; owner has `*` |
+| Data scoping | Reseller users carry `users.reseller_id`; every reseller query filters on it; payments listed to resellers hide reference, notes, reason, creator and files; proof files return 403 to resellers |
+| Finance isolation | Finance routes require `finance:*`; only owner and `finance` roles have them |
+| Ledger integrity | Postgres triggers: balanced entries at commit, posted entries immutable, period status enforced with owner override, control accounts blocked in manual journals, unique source per event |
+| Personal data | CNIC never in lists or audit; from screenshots only names + last 4 digits kept (`lib/finance/vision.js` sanitises again) |
+| Secrets | Environment variables only (`.env` locally, Vercel settings in production); never committed |
+| Uploads | Allowed types: JPG, PNG, WebP, PDF, CSV, XLSX; max 2.5 MB; de-duplicated by SHA-256 |
+
+### Role → permission map
+
+| Permission | owner | manager | staff | finance | reseller |
+| --- | :-: | :-: | :-: | :-: | :-: |
+| orders:read / write | ✓ | ✓ | ✓ | | |
+| orders:delete | ✓ | ✓ | | | |
+| customers:read / write | ✓ | ✓ | ✓ | | |
+| customers:merge | ✓ | ✓ | | | |
+| products:read | ✓ | ✓ | ✓ | | |
+| catalog:write | ✓ | ✓ | | | |
+| fc:read | ✓ | ✓ | ✓ | | ✓ (own) |
+| fc:money | ✓ | ✓ | | | ✓ (own) |
+| fc:write | ✓ | ✓ | | | |
+| dashboard:money | ✓ | ✓ | | | |
+| inventory:read / write | ✓ | ✓ | ✓ | | |
+| resellers:manage, users:manage | ✓ | | | | |
+| finance:read / write / post / close / tax | ✓ | | | ✓ | |
+
+## 6. Data and migrations
+
+- **Baseline + forward migrations.** `db/schema.sql` creates the original tables; `db/migrations/NNN_*.sql` add everything since. `node scripts/migrate.js` applies pending files in order, each in its own transaction, recording them in `schema_migrations`. `--status` lists them. **Any other argument also applies** (there is no `--help`): always fingerprint live data before running it.
+- **Rules live in the database** where they protect money: generated `balance_due_pkr`, PR orders free (CHECK), ledger triggers, payments ↔ advance trigger, status dates trigger.
+- **Before and after every live migration**: fingerprint the business tables (row counts + MD5 of rows over a fixed column list) and compare. Migrations that `UPDATE orders` also fire `orders_touch` and change `updated_at`; disable that trigger inside the migration when a timestamp must not move.
+- Full table reference: [database-schema.mdx](./database-schema.mdx).
+
+## 7. Integrations
+
+| System | Direction | How | Limits / notes |
+| --- | --- | --- | --- |
+| Shopify catalogue | Read | Public storefront JSON (`/collections.json`, `/products.json`, per-collection products) | Per-collection endpoint throttles hard (429 for 20+ minutes); fetched only when needed |
+| Shopify orders | Read | Dev Dashboard app "Koko Orders" (read_orders, read_customers, read_products), client-credentials token (24 h) | Only the last 60 days are visible; owner picks orders to import; deduped on `shopify_order_number` |
+| Shopify CDN | Read | Product images fetched as data URLs for PDFs (`&width=480`) | CORS allowed |
+| Trax courier | Export | Booking Excel (`generateCourierExcel.js`, pickup address id in code) | Settlement CSV import planned (needs sample file) |
+| Claude API | Call | `lib/finance/vision.js`: Messages API with image/PDF block and a forced tool for structured output; model `FINANCE_VISION_MODEL` (default `claude-sonnet-5-5`) | Needs `ANTHROPIC_API_KEY`; one call per file; 60 s function limit |
+| Notion | Retired | Migration source only | Credentials kept for backup |
+| Google Drive | Planned | Finance files (needs Workspace Shared Drive or OAuth) | Only `lib/finance/files.js` changes |
+
+## 8. Environment variables
+
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | Vercel, `.env` | Live Neon database (pooled) |
+| `DATABASE_URL_UNPOOLED` | `.env` | Direct connection for migrations and scripts |
+| `FINANCE_DEV_DATABASE_URL`, `FINANCE_DEV_DATABASE_URL_UNPOOLED` | `.env` | `koko_finance_dev`, the development and test database |
+| `SHOPIFY_SHOP`, `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` | Vercel, `.env` | Shopify store and order-import app |
+| `ANTHROPIC_API_KEY` | Vercel, `.env` | Receipt and screenshot reading (optional; without it items are typed in) |
+| `FINANCE_VISION_MODEL` | optional | Override the vision model |
+| `VITE_FINANCE` | build | `0` hides the Finance menu (on by default) |
+| `API_PORT` | local | Dev API port (default 3002) |
+| `NOTION_TOKEN`, `NOTION_DATABASE_ID` | `.env` | Old migration scripts only |
+
+## 9. Environments
+
+| Environment | App | Database | Use |
+| --- | --- | --- | --- |
+| Production | Vercel (auto-deploy from `master`) | Neon `neondb` | Real use. The owner tests features here too |
+| Local | `npm run dev` (Express 3002 + Vite 5173) | live (`DATABASE_URL`) | Careful: real data |
+| Finance development | `npm run dev:finance` | Neon `koko_finance_dev` | Finance work and tests; live business data copied in by `scripts/finance-copy-live.js` |
+
+There is no staging app. Rule: anything that posts journals or creates test records runs on `koko_finance_dev`, never on live.
+
+## 10. Testing
+
+| Suite | Command | What it covers |
+| --- | --- | --- |
+| Finance | `npm run test:finance` | 48 tests: money, ledger rules (balance, immutability, periods, control accounts), reports (TB = BS, cash flow ties out, equity), expenses, payroll (month-end split), claims, staff payments, intake (classification, duplicates, approval rollback), F3 (payments ↔ advance, revenue, reseller FX, exceptions) |
+| UI checks | Puppeteer scripts (outside the repo) | Sign in with a temporary session row; click through flows; screenshots at desktop and phone widths; live checks block non-GET requests |
+| Build | `npm run build` | Must pass before every push |
+
+Tests run **serially** (`--test-concurrency=1`) because report tests compare balances before and after. Each test uses its own far-future fiscal year (2093–2099) and run-stamped names so reruns never clash.
+
+**Gaps to close:** no automated tests for CRM modules (orders, inventory, resellers) or React components. Recommended next: API tests for orders and reseller statements on the development database, and a smoke test that signs in and opens every page.
+
+## 11. Performance
+
+- Each request opens no long-lived connection (HTTP driver). Batch related queries; avoid one query per row in loops (the posting engine prefetches active entries per order).
+- Lists return at most a few hundred rows; heavier views (ledger) cap at 5,000 lines and ask for a shorter range.
+- Long jobs run in batches the browser drives (e.g. "Check everything now" posts 12 orders per request) so each request stays well under 60 s.
+- Large PDF images are fetched at 480 px.
+
+## 12. Operations
+
+| Task | How |
+| --- | --- |
+| Deploy | Push to `master`; Vercel builds and deploys |
+| Apply migrations | Fingerprint live → `node scripts/migrate.js` → fingerprint again and compare |
+| Create a user | Users page (owner), or `node scripts/create-user.js` |
+| Finance backfill / re-check | `node scripts/finance-backfill.js` (idempotent), or Finance › Sales & receipts › Check everything now |
+| Finance reset before go-live | `node scripts/finance-reset.js --confirm` (journals and finance documents only) |
+| Refresh the finance dev database | `node scripts/finance-dev-db.js` (structure), `node scripts/finance-copy-live.js` (data) |
+| Backups | Neon point-in-time restore (provider). A nightly export is recommended (see implementation plan) |
+
+## 13. Coding conventions
+
+- Match the surrounding code: small modules, plain functions, comments that explain why.
+- User-facing text: plain English, sentence case, no jargon; errors say what to do.
+- New UI uses kit components and design tokens, never raw hex values.
+- Every new table gets a migration file and a line in the `db/schema.sql` header.
+- Money in finance code: integer paisa via `toPaisa` / `fromPaisa`; never floating-point sums.
+- One commit per feature or fix on `master`, message `type(scope): summary`, with tests and build passing.

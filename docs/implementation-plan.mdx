@@ -1,0 +1,171 @@
+---
+title: "Koko Atelier CRM: Implementation Plan"
+description: "What has been delivered, the roadmap, phase-by-phase deliverables, and how each phase is built and released"
+---
+
+# Koko Atelier CRM: Implementation Plan
+
+| Item | Detail |
+| --- | --- |
+| Version | 1.0 · 23 November 2026 |
+| Owner | Omer Farooq |
+| Builder | Claude Code in this repository, reviewed by the owner |
+| Related | [PRD](./product-requirements.mdx) · [TRD](./technical-requirements.mdx) · [Database schema](./database-schema.mdx) · [Finance module spec](./finance-module.mdx) |
+
+## 1. Where we are (23 November 2026)
+
+- Live on Vercel + Neon; 89 orders, 75 customers, 100 products, 1 reseller (Collage Fashions, Dubai) with 40 pieces, 36 studio pieces, 4 users.
+- Finance live through phase F3, with 14 posted entries (sales and receipts since 1 July 2026). Collage sales are waiting for AED rates.
+- 48 automated finance tests; no automated tests yet for the CRM screens.
+
+## 2. Delivered so far
+
+| When | Release | Highlights |
+| --- | --- | --- |
+| May 2026 | Notion-backed app | Login, order list and PDF, Kanban board, Fashion Collage consignment page, inventory report, product sheet, courier Excel |
+| 9 Nov 2026 | Move to Neon | Orders from Notion to Postgres (normalised: customers, products, items) |
+| 9 Nov 2026 | Phase 0: Security | Server-side login, roles, protected API, audit trail |
+| 9 Nov 2026 | Phase 1: Design system | Koko design system, dynamic reseller menu, responsive shell |
+| 10 Nov 2026 | Phase 2: Orders | Orders on customers, catalogue and item lines; status board |
+| 10 Nov 2026 | Phase 3: Customers & catalogue | Customer profiles and merge, catalogue |
+| 10 Nov 2026 | Phase 4: Reseller operations | Handovers, statements, payments, returns |
+| 10 Nov 2026 | Phase 5: Dashboard | Business dashboard; settled balances cleaned up |
+| 16 Nov 2026 | Shopify | Catalogue sync from the website; website order import; sales channel; receipt photos |
+| 18 Nov 2026 | Phase 6: Studio inventory | Stock pieces and history; handover FIFO; PR / gift orders; Porcelain & Wine theme; sign-in lookbook |
+| 19–21 Nov 2026 | Reseller and inventory refinements | Payments with month and PKR; sales by month; statement PDF; barcodes with prefix; reseller help; back to studio, damaged-for-sale, bulk add, locks; inventory tabs; order date filters |
+| 22–23 Nov 2026 | Finance F0, F1 | Ledger, chart of accounts, periods, journals, opening balances; trial balance, P&L, balance sheet, cash flows, equity; Finance Manager role |
+| 23 Nov 2026 | Finance F2a | Suppliers, staff, expenses, recurring bills, studio claims, payroll, staff payments |
+| 23 Nov 2026 | Finance F2b | Receipt and screenshot inbox with Claude vision, rules, review, file away |
+| 23 Nov 2026 | Finance F3 | Customer payments, revenue at Paid, reseller sales and payments with FX, posting exceptions, receivables, backfill |
+
+## 3. How every phase is built and released
+
+This process applies to every phase below.
+
+1. **Plan.** Write or update the spec section; list files, migrations, open questions. Agree it with the owner before code.
+2. **Build on the development database.** `koko_finance_dev` (refresh with `scripts/finance-copy-live.js` when real data is needed). Never post journals or create test records on live.
+3. **Test.** Add `node:test` tests for every rule (run-stamped names, far-future fiscal years); `npm run test:finance` and `npm run build` must pass.
+4. **Click through.** Puppeteer walkthrough of the new screens at desktop and 390 px; no page errors.
+5. **Release to live.**
+   1. Fingerprint the live business data over a fixed column list.
+   2. `node scripts/migrate.js --status`, then `node scripts/migrate.js`.
+   3. Fingerprint again and compare; explain any difference.
+   4. Push to `master` (Vercel deploys).
+   5. Run any backfill and confirm a second run changes nothing.
+6. **Record.** Update the spec, these documents if behaviour changed, and the release notes in commit messages.
+
+**Definition of done:** feature works for each role that should see it (and is hidden from those that shouldn't), mobile layout checked, errors are actionable, audit entries written, tests and build green, live data verified unchanged except as intended.
+
+## 4. Roadmap
+
+```
+ Nov 2026        Dec 2026            Jan 2027             Feb–Mar 2027          Apr–Jun 2027        Jul 2027
+ ───────────────┬───────────────────┬────────────────────┬─────────────────────┬───────────────────┬──────────
+ F3 wrap-up     │ F4 Bank rec       │ F5 Costing (VÉLORA)│ F6 Close & assets   │ Productisation    │ F7 Tax on
+ Ops quick wins │ Engineering base  │                    │                     │ (if approved)     │
+```
+
+Dates are targets; each phase starts only after the owner signs off the previous one.
+
+### 4.1 Now: F3 wrap-up and operational quick wins (late Nov 2026)
+
+| # | Item | Done when |
+| --- | --- | --- |
+| 1 | Enter AED rates for Collage's six sale dates | Collage sales and both payments posted; no exceptions |
+| 2 | Confirm payment methods marked "check" and estimated Paid dates | Under 5% unconfirmed |
+| 3 | Opening balances at 30 June 2026 from the accountant (including customer advances) | Advances in the books match the orders |
+| 4 | Trax settlement CSV import (needs a sample file) | A settlement imports; rows must sum to the invoice total; charges and IBFT fee booked; Trax clearing goes to zero for settled orders |
+| 5 | Add `ANTHROPIC_API_KEY` in Vercel | Inbox reads files automatically |
+| 6 | Printable barcode labels for reseller pieces | Labels print from Stock / Handover |
+| 7 | WhatsApp templates (order received, ready, dispatched) | One tap from the order page |
+
+### 4.2 Engineering foundation (Dec 2026, alongside F4)
+
+| # | Item | Why |
+| --- | --- | --- |
+| E1 | `CLAUDE.md` at the repo root (conventions, commands, safety rules) and project skills (release checklist, live-data fingerprint, dev database refresh) | Every session starts with the same rules |
+| E2 | API tests for orders, payments, inventory and reseller statements on the development database | The CRM side has no automated tests |
+| E3 | Smoke test: sign in as each role and open every page | Catch broken screens before users do |
+| E4 | Nightly database export (Neon branch or `pg_dump` to storage) | Recovery beyond the provider's restore window |
+| E5 | Move Koko-specific constants into settings (Trax pickup id, bank account, store domain, PDF header) | Needed for productisation; easier changes |
+| E6 | Migration helper that disables `orders_touch` during data backfills | Keep `updated_at` meaningful |
+| E7 | Error reporting (server logs to a log service; client error boundary) | See failures without users reporting them |
+
+### 4.3 F4: Bank reconciliation (Dec 2026)
+
+Spec: [finance-module.mdx › F4](./finance-module.mdx).
+
+| Deliverable | Notes |
+| --- | --- |
+| Bank statement import (Bank Alfalah CSV / Excel) | Lines stored with date, amount, reference |
+| Matching | Auto-match by bank reference (already captured on staff payments, expenses, intake, reseller payments), then amount and date; manual match; create entry from an unmatched line |
+| Reconciliation report | Book balance vs bank balance with unmatched items; month sign-off |
+| Done when | November 2026 Bank Alfalah statement reconciles to zero difference |
+
+### 4.4 F5: Costing and pricing (Jan 2027, VÉLORA pilot)
+
+| Deliverable | Notes |
+| --- | --- |
+| Materials and fabric lots | Purchases into raw materials (1300) at weighted average cost |
+| Bill of materials per design | Fabric, trims, embroidery, labour hours |
+| Job costing | Material issues and payroll hours by job (already captured in payroll) → WIP → finished goods → cost of sales |
+| Cost per piece, margin per design and collection | Reports and product page |
+| Pricing helper | Suggested price from cost (needs open question Q5) |
+| Done when | VÉLORA collection shows cost per piece and margin that the owner agrees with |
+
+### 4.5 F6: Close, fixed assets, provisions (Feb–Mar 2027)
+
+Month-end checklist (depreciation, accruals, FX revaluation, expected credit loss, inventory NRV, employee benefits), fixed asset register, provisions, year-end close entry, notes pack. **Done when** November 2026 to February 2027 are closed through the checklist and the accountant accepts the statements.
+
+### 4.6 Productisation track (Apr–Jun 2027, if approved)
+
+Only if the owner decides to offer the CRM to other ateliers (PRD Section 11).
+
+| Step | Deliverable |
+| --- | --- |
+| P1 | Decision: multi-tenant (one database, `company_id` on every table) vs one database per customer |
+| P2 | Brand settings per company (logo, colours, PDF header) on top of the design tokens |
+| P3 | Settings for integrations (Shopify store, courier account, bank accounts) instead of constants |
+| P4 | Onboarding: template chart of accounts, CSV / Shopify import, first user |
+| P5 | Billing and plans; terms; data export |
+| P6 | Second pilot customer |
+
+### 4.7 F7: Pakistan tax (from 1 July 2027)
+
+Switch on `tax_enabled` from FY 2027-28: output and input sales tax, withholding on payments and COD, FBR return workings, tax codes on every line (hooks already exist). Every rate confirmed by Koko's tax advisor before filing.
+
+## 5. Dependencies and decisions needed
+
+| Needed | From | Blocks |
+| --- | --- | --- |
+| AED rates for Collage sale dates | Owner / bank | F3 reseller postings |
+| Opening balances at 30 June 2026 | Accountant | Correct balance sheet, advances check |
+| Trax settlement sample CSV | Owner | Trax import |
+| Claude API key | Owner | Automatic receipt reading |
+| Bank Alfalah statement format | Owner | F4 |
+| Pricing formula (Q5), stitching cost payee (Q4), Uber cash (Q2) | Owner | F5, courier postings |
+| Productisation decision (Q1) | Owner | Section 4.6 |
+| Google Workspace Shared Drive (optional) | Owner | Moving files out of the database |
+
+## 6. Risks and mitigations
+
+| Risk | Impact | Mitigation |
+| --- | --- | --- |
+| Testing on live data | Wrong records in the real system | Development database for anything that writes test data; fingerprints around migrations; non-GET requests blocked in live UI checks |
+| One person holds the business rules | Slow decisions, knowledge loss | These documents, in-app help, spec decisions recorded in Section 0 of the finance spec |
+| Vercel 60 s function limit | Long jobs fail | Batch jobs driven by the browser; scripts for backfills |
+| Files in the database grow storage | Cost, slower backups | 2.5 MB limit; move to Drive in F4–F6 |
+| Single reseller assumptions | Bugs when a second reseller joins | Test a second reseller on the development database before onboarding |
+| Estimated historic dates | Revenue in the wrong month | Flags on orders; review before year end |
+
+## 7. Release checklist (copy into each phase)
+
+- [ ] Spec agreed with the owner
+- [ ] Migration written, header line added to `db/schema.sql`
+- [ ] Applied and tested on `koko_finance_dev`
+- [ ] `npm run test:finance` green; `npm run build` green
+- [ ] Walkthrough at desktop and phone width; each role sees only what it should
+- [ ] Live fingerprint before → migrate → fingerprint after → compared
+- [ ] Pushed to `master`; Vercel deploy green
+- [ ] Backfill run and re-run with no changes (if any)
+- [ ] Docs updated; owner told what changed and what they need to do

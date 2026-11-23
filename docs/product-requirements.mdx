@@ -1,0 +1,272 @@
+---
+title: "Koko Atelier CRM: Product Requirements Document"
+description: "What the product is, who it serves, what it must do, and how success is measured"
+---
+
+# Koko Atelier CRM: Product Requirements Document (PRD)
+
+| Item | Detail |
+| --- | --- |
+| Product | Koko Atelier CRM (internal name; customer-facing documents say "Koko Atelier") |
+| Owner | Omer Farooq (product owner, co-founder) |
+| Company | Koko Atelier (Private) Limited, Lahore, Pakistan · kokoatelier.com |
+| Version | 1.0 · 23 November 2026 |
+| Status | Live in production (Vercel + Neon). Finance phases F0–F3 live; F4–F7 planned |
+| Related documents | [Technical requirements](./technical-requirements.mdx) · [App flow](./app-flow.mdx) · [Design brief](./design-brief.mdx) · [Database schema](./database-schema.mdx) · [Implementation plan](./implementation-plan.mdx) · [Finance module spec](./finance-module.mdx) · [Inventory phase 1](./inventory-phase-1.md) |
+
+## 1. Summary
+
+Koko Atelier is a Pakistani women's and men's fashion label (pret, festive and luxury wear: kurtas, anarkalis, co-ords, lehengas, men's kurta sets) that sells through its own studio, WhatsApp, Instagram, the Shopify website kokoatelier.com, and on consignment through resellers abroad (Fashion Collage, Dubai). Outfits for retail customers are **stitched to order**.
+
+Koko Atelier CRM is the single system the studio runs on. It replaced manual data entry in Notion and spreadsheets and now covers:
+
+1. **Retail orders**: capture, measurements, stitching status, payments, delivery and receipts.
+2. **Customers**: one profile per customer with order history and lifetime value.
+3. **Catalogue**: collections and products synced from the Shopify website.
+4. **Studio inventory**: shoot samples, reseller returns, spares and pieces made for a shipment.
+5. **Resellers (consignment)**: handovers, stock at the store, monthly sales statements, payments in AED, barcodes, a view-only reseller portal.
+6. **Finance**: a real double-entry ledger with IFRS-based statements, expenses, payroll, receipt intake and automatic posting of sales and reseller trade.
+
+The product is moving from "Koko's internal tool" to a product in its own right. This PRD records what exists, what is required, and the direction (Section 11).
+
+## 2. Problem statement
+
+Before the CRM, Koko ran on a Notion database, WhatsApp threads, bank-app screenshots and Excel sheets exchanged with the reseller. The owners could not answer basic questions quickly or reliably:
+
+- Which orders are due this week, and what stage is each in?
+- How much is each customer still owed, and what advance has been taken?
+- Which pieces are at Fashion Collage, which sold, which were paid for, and at what AED rate?
+- What did the studio spend this month, and on what?
+- Is the business profitable, by month, by collection, by design?
+
+Data entry was duplicated (Notion + Shopify + Excel), error-prone, and nothing tied money to orders.
+
+## 3. Goals and non-goals
+
+### Goals
+
+| # | Goal | Measure |
+| --- | --- | --- |
+| G1 | One place for every order from every channel | 100% of orders entered in the CRM; Notion retired (done Nov 2026) |
+| G2 | Fast order capture at the studio and on the phone | New order in under 2 minutes, measurements included |
+| G3 | Always-correct balances | Advance = sum of recorded payments; balance due visible on every order |
+| G4 | Transparent reseller trade | Collage statement, payments and stock reconcile to the piece; reseller sees only their own data |
+| G5 | Every rupee recorded with proof | Expense from a phone in under a minute, receipt attached |
+| G6 | Real accounts | Trial balance, P&L, balance sheet, cash flows from posted entries; month close |
+| G7 | Know the cost of a design | Cost per piece and margin per design and collection (Phase F5) |
+| G8 | Tax-ready | Pakistan tax reporting switchable from 1 July 2027 (Phase F7) |
+
+### Non-goals (for now)
+
+- No customer-facing storefront or checkout (Shopify remains the shop).
+- No writing back to Shopify (read-only integration).
+- No automatic Shopify order sync: the owner reviews each website order before importing it.
+- No payroll for per-piece external tailors (they are not paid by Koko; only the studio's commission is recorded).
+- No multi-company tenancy yet (see Section 11).
+
+## 4. Users and personas
+
+| Persona | Role in the app | What they need |
+| --- | --- | --- |
+| **Owner** (Omer, Usman) | `owner`: everything | Business overview, money, approvals, finance, settings, users |
+| **Studio manager** | `manager` | Orders, customers, catalogue, reseller operations and money, inventory, dashboard figures |
+| **Studio staff** | `staff` | Orders and customers (no deletes), stitching status, inventory; reseller stock view without money |
+| **Finance Manager** | `finance` | Finance module only: books, expenses, payroll, intake, reports. Sees nothing else in the CRM |
+| **Reseller** (Fashion Collage, Dubai) | `reseller` | View-only: their own stock, what they sold and paid, statements, help. Never Koko's notes, proofs or other payments |
+| **Customer** (indirect) | none | Receives an order receipt PDF; status board is internal only |
+
+## 5. Scope: functional requirements
+
+Priority: **M** must (built), **S** should, **C** could. Status: ✅ live, 🟡 partial, ⏳ planned.
+
+### 5.1 Authentication and access
+
+| ID | Requirement | Pri | Status |
+| --- | --- | --- | --- |
+| AU-1 | Username + password sign-in; httpOnly session cookie, 14-day sliding expiry | M | ✅ |
+| AU-2 | Lock an account for 15 minutes after 5 wrong passwords | M | ✅ |
+| AU-3 | Five roles with fixed permissions (Section 4); every API route declares its permission | M | ✅ |
+| AU-4 | Owners create and deactivate users, set roles, link a reseller login to its reseller | M | ✅ |
+| AU-5 | Every change is written to an audit log (who, what, when, details) | M | ✅ |
+| AU-6 | Users change their own password | M | ✅ |
+| AU-7 | Password reset by email / two-factor sign-in | C | ⏳ |
+
+### 5.2 Retail orders
+
+| ID | Requirement | Pri | Status |
+| --- | --- | --- | --- |
+| OR-1 | Create an order: customer (find or create), channel (Studio, WhatsApp, Instagram, Shopify, Other), reference, items from the catalogue with size, quantity and price, order and delivery dates, address, measurements, payment notes, special instructions | M | ✅ |
+| OR-2 | App-wide order number `SO-000123`; Shopify orders also keep their website number | M | ✅ |
+| OR-3 | Status flow: New → In Tailoring → Ready → Payment Pending → Paid → Out for Delivery, plus Returned and Cancelled | M | ✅ |
+| OR-4 | Status board (Kanban) with drag-and-drop between statuses | M | ✅ |
+| OR-5 | Orders list with search, status and date filters (today, 7, 15, 30 days, custom, all) and a period summary | M | ✅ |
+| OR-6 | Order detail with activity timeline from the audit log | M | ✅ |
+| OR-7 | Branded receipt PDF with product photos and measurements | M | ✅ |
+| OR-8 | Courier booking Excel (Trax) for selected orders | M | ✅ |
+| OR-9 | PR / gift orders for influencers: never revenue, shown as "value given" | M | ✅ |
+| OR-10 | Import selected website orders from Shopify (last 60 days), no duplicates | M | ✅ |
+| OR-11 | Fill an order line from a studio piece (sample, return, damaged-for-sale) instead of stitching | M | ✅ |
+| OR-12 | Payments recorded one by one (date, method, reference); refunds; the advance is their sum | M | ✅ |
+| OR-13 | Paid date and Trax tracking number on the order | M | ✅ |
+| OR-14 | Orders already in the accounts cannot be deleted (cancel instead) | M | ✅ |
+| OR-15 | WhatsApp message templates (order received, ready, dispatched) | S | ⏳ |
+| OR-16 | Customer-facing order tracking link | C | ⏳ |
+
+### 5.3 Customers
+
+| ID | Requirement | Pri | Status |
+| --- | --- | --- | --- |
+| CU-1 | Customer list with search and sort; profile with orders, totals, measurements history | M | ✅ |
+| CU-2 | Merge duplicate customers | M | ✅ |
+| CU-3 | Match by phone (last 10 digits) or name when creating an order | M | ✅ |
+| CU-4 | Customer statement (advances held, refunds) | S | ✅ (finance) |
+
+### 5.4 Catalogue
+
+| ID | Requirement | Pri | Status |
+| --- | --- | --- | --- |
+| CA-1 | Collections and products synced from the public website (names, prices, compare-at, images, handle) | M | ✅ |
+| CA-2 | CSV import for unpublished pieces | M | ✅ |
+| CA-3 | Product page with gallery (up to 4 images), tagline, sales, stock and reseller codes | M | ✅ |
+| CA-4 | Sync never overwrites a tagline edited in the app | M | ✅ |
+
+### 5.5 Studio inventory
+
+| ID | Requirement | Pri | Status |
+| --- | --- | --- | --- |
+| IN-1 | One record per physical piece: product, size (X-Small … X-Large, Custom), kind (Stock / Sample), status, source | M | ✅ |
+| IN-2 | Statuses: In Production, At Studio, At Shoot, With Reseller, Sold, Gifted, Archived, Damaged; every move logged | M | ✅ |
+| IN-3 | Tabs: Samples · Studio stock · Being made; bulk add (including samples) | M | ✅ |
+| IN-4 | Damaged-for-sale label with note and asking price; "Sell this piece" opens a new order pinned to it | M | ✅ |
+| IN-5 | Handover to a reseller takes the oldest studio piece first (FIFO), else records a newly made piece | M | ✅ |
+| IN-6 | Raw materials, bill of materials, cost per piece | S | ⏳ (Finance F5) |
+
+### 5.6 Resellers (consignment)
+
+| ID | Requirement | Pri | Status |
+| --- | --- | --- | --- |
+| RS-1 | Reseller record: name, city, country, currency (AED), commission %, barcode prefix and next number | M | ✅ |
+| RS-2 | Handover (consignment) of pieces with price; the commission rate is fixed at handover | M | ✅ |
+| RS-3 | Piece statuses At Store → Sold → Paid, or Returned; discounts (designer, reseller), alteration charge, invoice number | M | ✅ |
+| RS-4 | Monthly statement entry with an outfit picker, or import of the reseller's sales sheet | M | ✅ |
+| RS-5 | Payments in AED with the PKR received, period, difference reason and proof files | M | ✅ |
+| RS-6 | Month summaries with AED and PKR, payment-due banner, statement PDF | M | ✅ |
+| RS-7 | Design codes / barcodes: prefix + number + size (KOATLR-001-S); reserved designs | M | ✅ |
+| RS-8 | Back to studio for returned or unsold pieces, with damage details | M | ✅ |
+| RS-9 | Finished pieces (Sold, Paid, Returned to studio) are locked from edits | M | ✅ |
+| RS-10 | Reseller portal: view-only, own data only; sees what they sold and paid, never Koko's notes or proofs | M | ✅ |
+| RS-11 | Help guides for resellers and for the team | M | ✅ |
+| RS-12 | Printable barcode labels | S | ⏳ |
+| RS-13 | A second reseller (e.g. FPL) set up | C | ⏳ |
+
+### 5.7 Dashboard and reporting
+
+| ID | Requirement | Pri | Status |
+| --- | --- | --- | --- |
+| DB-1 | Revenue, balances due, workload by status, best sellers, references, reseller summary | M | ✅ |
+| DB-2 | Money figures only for roles with `dashboard:money` | M | ✅ |
+| DB-3 | Reseller inventory report and product sheet (photos and codes) | M | ✅ |
+
+### 5.8 Finance
+
+Full detail in [finance-module.mdx](./finance-module.mdx). Summary:
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| F0 | Double-entry ledger, chart of accounts (77), fiscal periods (July–June), manual journals, opening balances, rules enforced in the database | ✅ |
+| F1 | Trial balance, P&L, balance sheet, cash flows (direct + indirect), changes in equity, ledgers; Finance Manager role | ✅ |
+| F2a | Suppliers, staff, expenses with receipts, recurring bills, weekly studio claims, weekly payroll, staff payments | ✅ |
+| F2b | Receipt and bank-screenshot inbox: Claude vision reading (needs API key), rules, review, approve, file away, duplicate detection | ✅ |
+| F3 | Customer payments, revenue at Paid, reseller sales and payments with FX, posting exceptions, receivables, backfill | ✅ (Trax settlement import pending a sample file) |
+| F4 | Bank reconciliation | ⏳ |
+| F5 | Costing and pricing per design (VÉLORA pilot) | ⏳ |
+| F6 | Month and year close, fixed assets, provisions | ⏳ |
+| F7 | Pakistan tax (from 1 July 2027) | ⏳ |
+
+## 6. Business rules (must hold everywhere)
+
+1. **Stitch to order.** Retail orders never consume stock unless a line is explicitly filled from a studio piece.
+2. **Revenue counts when the order is Paid** (owner decision, finance spec C1). Until then, money received is a customer advance.
+3. **PR orders are free.** Amount and advance are always 0; never revenue; their items' prices are the PR value given.
+4. **Cancelled and Returned orders** have no balance due and never count as revenue. An advance on them is refunded (default) or kept by an owner with a reason.
+5. **The advance is the sum of payments.** Changing it on the order screens records a payment row automatically.
+6. **Reseller commission is fixed per handover**, not per current reseller rate.
+7. **Reseller money in AED** is converted at the sale-date rate; the payment's rupees are what reached the bank; the difference is an exchange gain or loss.
+8. **Barcodes are assigned only once a reseller approves a shipment**; returned designs never get one.
+9. **Posted accounting entries never change**; corrections are reversals. Closed months accept postings only from an owner with a reason; locked months accept none.
+10. **Finance is visible only to owners and the Finance Manager.**
+11. **Resellers see only their own data**, and only what they sold and paid.
+12. **Dates are Pakistan dates** (Asia/Karachi); money is PKR unless stated.
+
+## 7. Non-functional requirements
+
+| Area | Requirement |
+| --- | --- |
+| Availability | Hosted on Vercel and Neon; no planned downtime for releases (push to `master` deploys) |
+| Performance | Lists and dashboards load in under 2 s on a phone over 4G; a 12-month P&L for 5,000 lines under 2 s |
+| Mobile | Every screen works at 390 px wide; dialogs become bottom sheets; key flows (new order, expense quick-add) are thumb-friendly |
+| Security | Session cookie httpOnly, Secure in production; passwords hashed with scrypt; permission check on every API route; reseller data scoped in SQL |
+| Privacy | CNICs never shown in lists or audit logs; from bank screenshots only names and the last 4 digits of accounts are stored |
+| Integrity | Accounting rules enforced in Postgres triggers, not only in code; migrations run once and are recorded |
+| Auditability | Every write audited; finance entries numbered per fiscal year (`JV-2627-000001`) |
+| Data safety | Tests that post journals run only on the finance development database; live data is fingerprinted before and after every migration |
+| Accessibility | Readable contrast in light and dark themes; keyboard access to dialogs and the command palette (Ctrl+K) |
+| Localisation | English UI; Pakistani number and date formats; product names may be Urdu with English meaning |
+
+## 8. Success metrics
+
+| Metric | Target |
+| --- | --- |
+| Orders entered outside the CRM | 0 |
+| Time to create an order | under 2 minutes |
+| Orders with unconfirmed payment method | under 5% at month end |
+| Reseller statement reconciliation | 100% of pieces match statement and payment each month |
+| Expenses with receipts attached | over 90% |
+| Postings waiting in the exceptions queue at month end | 0 |
+| Month close | within 7 days of month end (from F6) |
+
+## 9. Assumptions and dependencies
+
+- Shopify remains the website; the CRM reads from it (public storefront JSON and a read-only Dev Dashboard app).
+- Neon Postgres and Vercel remain the platform (see [TRD](./technical-requirements.mdx)).
+- Claude vision reading of receipts requires an `ANTHROPIC_API_KEY` on the server.
+- Bank: Bank Alfalah current account (PKR). Couriers: Trax (COD) and Uber (local).
+- Fashion Collage sends a monthly sales sheet and pays in AED.
+
+## 10. Risks
+
+| Risk | Mitigation |
+| --- | --- |
+| Paid dates before Nov 2026 are estimated from delivery / order dates | Flagged "estimated" on the order; owner reviews before year end |
+| Payment methods of migrated payments are assumed (bank) | Marked "(check)" on the order until confirmed |
+| Shopify rate-limits the public catalogue endpoints | Per-collection fetch only when needed; admin API fallback |
+| Files stored in the database grow the database | 2.5 MB limit per file; move to Google Drive (Workspace Shared Drive) later |
+| Single-reseller assumptions | Reseller features are already per reseller id; test with a second reseller before onboarding one |
+| Owner-only knowledge | Help guides in the app; these product documents |
+
+## 11. Product direction: from Koko's tool to a product
+
+The CRM is built around one atelier's real workflow, which is its strength. To become a product other ateliers could use, these are the decisions and changes needed. **These are proposals for the owner to decide, not commitments.**
+
+| Area | Today | Needed for a multi-brand product |
+| --- | --- | --- |
+| Tenancy | One company, one database | A `company` (tenant) key on every table, or one database per customer |
+| Branding | Koko logo, wine and champagne palette, "Koko Atelier" on PDFs | Brand settings per tenant (logo, colours, receipt header) on top of the design tokens |
+| Integrations | Koko's Shopify store, Trax pickup address, Bank Alfalah | Per-tenant settings for store, courier account and bank accounts |
+| Finance | Chart of accounts and staff seeded for Koko | Template chart of accounts; onboarding wizard |
+| Onboarding | Done by hand with scripts | Self-serve sign-up, import from CSV / Shopify |
+| Billing | None | Subscription plans |
+| Support | Owner and Claude Code | Help centre, in-app guides (exist for resellers and team) |
+
+Recommended order: finish the finance phases that Koko needs (F4, F5), remove Koko-specific constants into settings (store, courier pickup id, bank, labels), then decide on tenancy.
+
+## 12. Open questions
+
+| # | Question | Owner |
+| --- | --- | --- |
+| Q1 | Productisation: single-tenant per customer or multi-tenant? | Omer |
+| Q2 | Uber deliveries: does the rider collect cash, and how is it handed over? | Omer |
+| Q4 | Who is paid the stitching cost for per-piece work? | Omer |
+| Q5 | Pricing formula for new designs (cost × markup, or target margin)? | Omer / Usman |
+| Q6 | Trax settlement file: share a sample CSV to build the import | Omer |
+| Q7 | Claude API key for automatic receipt reading | Omer |

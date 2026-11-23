@@ -1,0 +1,248 @@
+---
+title: "Koko Atelier CRM: Design Brief and Brand Guide"
+description: "Brand foundations from kokoatelier.com, the Porcelain & Wine design system, components, voice and imagery"
+---
+
+# Koko Atelier CRM: Design Brief and Brand Guide
+
+| Item | Detail |
+| --- | --- |
+| Version | 1.0 · 23 November 2026 |
+| Audience | Designers, front-end developers, Claude Code, anyone producing Koko material from the CRM (receipts, statements, reports) |
+| Source of truth | Brand: kokoatelier.com and the logo artwork in `public/brand/`. Design system: `tailwind.config.js`, `src/index.css`, `src/ui/kit.jsx` |
+| Related | [PRD](./product-requirements.mdx) · [App flow](./app-flow.mdx) · [TRD](./technical-requirements.mdx) |
+
+## 1. The brand
+
+### 1.1 Who Koko Atelier is
+
+Koko Atelier is a Lahore fashion label for women and men: pret, festive and luxury wear (kurtas, anarkalis, co-ords, lehengas, sarees, men's kurta sets), with craft rooted in South Asian technique: hand embroidery, zardozi and resham, mirror-work, appliqué, scalloped lace, digital prints.
+
+From the website's About page:
+
+> "At Koko Atelier, we craft fashion that speaks to the modern woman — elegant, confident, and unapologetically herself."
+>
+> "We believe fashion should feel as good as it looks."
+>
+> "Koko Atelier is here to dress your story with style and soul."
+
+Positioning: **everyday luxury** ("Founded with the vision of redefining everyday luxury"). Heritage craft, modern cut, quiet confidence.
+
+### 1.2 Brand personality
+
+| Is | Is not |
+| --- | --- |
+| Elegant, considered | Flashy, loud |
+| Warm, personal | Corporate, cold |
+| Poetic (Urdu names, imagery) | Gimmicky |
+| Confident and calm | Pushy, salesy |
+| Crafted, detailed | Generic, mass-market |
+
+### 1.3 Name and wordmark
+
+- Written **Koko Atelier** in running text (title case). **KOKO ATELIER** in capitals only inside the logo, footers and small eyebrow labels.
+- The app's working name is **Koko Atelier CRM**. Anything a customer or reseller receives (receipts, statements, product sheets) says **Koko Atelier**, never "CRM".
+- Legal name on financial statements: **Koko Atelier (Private) Limited**.
+
+### 1.4 Logo assets
+
+| File | Use |
+| --- | --- |
+| `public/brand/wordmark.png` | Wordmark on light backgrounds (reports, PDFs, sign-in) |
+| `public/brand/wordmark-white.png` | Wordmark on the dark sidebar and dark mode |
+| `public/brand/emblem.png` / `emblem-white.png` | Square emblem: favicon, collapsed sidebar, small spaces |
+| `public/brand/logo.png` | Full logo lock-up |
+| `public/kokoLogo.jpg` | Legacy logo used by the order receipt PDF |
+| `public/favicon-*.png`, `apple-touch-icon.png` | Browser and home-screen icons |
+
+Rules: never stretch, recolour or add effects; keep clear space of at least the emblem's height around the wordmark; on dark surfaces use the white versions (in dark mode the reports use `dark:invert` on the wordmark).
+
+### 1.5 Voice and tone
+
+The website speaks in short, sensory, confident lines. Product copy pairs an Urdu name with its English meaning and describes the craft:
+
+> "Shab: An all-black silk kurta and trouser set that speaks quietly."
+> "Gulnaar: A wine-deep anarkali built for movement."
+> "Shab-e-Siyah: Dark Night." · "Zard Chandni: Golden Moonlight." · "Junoon: Obsession."
+
+**In the CRM** the voice is the same brand speaking to its own team: calm, plain and helpful.
+
+| Do | Don't |
+| --- | --- |
+| Plain English, sentence case: "Record a payment" | Title Case Everywhere, jargon ("Submit Transaction") |
+| Say what happens: "Posted to the books", "Moved to Paid" | Vague: "Success!" |
+| Errors say what to do: "Choose the sales channel" | "Error 400: invalid channel" |
+| Name things the way the studio does: "Back to studio", "Sell this piece", "Studio claims", "Sticker-note words" | Accounting or database terms on non-finance screens |
+| Keep product names exactly as the website spells them (Shab-e-Siyah, Gul-e-Mehtab, Sunehri) | Re-spell or translate product names |
+| Use "Rs" or "PKR" consistently per surface (see 2.6) | Mix "Rs.", "PKR", "₨" on one screen |
+
+Accounting terms are allowed inside Finance, where the reader is an owner or accountant; even there, prefer "what is owed" over "receivable" in helper text.
+
+### 1.6 Imagery
+
+- **The outfits lead.** Product photography from the website (Shopify CDN) is the hero of the sign-in lookbook, product pages, order items, receipts and the reseller product sheet.
+- Show photos uncropped at fashion proportions (portrait, roughly 3:4); never put text over the garment.
+- Backgrounds around photos stay neutral (porcelain or white) so fabric colours read true. That is why the app is white-based: an earlier cream theme ("Minimal Yet Warm") was dropped on 18 November 2026 in favour of white.
+- No stock photography, no illustrations of people, no emoji in the interface.
+
+## 2. Design system: "Porcelain & Wine"
+
+Chosen by the owner on 18 November 2026 from four white-based options: a white, luxury fashion feel that lets the outfit photos lead, with animation that feels considered.
+
+### 2.1 Colour
+
+**Core palette**
+
+| Token | Hex | Use |
+| --- | --- | --- |
+| Porcelain (canvas) | `#FBFAFB` | Page background |
+| Surface | `#FFFFFF` | Cards, menus, dialogs |
+| Blush (surface-accent) | `#F6F1F3` | Table headers, quiet highlights |
+| Ink | `#1C1A1F` | Primary text, sidebar background |
+| Raised ink | `#2C2830` | Active sidebar item background |
+| Grey | `#7A7480` | Secondary text, labels |
+| Faint | `#A39DA8` | Hints, placeholders |
+| Line | `#ECE8EB` | Borders, row dividers |
+| **Wine** (brand primary) | `#7B2D45` | Primary buttons, links, active text, focus rings |
+| **Champagne** (highlight) | `#C9A96E` | Active menu marker on dark, gold rules, "At Store" / "New" chips |
+| Alert | `#D9473A` | Errors, destructive actions |
+
+**Wine scale** (Tailwind `plum` / `brand`): 50 `#FBF4F6` · 100 `#F6E6EB` · 200 `#EBC9D3` · 300 `#D99DB0` · 400 `#A9506B` · **500 `#7B2D45`** · 600 `#6A263B` · 700 `#5B2034` · 800 `#451828`.
+
+**Champagne scale** (Tailwind `gold`): 50 `#FBF8F2` · 100 `#F5EEDF` · 200 `#EBDDC0` · 300 `#DDC79C` · **400 `#C9A96E`** · 500 `#B08F55`.
+
+**Semantic colours** (Tailwind hues are remapped in `tailwind.config.js` so every chip stays inside the palette):
+
+| Meaning | Scale | Example |
+| --- | --- | --- |
+| Done, paid, posted, positive money | Sage (`emerald` / `green`) `#22A55A` | Paid, Posted, balance cleared |
+| Pending, in progress, needs attention | Warm (`amber` / `orange`) `#E39B2B` | In Tailoring, Payment Pending, Sold (awaiting payment) |
+| Brand state | Wine (`plum`, `violet`) | Ready |
+| Information | Slate (`sky` / `blue`) `#7A7480` | Out for Delivery |
+| Neutral / closed | Stone grey | Returned |
+| Error, reversed, rejected | Alert (`rose` / `red`) `#D9473A` | Cancelled, Reversed, Rejected |
+| New / at store | Champagne | New, At Store |
+
+**Dark mode** (class `dark`, toggled in the top bar; light is the default, stored as `koko-theme-v2`):
+
+| Token | Hex |
+| --- | --- |
+| Canvas | `#141216` |
+| Surface | `#1E1B21` |
+| Line | `#2F2A33` |
+| Ink (text) | `#F4EFF2` |
+| Muted | `#A59EAA` |
+| Accent (readable wine) | `#D98AA2` |
+
+Always use tokens (`bg-canvas`, `bg-surface`, `text-ink`, `text-muted`, `border-line`, `text-accent`, `bg-brand-primary`) so both themes work. Never hard-code hex values in components.
+
+### 2.2 Typography
+
+- **Inter** for everything (UI, headings, numbers). Hierarchy comes from size, weight and letter-spacing, not from mixing typefaces.
+- Numbers use tabular figures (`tabular-nums`) so amounts line up in tables.
+
+| Style | Spec | Class |
+| --- | --- | --- |
+| Page title | 24 px on phones, 28 px from 640 px, ink | `h1` in `PageHeader` (`text-2xl sm:text-[1.75rem]`) |
+| Eyebrow (above title) | 11 px, semibold, uppercase, tracking 0.2em, grey | `.eyebrow` |
+| Section title | 11 px, semibold, uppercase, tracking 0.18em, grey | `.section-title` |
+| Form label / table header | 10.5 px, semibold, uppercase, tracking-wider | `.label`, `.th` |
+| Body | 14 px regular, ink | `text-sm` |
+| Secondary | 12 px, grey | `text-xs text-muted` |
+| Big figure | 24–28 px semibold | `StatCard`, balance due |
+
+Uppercase is only for small labels (eyebrows, section titles, table headers). Never set body text or buttons in capitals.
+
+### 2.3 Space, shape, depth
+
+| Property | Value |
+| --- | --- |
+| Base spacing | 4 px grid; page padding 16 px (phone), 24 px (tablet), 32 px (desktop); content max width 1152 px (`max-w-6xl`) |
+| Corner radius | Inputs and buttons 8 px (`rounded-lg`); cards 12 px (`rounded-xl`); dialogs and large cards 20 px (`rounded-2xl`); chips fully round |
+| Borders | 1 px `line`; tables divide rows with `line` |
+| Shadows | `soft` for cards; `lift` for dialogs and popovers; never heavy |
+| Accent rule | `.gold-rule`: a 1 px wine-to-champagne gradient under stat cards and section headers |
+
+### 2.4 Motion
+
+- framer-motion, short and soft: 0.2–0.3 s, ease-out. Lists stagger in; dialogs rise 40 px and fade; status changes animate the chip.
+- Buttons press to 98% scale. Numbers in stat cards count up once.
+- Motion never blocks work: no animation longer than 0.8 s, nothing loops except loading skeletons and the sync spinner.
+
+### 2.5 Iconography
+
+- lucide-react outline icons, 14–16 px in text and buttons, 24 px in empty states, stroke default.
+- One icon per page header (in a soft wine tile) and per menu item.
+
+### 2.6 Numbers, money and dates
+
+| Item | Format | Where |
+| --- | --- | --- |
+| Retail money | `PKR 12,000` (no decimals) | CRM screens, receipts |
+| Finance money | `Rs 23,200.00` (two decimals); negatives in brackets `(1,500.00)` | Finance screens and reports |
+| Reseller money | `AED 1,050.00` alongside PKR | Reseller screens |
+| Website (reference) | `Rs.14,250.00`, compare-at struck through | kokoatelier.com |
+| Dates | `23 Nov 2026` (screens); `23 November 2026` (documents) | Pakistan date (Asia/Karachi) |
+| Order numbers | `SO-000123`; website `#1151` | |
+| Entry numbers | `JV-2627-000001` (type, fiscal year, number) | Finance |
+| Barcodes | `KOATLR-011-S` (prefix, design number, size) | Reseller |
+
+Recommendation: align the retail format on screens with the website over time (Rs with thousands separators) so the brand reads the same everywhere.
+
+## 3. Components
+
+All in `src/ui/kit.jsx` and `src/index.css`; reuse before creating new ones.
+
+| Component | Look and use |
+| --- | --- |
+| `PageHeader` | Eyebrow, title, subtitle, icon tile, actions on the right |
+| `.card` | White surface, 1 px line, soft shadow, 12 px radius; content padding 20 px |
+| `StatCard` | Label, big animated figure, optional sub-line, gold rule at the bottom; tones default / green / red / orange / plum |
+| `Modal` | Centred dialog on desktop (sizes sm, md, lg, xl), bottom sheet on phones; title + subtitle, scrolling body, footer with actions right-aligned |
+| `Field` + `.input` + `.label` | Uppercase label above, input with wine focus ring, hint or error below |
+| `Segmented` | Pill tabs with a sliding white indicator (page tabs, filters) |
+| Buttons | `.btn-primary` wine (one per view), `.btn-secondary` white outline, `.btn-ghost` text, `.btn-icon` square 32 px, `.btn-danger` alert, `.btn-gold` champagne (rare highlight) |
+| Status chips | Rounded pill, tinted background, coloured dot + label (`StatusBadge`, `FinBadge`) |
+| Tables | Blush header row with uppercase labels, row dividers, hover tint; money right-aligned and tabular |
+| `EmptyState` | Soft wine icon circle, short title, one-line hint, optional action |
+| `SkeletonRows` / `SkeletonCards` | Grey shimmer while loading; never a blank page |
+| `ErrorBanner` | Rose box with retry |
+| Toasts (sonner) | Bottom-right; short past-tense sentences ("Payment recorded") |
+
+## 4. Layout and responsive behaviour
+
+- **Shell:** dark ink sidebar (wordmark in white, sections in uppercase grey, active item in champagne on raised ink) and a white content area with a top bar (search, theme toggle).
+- **Phone (under 640 px):** bottom tab bar plus "More" sheet; tables scroll horizontally inside their card; dialogs are bottom sheets; primary actions stay reachable with a thumb.
+- **Grids:** stat cards 2 across on phone, 3–4 on desktop; detail pages two columns (content left, summary cards right) from 1024 px.
+- **Density:** finance tables are denser (14 px rows); retail screens breathe more around photos.
+
+## 5. Documents the CRM produces
+
+| Document | Brand treatment |
+| --- | --- |
+| Order receipt PDF | Koko logo, wine and champagne accents (`C` palette in `generatePDF.js`), product photos, measurements, totals; customer-facing, says "Koko Atelier" |
+| Reseller statement PDF | Month summary with AED and PKR; landscape A4; hides on-screen controls (`data-pdf-hide`) |
+| Product sheet | Photos, names and barcodes for the reseller |
+| Finance reports (PDF, Excel) | "Koko Atelier (Private) Limited", report title, period, wordmark top right |
+| Courier booking Excel | Functional (Trax format); no branding |
+
+## 6. Accessibility
+
+- Text contrast at least 4.5:1 (ink on porcelain, white on wine both pass); never grey text on blush for important information.
+- Wine is too dark on the near-black sidebar, so the active item uses champagne there; in dark mode links use `#D98AA2`.
+- Visible focus ring (wine, 2 px) on every interactive element; dialogs close with Escape.
+- Status is never shown by colour alone: chips always carry the word.
+- Touch targets at least 32 px (44 px for primary actions on phones).
+
+## 7. Applying the brand to new work
+
+1. Start from an existing screen in the same area and reuse its components.
+2. One primary (wine) action per view; secondary actions in white.
+3. Let photos breathe; never place UI over garments.
+4. Write labels in the studio's words, sentence case, in the voice described in 1.5.
+5. Check both light and dark themes and a 390 px phone width before shipping.
+
+## 8. Open items
+
+- The website's exact theme colours and typefaces could not be read from the storefront automatically. Confirm them from the Shopify theme settings (Online Store › Themes › Customize › Theme settings) and record them here if the CRM should match the website more closely.
+- Decide whether customer-facing PDFs should switch from the legacy `kokoLogo.jpg` to the `public/brand/` wordmark.
