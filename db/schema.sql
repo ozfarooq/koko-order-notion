@@ -19,6 +19,7 @@
 --   015: finance F2a: suppliers, staff, expenses, weekly claims, recurring expenses, payroll, staff payments
 --   016: current studio staff (Master Sarfaraz, Abdur Rahman, Jhangir) and other spellings
 --   017: finance F2b: receipt and screenshot intake (inbox items, sticker-note words)
+--   018: finance F3: customer_payments (source of orders.advance_paid_pkr), orders.paid_on / status_changed_on / tracking_number, posting exceptions
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (

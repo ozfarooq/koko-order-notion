@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ClipboardList, Kanban, PlusCircle, Users, Store, FileText, Images, Contact, Shirt,
-  Truck, ReceiptText, Settings, Building2, Boxes, HelpCircle, BookOpen, Settings2, BarChart3, Library, Receipt, ShoppingBasket, HandCoins, UserCog, Inbox,
+  Truck, ReceiptText, Settings, Building2, Boxes, HelpCircle, BookOpen, Settings2, BarChart3, Library, Receipt, ShoppingBasket, HandCoins, UserCog, Inbox, Banknote,
 } from 'lucide-react'
 
 // Screens switched on as each phase ships
@@ -56,6 +56,7 @@ export function buildNav({ can, user, resellers = [] }) {
   if (FEATURES.finance && can('finance:read')) {
     sections.push({ title: 'Finance', items: [
       { to: '/finance/inbox', label: 'Inbox', icon: Inbox },
+      { to: '/finance/sales', label: 'Sales & receipts', icon: Banknote },
       { to: '/finance/expenses', label: 'Expenses', icon: Receipt },
       { to: '/finance/claims', label: 'Studio claims', icon: ShoppingBasket },
       { to: '/finance/payroll', label: 'Payroll', icon: HandCoins },

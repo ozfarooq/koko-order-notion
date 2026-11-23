@@ -119,3 +119,13 @@ export const approveReadyIntake = () => post('/finance/intake/approve-ready')
 export const getIntakeLabels = () => api('/finance/intake-labels')
 export const saveIntakeLabel = (id, b) => (id ? patch(`/finance/intake-labels/${id}`, b) : post('/finance/intake-labels', b))
 export const INTAKE_KINDS = { staff_payment: 'Staff payment', expense: 'Expense / supplier', owner_funding: 'Funds added by a director', customer_receipt: 'Customer payment (F3)', reseller_payment: 'Reseller payment (F3)', other: 'Not sure yet' }
+
+// ── F3: sales, receipts, resellers ──
+export const getReceivables = () => api('/finance/receivables')
+export const getSyncExceptions = () => api('/finance/sync/exceptions')
+export const syncBatch = (after) => post('/finance/sync', { after, limit: 12 })
+export const retrySync = (type, id) => post('/finance/sync/retry', { type, id })
+export const keepAdvance = (orderId, reason) => post(`/finance/orders/${orderId}/keep-advance`, { reason })
+export const getFxRates = () => api('/finance/fx-rates')
+export const setFxRate = (b) => post('/finance/fx-rates', b)
+export const deleteFxRate = (b) => post('/finance/fx-rates/delete', b)

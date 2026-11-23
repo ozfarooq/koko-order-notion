@@ -12,6 +12,7 @@ import { Modal, Skeleton, money, fmtDate } from '../ui/kit'
 import { listParent, listItem } from '../ui/motion'
 import { useAuth } from '../auth/AuthContext'
 import { FEATURES } from '../app/nav'
+import OrderPayments from './orders/OrderPayments'
 
 const waLink = (phone) => {
   const d = (phone || '').replace(/\D/g, '')
@@ -66,6 +67,12 @@ export default function OrderDetail() {
   useEffect(() => { load() }, [load])
 
   const [restocking, setRestocking] = useState(false)
+  // Trax tracking number (matches courier settlements to orders)
+  const editTracking = async () => {
+    const v = window.prompt('Trax tracking number', order.trackingNumber || '')
+    if (v === null) return
+    try { setOrder(await updateOrder(id, { trackingNumber: v.trim() })); toast.success('Saved') } catch (err) { toast.error(err.message) }
+  }
 
   const changeStatus = async (status) => {
     const prev = order.status
@@ -224,12 +231,18 @@ export default function OrderDetail() {
                 <span className={`font-display text-2xl font-semibold ${order.balanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>{money(order.balanceDue)}</span>
               </div>
             </div>
+            <OrderPayments order={order} onChanged={load} />
           </Card>
           )}
 
           <Card icon={Truck} title="Delivery">
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted">Due</span><span className="font-semibold text-ink">{fmtDate(order.deliveryDate)}</span></div>
+              <div className="flex items-center justify-between gap-2"><span className="text-muted">Trax tracking</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="font-mono text-xs text-ink">{order.trackingNumber || <span className="font-sans text-faint">—</span>}</span>
+                  {can('orders:write') && <button className="text-xs font-semibold text-accent" onClick={editTracking}>{order.trackingNumber ? 'Change' : 'Add'}</button>}
+                </span></div>
               {(order.address || order.city) && (
                 <p className="flex gap-2 text-ink-soft"><MapPin size={14} className="mt-0.5 flex-shrink-0 text-faint" /><span className="whitespace-pre-wrap">{[order.address, order.city].filter(Boolean).join('\n')}</span></p>
               )}

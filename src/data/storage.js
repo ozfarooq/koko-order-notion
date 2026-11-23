@@ -92,6 +92,12 @@ export const CHANNELS = ['Studio', 'WhatsApp', 'Instagram', 'Shopify', 'Other']
 export const getWebsiteOrders = ()     => api('/orders/website')
 export const importWebsiteOrders = (ids) => api('/orders/website/import', { method: 'POST', body: JSON.stringify({ ids }) })
 export const getOrderHistory = (id)    => api(`/orders/${id}/history`)
+// Customer payments (each one recorded; the advance is their sum)
+export const getOrderPayments   = (id)     => api(`/orders/${id}/payments`)
+export const addOrderPayment    = (id, p)  => api(`/orders/${id}/payments`, { method: 'POST', body: JSON.stringify(p) })
+export const updateOrderPayment = (pid, p) => api(`/payments/${pid}`, { method: 'PATCH', body: JSON.stringify(p) })
+export const deleteOrderPayment = (pid)    => api(`/payments/${pid}`, { method: 'DELETE' })
+export const PAYMENT_METHODS = { bank: 'Bank Alfalah', cash: 'Cash', trax_cod: 'Trax COD', director_omer: 'Paid to Omer', director_usman: 'Paid to Usman' }
 export const addOrder     = (order)    => api('/orders',      { method: 'POST',  body: JSON.stringify(order) })
 export const updateOrder  = (id, upd)  => api(`/orders/${id}`,{ method: 'PATCH', body: JSON.stringify(upd) })
 export const deleteOrder  = (id)       => api(`/orders/${id}`,{ method: 'DELETE' })

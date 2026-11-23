@@ -161,7 +161,7 @@ function Suppliers({ onStatement }) {
 }
 
 // Everything posted against one person: bills, wages, claims, payments, advances
-function Statement({ type, id, name, onClose }) {
+export function Statement({ type, id, name, onClose }) {
   const [period, setPeriod] = useState({ preset: 'fytd' })
   const range = presetRange(period.preset, period)
   const [d, setD] = useState(null)
