@@ -178,3 +178,18 @@ export async function readStatementFile(file) {
   const rows = grid.slice(h + 1).map((r) => Object.fromEntries(Object.entries(ix).map(([k, i]) => [k, i >= 0 ? r[i] : ''])))
   return { source: name.endsWith('.csv') ? 'csv' : 'xlsx', rows }
 }
+
+// ── F5a: costing and pricing ──
+export const getCostingDesigns = (collectionId) => api(`/finance/costing/designs?${query({ collectionId })}`)
+export const getCostingDesign = (productId) => api(`/finance/costing/designs/${productId}`)
+export const saveCostCard = (productId, b) => post(`/finance/costing/designs/${productId}/cards`, b)
+export const activateCostCard = (cardId) => post(`/finance/costing/cards/${cardId}/activate`)
+export const confirmPrice = (productId, b) => post(`/finance/costing/designs/${productId}/price`, b)
+export const getFabricLots = (collectionId) => api(`/finance/costing/lots?${query({ collectionId })}`)
+export const saveFabricLot = (id, b) => (id ? patch(`/finance/costing/lots/${id}`, b) : post('/finance/costing/lots', b))
+export const getLotMoves = (id) => api(`/finance/costing/lots/${id}/moves`)
+export const addFabricMove = (id, b) => post(`/finance/costing/lots/${id}/moves`, b)
+export const getPricingPolicies = () => api('/finance/costing/policies')
+export const savePricingPolicy = (b) => post('/finance/costing/policies', b)
+export const deletePricingPolicy = (collectionId) => api(`/finance/costing/policies/${collectionId}`, { method: 'DELETE' })
+export const getProfit = (f) => api(`/finance/costing/profit?${query(f)}`)
