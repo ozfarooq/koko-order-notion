@@ -129,3 +129,52 @@ export const keepAdvance = (orderId, reason) => post(`/finance/orders/${orderId}
 export const getFxRates = () => api('/finance/fx-rates')
 export const setFxRate = (b) => post('/finance/fx-rates', b)
 export const deleteFxRate = (b) => post('/finance/fx-rates/delete', b)
+
+// ── F4: bank reconciliation ──
+export const getBankStatements = () => api('/finance/bank/statements')
+export const getBankStatement = (id) => api(`/finance/bank/statements/${id}`)
+export const previewBankStatement = (b) => post('/finance/bank/preview', b)
+export const importBankStatement = (b) => post('/finance/bank/statements', b)
+export const deleteBankStatement = (id) => api(`/finance/bank/statements/${id}`, { method: 'DELETE' })
+export const autoMatchStatement = (id) => post(`/finance/bank/statements/${id}/auto-match`)
+export const reconcileStatement = (id, b) => post(`/finance/bank/statements/${id}/reconcile`, b)
+export const matchBankLine = (id, entryId) => post(`/finance/bank/lines/${id}/match`, { entryId })
+export const unmatchBankLine = (id) => post(`/finance/bank/lines/${id}/unmatch`)
+export const ignoreBankLine = (id, reason) => post(`/finance/bank/lines/${id}/ignore`, { reason })
+export const bookBankLine = (id, b) => post(`/finance/bank/lines/${id}/book`, b)
+export const getBankRules = () => api('/finance/bank/rules')
+export const deleteBankRule = (id) => api(`/finance/bank/rules/${id}`, { method: 'DELETE' })
+export const findOrdersForPayment = (q, amount) => api(`/finance/bank/orders?${query({ q, amount })}`)
+
+// Reads a statement file in the browser: PDF text lines (pdf.js) or spreadsheet rows. Nothing leaves the app.
+export async function readStatementFile(file) {
+  const name = file.name.toLowerCase()
+  if (name.endsWith('.pdf') || file.type === 'application/pdf') {
+    const pdfjs = await import('pdfjs-dist/build/pdf.min.mjs')
+    pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise
+    const textLines = []
+    for (let p = 1; p <= doc.numPages; p++) {
+      const items = (await (await doc.getPage(p)).getTextContent()).items.filter((i) => i.str && i.str.trim())
+      // Group pieces of text into visual lines (same height on the page), left to right
+      const rows = []
+      for (const i of items.sort((a, b) => b.transform[5] - a.transform[5] || a.transform[4] - b.transform[4])) {
+        const y = i.transform[5]
+        const row = rows.find((r) => Math.abs(r.y - y) <= 3)
+        if (row) row.items.push(i); else rows.push({ y, items: [i] })
+      }
+      for (const r of rows.sort((a, b) => b.y - a.y)) textLines.push(r.items.sort((a, b) => a.transform[4] - b.transform[4]).map((i) => i.str.trim()).join(' '))
+    }
+    return { source: 'pdf', textLines }
+  }
+  const XLSX = await import('xlsx')
+  const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true })
+  const grid = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' })   // real dates and numbers
+  const h = grid.findIndex((r) => r.some((c) => /^date/i.test(String(c).trim())) && r.some((c) => /balance/i.test(String(c))))
+  if (h < 0) throw new Error('No header row with Date and Balance columns was found')
+  const head = grid[h].map((c) => String(c).toLowerCase().trim())
+  const col = (re) => head.findIndex((c) => re.test(c))
+  const ix = { date: col(/^(txn |value |transaction )?date/), description: col(/desc|narration|particular|detail|remarks/), debit: col(/debit|withdraw/), credit: col(/credit|deposit/), balance: col(/balance/) }
+  const rows = grid.slice(h + 1).map((r) => Object.fromEntries(Object.entries(ix).map(([k, i]) => [k, i >= 0 ? r[i] : ''])))
+  return { source: name.endsWith('.csv') ? 'csv' : 'xlsx', rows }
+}

@@ -20,6 +20,7 @@
 --   016: current studio staff (Master Sarfaraz, Abdur Rahman, Jhangir) and other spellings
 --   017: finance F2b: receipt and screenshot intake (inbox items, sticker-note words)
 --   018: finance F3: customer_payments (source of orders.advance_paid_pkr), orders.paid_on / status_changed_on / tracking_number, posting exceptions
+--   019: finance F4: bank statements, statement lines, counterparty rules; bank_last4 on accounts
 
 -- ── Catalog (mirrors Shopify) ──────────────────────────────────────────
 CREATE TABLE collections (

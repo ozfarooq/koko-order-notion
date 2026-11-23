@@ -1,0 +1,185 @@
+Bank Alfalah
+Page 1 of 4 MONTHLY
+Statement of Account From Date:01/10/2026 To Date:31/10/2026
+Test Branch Lahore Account # 0 0 0 0 - 0 0 0 0 0 0 2 8 4 6
+Title Of Account KOKO ATELIER IBAN PK00ALFH0000000000002846
+Registered Address 1 TEST ARCADE MODEL TOWN Nature Of Account CA Alfalah Kamyab Karobar (AKK)
+LAHORE Currency PKR
+PK
+Registered Contact No. +920000004114 Date Of Account Opened 28/10/2025
+Date Description Cheq/Inst# Debit Credit Balance
+Opening Balance 25,000.00
+05 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 5,047.00 19,953.00
+Limited - 00000000002846 To HAMZA TARIQ
+- JazzCash/Mobilink Microfinance Bank -
+03000004101 | Via Alfa/Online KOKO
+ATELIER Bank Alfalah Limited HAMZA TARIQ
+JazzCash/Mobilink Microfinance Bank
+05 Oct 2026 Raast P2P Funds Transfer from OMER 54,236.00 74,189.00
+FAROOQ ******7001 [Ref:
+TESTREFB5YLH7DPUJR117FL41T]
+<TRANS.ID: FT26WK1DEGZD8PCF>
+Incoming Funds-RAAST-P2P Bank Alfalah
+Limited KOKO ATELIER BANK ALFALAH
+LIMITED
+05 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 29,360.00 44,829.00
+Limited - 00000000002846 To ABDUR
+REHMAN - Easypaisa/Telenor Microfinance
+Bank - 03000004102 | Via Alfa/Online
+KOKO ATELIER Bank Alfalah Limited
+ABDUR REHMAN Easypaisa/Telenor
+Microfinance Bank
+05 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 16,323.00 28,506.00
+Limited - 00000000002846 To JAHANGIR
+MAJEED - Easypaisa/Telenor Microfinance
+Bank - 03000004103 | Via Alfa/Online
+KOKO ATELIER Bank Alfalah Limited
+JAHANGIR MAJEED Easypaisa/Telenor
+Microfinance Bank
+07 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 1,203.00 27,303.00
+Limited - 00000000002846 To BILAL
+ANWAR - JazzCash/Mobilink Microfinance Bank
+- 03000004104 | Via Alfa/Online KOKO
+ATELIER Bank Alfalah Limited BILAL
+ANWAR JazzCash/Mobilink Microfinance Bank
+12 Oct 2026 Federal Excise Duty 9.88 27,293.12
+12 Oct 2026 Minimum Balance Service Charge 37.00 27,256.12
+12 Oct 2026 Raast P2P Funds Transfer from OMER 64,641.00 91,897.12
+FAROOQ ******7001 [Ref:
+TESTREFJ3T2Y0QKFMKQQA7MSUA]
+<TRANS.ID: FT2632ERF3DHQD1D> Incoming
+Funds-RAAST-P2P Bank Alfalah Limited
+KOKO ATELIER BANK ALFALAH LIMITED
+Bank Alfalah
+Page 2 of 4 MONTHLY
+Statement of Account From Date:01/10/2026 To Date:31/10/2026
+Date Description Cheq/Inst# Debit Credit Balance
+12 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 17,431.00 74,466.12
+Limited - 00000000002846 To JAHANGIR
+MAJEED - Easypaisa/Telenor Microfinance
+Bank - 03000004103 | Via Alfa/Online
+KOKO ATELIER Bank Alfalah Limited
+JAHANGIR MAJEED Easypaisa/Telenor
+Microfinance Bank
+12 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 25,387.00 49,079.12
+Limited - 00000000002846 To ABDUR
+REHMAN - Easypaisa/Telenor Microfinance
+Bank - 03000004102 | Via Alfa/Online
+KOKO ATELIER Bank Alfalah Limited
+ABDUR REHMAN Easypaisa/Telenor
+Microfinance Bank
+13 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 33,063.00 16,016.12
+Limited - 00000000002846 To ZAIN
+QURESHI - Meezan Bank Limited -
+00000000004105 | Via Alfa/Online KOKO
+ATELIER Bank Alfalah Limited ZAIN
+QURESHI Meezan Bank Limited
+19 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 18,905.00 -2,888.88
+Limited - 00000000002846 To ABDUR
+REHMAN - Easypaisa/Telenor Microfinance
+Bank - 03000004102 | Via Alfa/Online
+KOKO ATELIER Bank Alfalah Limited
+ABDUR REHMAN Easypaisa/Telenor
+Microfinance Bank
+19 Oct 2026 Raast P2P Funds Transfer from OMER 22,783.00 19,894.12
+FAROOQ ******7001 [Ref:
+TESTREFK2ZWJ8D51111G61DNEP]
+<TRANS.ID: FT26QCJU2KHVMGNZ>
+Incoming Funds-RAAST-P2P Bank Alfalah
+Limited KOKO ATELIER BANK ALFALAH
+LIMITED
+19 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 19,668.00 226.12
+Limited - 00000000002846 To HAMZA TARIQ
+- JazzCash/Mobilink Microfinance Bank -
+03000004101 | Via Alfa/Online KOKO
+ATELIER Bank Alfalah Limited HAMZA TARIQ
+JazzCash/Mobilink Microfinance Bank
+22 Oct 2026 Raast P2P Funds Transfer from IMRAN 74,587.00 74,813.12
+SHAH ******4106 [Ref:
+TESTREF4LHXDGAKGZBEP0KSYZ6]
+<TRANS.ID: FT26GEDP73W55ZVR> Incoming
+Funds-RAAST-P2P Bank Alfalah Limited
+KOKO ATELIER BANK ALFALAH LIMITED
+22 Oct 2026 IBFT From USMAN AHMED - Meezan Bank 31,042.00 105,855.12
+Limited - 00000000007002 to KOKO
+ATELIER - Bank Alfalah Limited -
+00000000002846 USMAN AHMED Meezan
+Bank Limited KOKO ATELIER BANK
+ALFALAH LIMITED
+24 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 5,689.00 100,166.12
+Limited - 00000000002846 To SARFARAZ
+AHMED BAIG - JazzCash/Mobilink
+Microfinance Bank - 03000004108 | Via
+Alfa/Online KOKO ATELIER Bank Alfalah
+Limited SARFARAZ AHMED BAIG
+JazzCash/Mobilink Microfinance Bank
+Bank Alfalah
+Page 3 of 4 MONTHLY
+Statement of Account From Date:01/10/2026 To Date:31/10/2026
+Date Description Cheq/Inst# Debit Credit Balance
+24 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 3,392.00 96,774.12
+Limited - 00000000002846 To JAHANGIR
+MAJEED - Easypaisa/Telenor Microfinance
+Bank - 03000004103 | Via Alfa/Online
+KOKO ATELIER Bank Alfalah Limited
+JAHANGIR MAJEED Easypaisa/Telenor
+Microfinance Bank
+26 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 17,779.00 78,995.12
+Limited - 00000000002846 To ABDUR
+REHMAN - Easypaisa/Telenor Microfinance
+Bank - 03000004102 | Via Alfa/Online
+KOKO ATELIER Bank Alfalah Limited
+ABDUR REHMAN Easypaisa/Telenor
+Microfinance Bank
+30 Oct 2026 Raast P2P Funds Transfer to USMAN 7,764.00 71,231.12
+AHMED (ASAAN AC) ******7002 [Ref:
+TESTREFHH7566VFKGXS6L9BP9Z]
+<TRANS.ID: FT26MRFV97X4UEH8> KOKO
+ATELIER Bank Alfalah Limited Outgoing
+Funds--RAAST-P2P BANK ALFALAH
+LIMITED
+30 Oct 2026 Raast P2P Funds Transfer to USMAN 5,973.00 65,258.12
+AHMED (ASAAN AC) ******7002 [Ref:
+TESTREFKB9VFS9ZLYQ8XQNR1QN]
+<TRANS.ID: FT262LXK72CEWXY7> KOKO
+ATELIER Bank Alfalah Limited Outgoing
+Funds--RAAST-P2P BANK ALFALAH
+LIMITED
+31 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 13,358.00 51,900.12
+Limited - 00000000002846 To KAMRAN
+JAVED - Habib Metropolitan Bank Limited
+- 0000000000000004109 | Via Alfa/Online
+KOKO ATELIER Bank Alfalah Limited
+KAMRAN JAVED Habib Metropolitan Bank
+Limited
+31 Oct 2026 IBFT From KOKO ATELIER - Bank Alfalah 58,166.00 -6,265.88
+Limited - 00000000002846 To SANA
+MALIK - Meezan Bank Limited -
+00000000004110 | Via Alfa/Online KOKO
+ATELIER Bank Alfalah Limited SANA
+MALIK Meezan Bank Limited
+31 Oct 2026 Raast P2P Funds Transfer to ASAD 83,669.00 -89,934.88
+IQBAL KHAN ******4111 [Ref:
+TESTREF97YBBT6SNY4YZFQGQ6N]
+<TRANS.ID: FT265EFT6EDV4U0Y> KOKO
+ATELIER Bank Alfalah Limited Outgoing
+Funds--RAAST-P2P BANK ALFALAH
+LIMITED
+31 Oct 2026 Funds Transfer From KOKO ATELIER - 12,440.00 -102,374.88
+0000002846 to TARIQ MEHMOOD -
+0000004112 KOKO ATELIER Bank Alfalah
+Limited TARIQ MEHMOOD BANK
+ALFALAH LIMITED
+31 Oct 2026 IBFT Remittance From MASTERCARD 235,888.00 133,513.12
+TRANSACTION PAYABLE - Askari Bank
+Limited - 00000000004113 to KOKO
+ATELIER - Bank Alfalah Limited -
+00000000002846| Via ATM MASTERCARD
+TRANSACTION PAYABLE Askari
+Commercial Bank Limited KOKO ATELIER
+BANK ALFALAH LIMITED
+Bank Alfalah
+Page 4 of 4 MONTHLY
+Statement of Account From Date:01/10/2026 To Date:31/10/2026
+Date Description Cheq/Inst# Debit Credit Balance
+Closing Balance 133,513.12

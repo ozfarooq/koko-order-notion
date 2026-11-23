@@ -37,6 +37,7 @@ description: "What has been delivered, the roadmap, phase-by-phase deliverables,
 | 23 Nov 2026 | Finance F2a | Suppliers, staff, expenses, recurring bills, studio claims, payroll, staff payments |
 | 23 Nov 2026 | Finance F2b | Receipt and screenshot inbox with Claude vision, rules, review, file away |
 | 23 Nov 2026 | Finance F3 | Customer payments, revenue at Paid, reseller sales and payments with FX, posting exceptions, receivables, backfill |
+| 23 Nov 2026 | Finance F4 | Bank reconciliation: statements read in the browser (PDF, CSV, Excel; never sent outside the app), balance-chain check, auto-matching, booking lines from the statement, learned counterparty names, reconciliation report |
 
 ## 3. How every phase is built and released
 
@@ -61,8 +62,8 @@ This process applies to every phase below.
 ```
  Nov 2026        Dec 2026            Jan 2027             Feb–Mar 2027          Apr–Jun 2027        Jul 2027
  ───────────────┬───────────────────┬────────────────────┬─────────────────────┬───────────────────┬──────────
- F3 wrap-up     │ F4 Bank rec       │ F5 Costing (VÉLORA)│ F6 Close & assets   │ Productisation    │ F7 Tax on
- Ops quick wins │ Engineering base  │                    │                     │ (if approved)     │
+ F3 wrap-up     │ F4 Bank rec       │ F5 Costing (VÉLORA)│ F6 Close & assets   │ Engineering base  │ F7 Tax on
+ Ops quick wins │                   │                    │                     │ Productisation?   │
 ```
 
 Dates are targets; each phase starts only after the owner signs off the previous one.
@@ -79,7 +80,10 @@ Dates are targets; each phase starts only after the owner signs off the previous
 | 6 | Printable barcode labels for reseller pieces | Labels print from Stock / Handover |
 | 7 | WhatsApp templates (order received, ready, dispatched) | One tap from the order page |
 
-### 4.2 Engineering foundation (Dec 2026, alongside F4)
+### 4.2 Engineering foundation (after the finance module is complete)
+
+> Owner decision, 23 Nov 2026: architecture work waits until finance phases F4–F7 are done. Then, in this order: Neon database branches with Vercel preview deployments, CI (tests and build before deploy), error monitoring, background jobs (Vercel Cron and an outbox for finance posting), router split with request validation, gradual typing, files out of the database. A separate API project is not planned; a monorepo only if the product goes multi-company.
+
 
 | # | Item | Why |
 | --- | --- | --- |
@@ -91,13 +95,13 @@ Dates are targets; each phase starts only after the owner signs off the previous
 | E6 | Migration helper that disables `orders_touch` during data backfills | Keep `updated_at` meaningful |
 | E7 | Error reporting (server logs to a log service; client error boundary) | See failures without users reporting them |
 
-### 4.3 F4: Bank reconciliation (Dec 2026)
+### 4.3 F4: Bank reconciliation (built 23 Nov 2026; first month to reconcile: October 2026)
 
 Spec: [finance-module.mdx › F4](./finance-module.mdx).
 
 | Deliverable | Notes |
 | --- | --- |
-| Bank statement import (Bank Alfalah CSV / Excel) | Lines stored with date, amount, reference |
+| Bank statement import (Bank Alfalah PDF, CSV / Excel) | Read in the browser with pdf.js; never sent to Claude or any outside service (owner); every line checked against the running balance |
 | Matching | Auto-match by bank reference (already captured on staff payments, expenses, intake, reseller payments), then amount and date; manual match; create entry from an unmatched line |
 | Reconciliation report | Book balance vs bank balance with unmatched items; month sign-off |
 | Done when | November 2026 Bank Alfalah statement reconciles to zero difference |
@@ -110,7 +114,7 @@ Spec: [finance-module.mdx › F4](./finance-module.mdx).
 | Bill of materials per design | Fabric, trims, embroidery, labour hours |
 | Job costing | Material issues and payroll hours by job (already captured in payroll) → WIP → finished goods → cost of sales |
 | Cost per piece, margin per design and collection | Reports and product page |
-| Pricing helper | Suggested price from cost (needs open question Q5) |
+| Pricing | Owner (23 Nov 2026): after the shoot, Usman's cost sheet gives the actual cost per outfit; margins are added on top to reach the retail price. So: cost sheet per design → unit cost → margins → retail price |
 | Done when | VÉLORA collection shows cost per piece and margin that the owner agrees with |
 
 ### 4.5 F6: Close, fixed assets, provisions (Feb–Mar 2027)

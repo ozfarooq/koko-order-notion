@@ -44,6 +44,8 @@ const People          = lazy(() => import('./pages/finance/People'))
 const FinanceInbox    = lazy(() => import('./pages/finance/Inbox'))
 const FinanceSales    = lazy(() => import('./pages/finance/Sales'))
 const DocPage         = lazy(() => import('./pages/docs/DocPage'))
+const FinanceBank     = lazy(() => import('./pages/finance/Bank'))
+const BankStatement   = lazy(() => import('./pages/finance/Bank').then((m) => ({ default: m.BankStatement })))
 const Inventory       = lazy(() => import('./pages/inventory/Inventory'))
 
 function Spinner({ full }) {
@@ -136,6 +138,8 @@ export default function App() {
                   <Route path="/finance/people" element={<Require permission="finance:read"><People /></Require>} />
                   <Route path="/finance/inbox" element={<Require permission="finance:read"><FinanceInbox /></Require>} />
                   <Route path="/finance/sales" element={<Require permission="finance:read"><FinanceSales /></Require>} />
+                  <Route path="/finance/bank" element={<Require permission="finance:read"><FinanceBank /></Require>} />
+                  <Route path="/finance/bank/:id" element={<Require permission="finance:read"><BankStatement /></Require>} />
                 </>}
 
                 <Route path="/resellers/:resellerId" element={<Require permission="fc:read"><ResellerScope><ResellerHome /></ResellerScope></Require>} />
