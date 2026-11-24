@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ClipboardList, Kanban, PlusCircle, Users, Store, FileText, Images, Contact, Shirt,
-  Truck, ReceiptText, Settings, Building2, Boxes, HelpCircle, BookOpen, Settings2, BarChart3, Library, Receipt, ShoppingBasket, HandCoins, UserCog, Inbox, Banknote, Target, Cpu, Workflow, Palette, Database, Map, Landmark, Calculator, CalendarCheck,
+  Truck, ReceiptText, Settings, Building2, Boxes, HelpCircle, BookOpen, Settings2, BarChart3, Library, Receipt, ShoppingBasket, HandCoins, UserCog, Inbox, Banknote, Target, Cpu, Workflow, Palette, Database, Map, Landmark, Calculator, CalendarCheck, Scale,
 } from 'lucide-react'
 
 // Screens switched on as each phase ships
@@ -65,6 +65,7 @@ export function buildNav({ can, user, resellers = [] }) {
       { to: '/finance/people', label: 'Staff & suppliers', icon: UserCog },
       { to: '/finance/costing', label: 'Costing & pricing', icon: Calculator },
       { to: '/finance/close', label: 'Month-end close', icon: CalendarCheck },
+      { to: '/finance/tax', label: 'Tax', icon: Scale },
       { to: '/finance/reports', label: 'Reports', icon: BarChart3 },
       { to: '/finance/notes', label: 'Notes pack', icon: FileText },
       { to: '/finance/ledgers', label: 'Ledgers', icon: Library },

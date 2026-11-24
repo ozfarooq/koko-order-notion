@@ -18,6 +18,7 @@ export default function Overview() {
     d.attention.inbox && { to: '/finance/inbox', text: `${d.attention.inbox} receipt${d.attention.inbox === 1 ? '' : 's'} waiting in the inbox` },
     d.attention.claimsWaiting && { to: '/finance/claims', text: `${d.attention.claimsWaiting} studio claim${d.attention.claimsWaiting === 1 ? '' : 's'} to approve` },
     d.attention.bankUnmatched && { to: '/finance/bank', text: `${d.attention.bankUnmatched} bank line${d.attention.bankUnmatched === 1 ? '' : 's'} not matched` },
+    ...(d.attention.taxDue || []).map((t) => ({ to: '/finance/tax?tab=calendar', text: `${t.title}: ${t.overdue ? 'overdue since' : 'due'} ${fmtDate(t.dueOn)}` })),
     ...d.attention.monthsToClose.map((m) => ({ to: '/finance/close', text: `${m.name} has ended and is not closed yet` })),
   ].filter(Boolean) : []
   return (

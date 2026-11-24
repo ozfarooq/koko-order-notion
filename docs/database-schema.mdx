@@ -394,6 +394,20 @@ PK (`rate_date`, `currency`) · `rate_to_pkr`. The rate for a date is the latest
 
 Month-end jobs post with a source key so each can be run again: `depreciation`/month/monthly, `fx_reval`/month/closing and /reverse, `ecl`/month/closing, `stock_valuation`/month/closing, `recurring_journal`/month/id (and id:reverse), `year_close`/FY/closing (a CL entry in the adjustment period).
 
+### 3.10 Finance: tax (migration 024)
+
+| Table | Key columns |
+| --- | --- |
+| `fin_tax_codes` | code (ST, ZR, EX, IN, W153G, W153S, W155, W6A, W6AD, W154, WBANK, STW), name, kind, rate_key: the codes carried on `fin_lines.tax_code` |
+| `fin_tax_rates` | key, label, rate %, threshold, effective_from (unique per key): the rate in force on a date is the latest from on or before it |
+| `fin_tax_suffered` | tax_code, suffered_on, party, base_amount, amount, from_account (system key), reseller_id, certificate_ref, entry_id, status |
+| `fin_tax_payments` | kind (sales_tax, wht, advance_tax, income_tax), period, paid_on, amount, paid_from, cpr_no, entry_id, status |
+| `fin_tax_calendar` | kind, period (unique together), title, due_on, status (Due, Done, Not needed), done_on, reference |
+| `fin_expenses.wht_amount`, `wht_code` | Withholding deducted from the supplier when paid |
+| `fin_settings` | tax_enabled, tax_enabled_from, sales_tax_registered, ntn, strn, pra_number, filer_status, small_company, pos_required, prices_include_tax, cod_wht_treatment, tax_addbacks (per fiscal year) |
+
+Tax entries: `sales_tax_return`/month/closing, `income_tax`/FY/current and `income_tax_deferred`/FY/closing (adjustment period), `tax_suffered`/id/posted, `tax_payment`/id/paid.
+
 ## 4. Enumerations
 
 | Field | Values |
@@ -463,6 +477,7 @@ Month-end jobs post with a source key so each can be run again: `depreciation`/m
 | 020 | fin_costing | Pricing policies, fabric lots, cost cards, price history |
 | 021 | country | Country on customers and on order delivery addresses |
 | 022 | fin_stock_valuation | 5050 Change in inventories, month-end stock valuations, fabric purchase paid as an expense |
+| 024 | fin_tax | Tax profile settings, tax codes, effective-dated tax rates, tax deducted from Koko, tax payments (CPR), tax calendar, withholding on expenses; accounts 2330, 7110 |
 | 023 | fin_close | Fixed assets (lines carry `asset_id`), provisions, recurring journals, close records, loss rates; accounts 2700, 4910, 4920, 6980, 6991 |
 
 ## 8. Working with the database

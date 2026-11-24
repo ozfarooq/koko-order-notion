@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Settings2, Plus, Lock, Unlock, CalendarPlus, Search, Download, Upload, Paperclip, CheckCircle2, AlertTriangle, Send } from 'lucide-react'
 import {
   getAccounts, createAccount, updateAccount, getPeriods, setPeriodStatus, addFiscalYear, getFinanceSettings, updateFinanceSettings,
-  getOpening, postOpening, uploadFinanceFile, readFile, TYPE_LABELS,
+  getOpening, postOpening, uploadFinanceFile, readFile, TYPE_LABELS, getTaxSettings, updateTaxProfile, switchTax, getTaxRates, addTaxRate, deleteTaxRate, getTaxCodes,
 } from '../../data/finance'
 import { PageHeader, Segmented, Modal, Field, SkeletonRows, ErrorBanner, fmtDate } from '../../ui/kit'
 import { FinBadge, balanceOf, formatRs, safePaisa, fmtRs } from './shared'
@@ -299,19 +299,111 @@ function SettingsTab() {
   )
 }
 
+// ── Tax (F7) ───────────────────────────────────────────────────────────
+function TaxTab() {
+  const [s, setS] = useState(null)
+  const [rates, setRates] = useState([])
+  const [codes, setCodes] = useState([])
+  const [from, setFrom] = useState('2027-07-01')
+  const [newRate, setNewRate] = useState(null)
+  useEffect(() => {
+    getTaxSettings().then(setS).catch((e) => toast.error(e.message))
+    getTaxRates().then(setRates).catch(() => {}); getTaxCodes().then(setCodes).catch(() => {})
+  }, [])
+  const set = (p) => setS((x) => ({ ...x, ...p }))
+  const saveProfile = async () => { try { setS(await updateTaxProfile(s)); toast.success('Tax profile saved') } catch (err) { toast.error(err.message) } }
+  const turn = async (on) => {
+    if (on && !window.confirm(`Switch tax on from ${fmtDate(from)}? From that date sales carry sales tax${s.salesTaxRegistered ? '' : ' (once registered)'}, bills can carry input tax and withholding, and the tax accounts open. Nothing before it changes.`)) return
+    try { setS(await switchTax(on, from)); toast.success(on ? 'Tax switched on' : 'Tax switched off') } catch (err) { toast.error(err.message) }
+  }
+  const saveRate = async () => { try { setRates(await addTaxRate(newRate)); setNewRate(null); toast.success('Rate added') } catch (err) { toast.error(err.message) } }
+  const delRate = async (r) => { if (!window.confirm(`Delete the ${r.label} rate from ${fmtDate(r.effectiveFrom)}?`)) return; try { setRates(await deleteTaxRate(r.id)) } catch (err) { toast.error(err.message) } }
+  if (!s) return <SkeletonRows rows={6} />
+  const keys = [...new Map(rates.map((r) => [r.key, r.label])).entries()]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' })
+  return (
+    <div className="space-y-6">
+      <section className="card space-y-4 p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="flex-1 font-display text-lg font-semibold text-ink">Tax {s.taxEnabled ? `is on from ${fmtDate(s.taxEnabledFrom)}` : 'is off'}</h2>
+          {s.taxEnabled ? <button className="btn-secondary" onClick={() => turn(false)}>Switch off</button> : <>
+            <input type="date" className="input w-auto" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Tax starts on" />
+            <button className="btn-primary" onClick={() => turn(true)}>Switch tax on</button>
+          </>}
+        </div>
+        <p className="text-sm text-muted">Planned start: 1 July 2027 (Tax Year 2028). Before then nothing carries tax. Once entries with tax are posted it stays on; rates and the profile can still change.</p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="NTN"><input className="input" value={s.ntn} onChange={(e) => set({ ntn: e.target.value })} /></Field>
+          <Field label="STRN" hint="Sales tax registration"><input className="input" value={s.strn} onChange={(e) => set({ strn: e.target.value })} /></Field>
+          <Field label="PRA number" hint="Punjab services, if registered"><input className="input" value={s.praNumber} onChange={(e) => set({ praNumber: e.target.value })} /></Field>
+          <Field label="COD withholding by Trax" hint="Final: a cost. Adjustable: a credit against income tax">
+            <select className="input" value={s.codWhtTreatment} onChange={(e) => set({ codWhtTreatment: e.target.value })}><option>Adjustable</option><option>Final</option></select>
+          </Field>
+          <Field label="Order prices" hint="Q1 for the owner: decide before July 2027">
+            <select className="input" value={s.pricesIncludeTax ? 'in' : 'top'} onChange={(e) => set({ pricesIncludeTax: e.target.value === 'in' })}><option value="in">Include sales tax</option><option value="top">Tax added on top</option></select>
+          </Field>
+        </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={s.salesTaxRegistered} onChange={(e) => set({ salesTaxRegistered: e.target.checked })} />Registered for sales tax</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={s.filerStatus} onChange={(e) => set({ filerStatus: e.target.checked })} />On the Active Taxpayers List</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={s.smallCompany} onChange={(e) => set({ smallCompany: e.target.checked })} />Small company (lower income tax rate)</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={s.posRequired} onChange={(e) => set({ posRequired: e.target.checked })} />FBR POS integration required</label>
+        </div>
+        <p className="text-xs text-muted">Either way the books take the sales tax out of what the customer pays; "added on top" only changes how prices are quoted, so quote the price with tax and enter that as the order amount.</p>
+        <div className="flex justify-end"><button className="btn-primary" onClick={saveProfile}>Save profile</button></div>
+      </section>
+
+      <section className="space-y-2">
+        <div className="flex items-center gap-2"><h2 className="section-title flex-1">Rates</h2><button className="btn-secondary" onClick={() => setNewRate({ key: keys[0]?.[0] || '', rate: '', effectiveFrom: today, threshold: '', note: '' })}><Plus size={15} />New rate from a date</button></div>
+        <p className="text-xs text-muted">Seed values from the Finance Act 2025-26, to be confirmed with the tax advisor. A new rate applies from its date only; earlier sales keep the old one.</p>
+        <div className="card overflow-x-auto"><table className="w-full min-w-[620px] text-sm"><tbody className="divide-y divide-line">
+          {rates.map((r) => (
+            <tr key={r.id}>
+              <td className="px-4 py-1.5 text-ink">{r.label}{r.note && <p className="text-[11px] text-faint">{r.note}</p>}</td>
+              <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-ink">{r.rate}%</td>
+              <td className="px-2 py-1.5 text-right text-xs text-muted">{r.threshold ? `above ${fmtRs(r.threshold, { decimals: false })}` : ''}</td>
+              <td className="px-2 py-1.5 text-xs text-muted">from {fmtDate(r.effectiveFrom)}</td>
+              <td className="px-4 py-1.5 text-right">{r.effectiveFrom > today && <button className="text-xs text-rose-600 hover:underline" onClick={() => delRate(r)}>Delete</button>}</td>
+            </tr>
+          ))}
+        </tbody></table></div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="section-title">Tax codes on journal lines</h2>
+        <div className="card divide-y divide-line text-sm">{codes.map((c) => <div key={c.code} className="flex gap-3 px-4 py-1.5"><span className="w-16 font-mono text-xs text-accent">{c.code}</span><span className="flex-1 text-ink">{c.name}</span><span className="text-xs text-muted">{c.description}</span></div>)}</div>
+      </section>
+
+      <Modal open={!!newRate} onClose={() => setNewRate(null)} size="sm" title="New rate from a date"
+        footer={<><button className="btn-secondary" onClick={() => setNewRate(null)}>Cancel</button><button className="btn-primary" onClick={saveRate}>Add rate</button></>}>
+        {newRate && <div className="grid grid-cols-2 gap-3 p-5">
+          <Field label="Tax" className="col-span-2"><select className="input" value={newRate.key} onChange={(e) => setNewRate({ ...newRate, key: e.target.value })}>{keys.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
+          <Field label="Rate %"><input className="input" inputMode="decimal" value={newRate.rate} onChange={(e) => setNewRate({ ...newRate, rate: e.target.value })} /></Field>
+          <Field label="From"><input type="date" className="input" value={newRate.effectiveFrom} onChange={(e) => setNewRate({ ...newRate, effectiveFrom: e.target.value })} /></Field>
+          <Field label="Threshold (optional)" className="col-span-2"><input className="input" inputMode="decimal" value={newRate.threshold} onChange={(e) => setNewRate({ ...newRate, threshold: e.target.value })} /></Field>
+          <Field label="Note (e.g. Finance Act 2027)" className="col-span-2"><input className="input" value={newRate.note} onChange={(e) => setNewRate({ ...newRate, note: e.target.value })} /></Field>
+        </div>}
+      </Modal>
+    </div>
+  )
+}
+
 export default function FinanceSettings() {
-  const [tab, setTab] = useState('accounts')
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') || 'accounts'
+  const setTab = (v) => setParams({ tab: v })
   const [error, setError] = useState(null)
   useEffect(() => { getFinanceSettings().catch((e) => setError(e.message)) }, [])
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
       <PageHeader eyebrow="Finance" title="Finance settings" icon={Settings2} subtitle="Chart of accounts, periods, opening balances and settings" />
       <ErrorBanner>{error}</ErrorBanner>
-      <Segmented value={tab} onChange={setTab} options={[{ value: 'accounts', label: 'Chart of accounts' }, { value: 'periods', label: 'Periods' }, { value: 'opening', label: 'Opening balances' }, { value: 'settings', label: 'Settings' }]} />
+      <Segmented value={tab} onChange={setTab} options={[{ value: 'accounts', label: 'Chart of accounts' }, { value: 'periods', label: 'Periods' }, { value: 'opening', label: 'Opening balances' }, { value: 'settings', label: 'Settings' }, { value: 'tax', label: 'Tax' }]} />
       {tab === 'accounts' && <AccountsTab />}
       {tab === 'periods' && <PeriodsTab />}
       {tab === 'opening' && <OpeningTab />}
       {tab === 'settings' && <SettingsTab />}
+      {tab === 'tax' && <TaxTab />}
     </div>
   )
 }

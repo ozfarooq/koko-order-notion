@@ -51,6 +51,7 @@ const CostDesign      = lazy(() => import('./pages/finance/Costing').then((m) =>
 const FinanceOverview = lazy(() => import('./pages/finance/Overview'))
 const FinanceClose    = lazy(() => import('./pages/finance/Close'))
 const FinanceNotes    = lazy(() => import('./pages/finance/Notes'))
+const FinanceTax      = lazy(() => import('./pages/finance/Tax'))
 const Inventory       = lazy(() => import('./pages/inventory/Inventory'))
 
 function Spinner({ full }) {
@@ -131,6 +132,7 @@ export default function App() {
                 {FEATURES.finance && <>
                   <Route path="/finance" element={<Require permission="finance:read"><FinanceOverview /></Require>} />
                   <Route path="/finance/close" element={<Require permission="finance:read"><FinanceClose /></Require>} />
+                  <Route path="/finance/tax" element={<Require permission="finance:read"><FinanceTax /></Require>} />
                   <Route path="/finance/notes" element={<Require permission="finance:read"><FinanceNotes /></Require>} />
                   <Route path="/finance/reports" element={<Require permission="finance:read"><FinanceReports /></Require>} />
                   <Route path="/finance/ledgers" element={<Require permission="finance:read"><Ledgers /></Require>} />

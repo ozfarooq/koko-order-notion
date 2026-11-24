@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Users, Plus, FileText } from 'lucide-react'
-import { getStaff, getStaffMember, createStaff, updateStaff, setStaffSalary, getSuppliers, createSupplier, updateSupplier, getAccounts, getStatement } from '../../data/finance'
+import { getStaff, getStaffMember, createStaff, updateStaff, setStaffSalary, getSuppliers, createSupplier, updateSupplier, getAccounts, getStatement, getFinanceSettings } from '../../data/finance'
 import { PageHeader, Modal, Field, Segmented, SkeletonRows, EmptyState, fmtDate } from '../../ui/kit'
 import { fmtRs, safePaisa, todayPk, CategorySelect } from './shared'
 import { PeriodPicker, presetRange, Num } from './reportKit'
@@ -113,8 +113,9 @@ function Suppliers({ onStatement }) {
   const [rows, setRows] = useState(null)
   const [accounts, setAccounts] = useState([])
   const [editing, setEditing] = useState(null)
+  const [taxOn, setTaxOn] = useState(false)
   const load = () => getSuppliers().then(setRows).catch((e) => toast.error(e.message))
-  useEffect(() => { load(); getAccounts().then(setAccounts).catch(() => {}) }, [])
+  useEffect(() => { load(); getAccounts().then(setAccounts).catch(() => {}); getFinanceSettings().then((st) => setTaxOn(!!st.taxEnabled)).catch(() => {}) }, [])
   const save = async () => {
     try { editing.id ? await updateSupplier(editing.id, editing) : await createSupplier(editing); toast.success('Saved'); setEditing(null); load() } catch (err) { toast.error(err.message) }
   }
@@ -151,6 +152,16 @@ function Suppliers({ onStatement }) {
             <Field label="Phone"><input className="input" value={editing.phone} onChange={(e) => set({ phone: e.target.value })} /></Field>
             <Field label="Usual category" hint="Filled in when you pick this supplier" className="sm:col-span-2"><CategorySelect accounts={accounts} value={editing.defaultAccountId} onChange={(v) => set({ defaultAccountId: v })} /></Field>
             <label className="flex items-center gap-2 text-sm text-ink sm:col-span-2"><input type="checkbox" checked={editing.isRelatedParty} onChange={(e) => set({ isRelatedParty: e.target.checked })} />Related party (owned by a director or family)</label>
+            {taxOn && <>
+              <Field label="NTN or CNIC"><input className="input" value={editing.cnicNtn || ''} onChange={(e) => set({ cnicNtn: e.target.value })} /></Field>
+              <Field label="STRN" hint="If sales-tax registered"><input className="input" value={editing.strn || ''} onChange={(e) => set({ strn: e.target.value })} /></Field>
+              <Field label="Withholding category" hint="Decides the rate suggested when paying">
+                <select className="input" value={editing.whtCategory || ''} onChange={(e) => set({ whtCategory: e.target.value })}><option value="">None</option><option value="goods">Goods</option><option value="services">Services</option><option value="rent">Rent</option></select>
+              </Field>
+              <Field label="On the Active Taxpayers List?">
+                <select className="input" value={editing.atlStatus == null ? '' : editing.atlStatus ? 'yes' : 'no'} onChange={(e) => set({ atlStatus: e.target.value === '' ? null : e.target.value === 'yes' })}><option value="">Not checked</option><option value="yes">Yes</option><option value="no">No (higher rates)</option></select>
+              </Field>
+            </>}
             <Field label="Notes" className="sm:col-span-2"><input className="input" value={editing.notes} onChange={(e) => set({ notes: e.target.value })} /></Field>
             {editing.id && <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={editing.isActive} onChange={(e) => set({ isActive: e.target.checked })} />Active</label>}
           </div>

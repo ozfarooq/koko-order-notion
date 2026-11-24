@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Receipt, Plus, Search, Paperclip, Repeat, PieChart, Pencil, Ban, Wallet, Undo2, Lightbulb } from 'lucide-react'
 import {
   getAccounts, getSuppliers, createSupplier, getFinCollections, getFinanceSettings, getExpenses, getExpense, createExpense, updateExpense,
-  voidExpense, payBill, unpayBill, addExpenseFiles, getRecurring, saveRecurring, generateRecurring, getReport, uploadFiles, openFinanceFile, PAID_FROM,
+  voidExpense, payBill, unpayBill, addExpenseFiles, getRecurring, saveRecurring, generateRecurring, getReport, uploadFiles, openFinanceFile, PAID_FROM, getWhtSuggestion, WHT_CODES,
 } from '../../data/finance'
 import { PageHeader, Modal, Field, Segmented, SkeletonRows, EmptyState, ErrorBanner, StatCard, fmtDate } from '../../ui/kit'
 import { FinBadge, fmtRs, safePaisa, todayPk, CategorySelect, FilePick, askReason } from './shared'
@@ -104,8 +104,19 @@ function ExpenseList({ refData, reloadRef }) {
 
 export function ExpenseForm({ refData, expense, onClose, onSaved, reloadRef }) {
   const { accounts, suppliers, collections, settings } = refData
-  const [b, setB] = useState(() => expense ? { ...expense, accountId: String(expense.accountId), supplierId: expense.supplierId ? String(expense.supplierId) : '', collectionId: expense.collectionId ? String(expense.collectionId) : '' }
-    : { date: todayPk(), amount: '', accountId: '', paidFrom: 'cash', supplierId: '', description: '', reference: '', collectionId: '' })
+  const [b, setB] = useState(() => expense ? { ...expense, accountId: String(expense.accountId), supplierId: expense.supplierId ? String(expense.supplierId) : '', collectionId: expense.collectionId ? String(expense.collectionId) : '',
+    taxAmount: safePaisa(expense.taxAmount) ? expense.taxAmount : '', whtAmount: safePaisa(expense.whtAmount) ? expense.whtAmount : '', whtCode: expense.whtCode || '' }
+    : { date: todayPk(), amount: '', accountId: '', paidFrom: 'cash', supplierId: '', description: '', reference: '', collectionId: '', taxAmount: '', whtAmount: '', whtCode: '' })
+  // Tax fields only once the owner has switched tax on, for dates from the start date (F7)
+  const taxOn = !!(settings.taxEnabled && settings.taxEnabledFrom && b.date >= settings.taxEnabledFrom)
+  const [whtNote, setWhtNote] = useState('')
+  const suggestWht = async () => {
+    try {
+      const s = await getWhtSuggestion({ supplierId: b.supplierId, amount: b.amount, date: b.date })
+      if (!s) return setWhtNote('Tax is not on for this date')
+      setB((x) => ({ ...x, whtAmount: safePaisa(s.amount) ? s.amount : '', whtCode: s.code || x.whtCode })); setWhtNote(s.note || '')
+    } catch (err) { toast.error(err.message) }
+  }
   const [newSupplier, setNewSupplier] = useState('')
   const [files, setFiles] = useState([])
   const [reason, setReason] = useState('')
@@ -129,7 +140,8 @@ export function ExpenseForm({ refData, expense, onClose, onSaved, reloadRef }) {
       }
       const fileIds = await uploadFiles(files, 'expenses')
       const payload = { date: b.date, amount: b.amount, accountId: b.accountId, paidFrom: b.paidFrom, supplierId: supplierId || null, description: b.description,
-        reference: b.reference, collectionId: b.collectionId || null, fileIds }
+        reference: b.reference, collectionId: b.collectionId || null, fileIds,
+        ...(taxOn ? { taxAmount: b.taxAmount || '0', whtAmount: b.paidFrom === 'unpaid' ? '0' : b.whtAmount || '0', whtCode: b.whtCode || null } : {}) }
       const x = expense ? await updateExpense(expense.id, { ...payload, reason }) : await createExpense(payload)
       toast.success(`${expense ? 'Corrected' : 'Posted'}: ${fmtRs(x.amount)} · ${x.entryNo}`)
       onSaved(x)
@@ -157,6 +169,18 @@ export function ExpenseForm({ refData, expense, onClose, onSaved, reloadRef }) {
         </Field>
         {b.supplierId === 'new' && <Field label="New supplier name" className="sm:col-span-2"><input className="input" value={newSupplier} onChange={(e) => setNewSupplier(e.target.value)} /></Field>}
         <Field label="Reference" hint="Bill or bank reference"><input className="input" value={b.reference} onChange={(e) => set({ reference: e.target.value })} /></Field>
+        {taxOn && <>
+          <Field label="Sales tax on the bill" hint="Input tax: only from a registered supplier's sales tax invoice"><input inputMode="decimal" className="input" value={b.taxAmount} onChange={(e) => set({ taxAmount: e.target.value })} placeholder="0" /></Field>
+          {b.paidFrom === 'unpaid' ? <p className="self-end pb-2 text-xs text-muted sm:col-span-2">Withholding is deducted when the bill is paid.</p> : (
+            <Field label="Withholding deducted" className="sm:col-span-2" hint={whtNote || 'Kept back from the supplier and paid to FBR'}>
+              <div className="flex gap-2">
+                <input inputMode="decimal" className="input w-28" value={b.whtAmount} onChange={(e) => set({ whtAmount: e.target.value })} placeholder="0" />
+                <select className="input flex-1" value={b.whtCode} onChange={(e) => set({ whtCode: e.target.value })} aria-label="Withholding section"><option value="">Section…</option>{Object.entries(WHT_CODES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+                <button type="button" className="btn-secondary px-2.5 text-xs" onClick={suggestWht} disabled={!b.supplierId || b.supplierId === 'new'}>Suggest</button>
+              </div>
+            </Field>
+          )}
+        </>}
         <Field label="For a collection" hint="Optional: costs a shoot or a batch to it">
           <select className="input" value={b.collectionId} onChange={(e) => set({ collectionId: e.target.value })}><option value="">None</option>{collections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         </Field>
@@ -183,7 +207,7 @@ function ExpenseView({ id, onClose, onEdit, onChanged }) {
       footer={x && x.status === 'Posted' && <>
         <button className="btn-secondary text-rose-700" onClick={doVoid} disabled={busy}><Ban size={15} />Void</button>
         {!x.paidEntryId && <button className="btn-secondary" onClick={() => onEdit(x)} disabled={busy}><Pencil size={15} />Correct</button>}
-        {x.paidFrom === 'unpaid' && !x.paidEntryId && <button className="btn-primary" onClick={() => setPaying({ paidOn: todayPk(), paidFrom: 'bank', reference: '' })} disabled={busy}><Wallet size={15} />Pay bill</button>}
+        {x.paidFrom === 'unpaid' && !x.paidEntryId && <button className="btn-primary" onClick={async () => { const st = await getFinanceSettings().catch(() => ({})); setPaying({ paidOn: todayPk(), paidFrom: 'bank', reference: '', whtAmount: '', whtCode: '', taxOn: !!(st.taxEnabled && st.taxEnabledFrom && todayPk() >= st.taxEnabledFrom) }) }} disabled={busy}><Wallet size={15} />Pay bill</button>}
         {x.paidEntryId && <button className="btn-secondary" onClick={doUnpay} disabled={busy}><Undo2 size={15} />Undo payment</button>}
       </>}>
       {!x ? <div className="p-5"><SkeletonRows rows={4} /></div> : (
@@ -210,8 +234,17 @@ function ExpenseView({ id, onClose, onEdit, onChanged }) {
                   {Object.entries(PAID_FROM).filter(([k]) => k !== 'unpaid').map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
                 <input className="input" value={paying.reference} onChange={(e) => setPaying({ ...paying, reference: e.target.value })} placeholder="Bank reference" />
               </div>
+              {paying.taxOn && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <input inputMode="decimal" className="input" value={paying.whtAmount} onChange={(e) => setPaying({ ...paying, whtAmount: e.target.value })} placeholder="Withholding deducted" aria-label="Withholding deducted" />
+                  <select className="input" value={paying.whtCode} onChange={(e) => setPaying({ ...paying, whtCode: e.target.value })} aria-label="Withholding section"><option value="">Section…</option>{Object.entries(WHT_CODES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+                  <button className="btn-secondary text-xs" onClick={async () => {
+                    try { const s = await getWhtSuggestion({ supplierId: x.supplierId, amount: x.amount, date: paying.paidOn }); if (s) { setPaying((p) => ({ ...p, whtAmount: safePaisa(s.amount) ? s.amount : '', whtCode: s.code || p.whtCode })); s.note && toast.info(s.note) } } catch (err) { toast.error(err.message) }
+                  }}>Suggest withholding</button>
+                </div>
+              )}
               <div className="flex justify-end gap-2"><button className="btn-secondary" onClick={() => setPaying(null)}>Cancel</button>
-                <button className="btn-primary" disabled={busy} onClick={() => act(() => payBill(id, paying), 'Bill paid').then(() => setPaying(null))}>Record payment</button></div>
+                <button className="btn-primary" disabled={busy} onClick={() => act(() => payBill(id, { ...paying, taxOn: undefined, whtAmount: paying.whtAmount || undefined, whtCode: paying.whtCode || undefined }), 'Bill paid').then(() => setPaying(null))}>Record payment</button></div>
             </div>
           )}
         </div>
