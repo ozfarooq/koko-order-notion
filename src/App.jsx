@@ -48,6 +48,9 @@ const FinanceBank     = lazy(() => import('./pages/finance/Bank'))
 const BankStatement   = lazy(() => import('./pages/finance/Bank').then((m) => ({ default: m.BankStatement })))
 const FinanceCosting  = lazy(() => import('./pages/finance/Costing'))
 const CostDesign      = lazy(() => import('./pages/finance/Costing').then((m) => ({ default: m.CostDesign })))
+const FinanceOverview = lazy(() => import('./pages/finance/Overview'))
+const FinanceClose    = lazy(() => import('./pages/finance/Close'))
+const FinanceNotes    = lazy(() => import('./pages/finance/Notes'))
 const Inventory       = lazy(() => import('./pages/inventory/Inventory'))
 
 function Spinner({ full }) {
@@ -126,6 +129,9 @@ export default function App() {
                 <Route path="/inventory" element={<Require permission="inventory:read"><Inventory /></Require>} />
                 <Route path="/help" element={<Require permission="orders:read"><Help /></Require>} />
                 {FEATURES.finance && <>
+                  <Route path="/finance" element={<Require permission="finance:read"><FinanceOverview /></Require>} />
+                  <Route path="/finance/close" element={<Require permission="finance:read"><FinanceClose /></Require>} />
+                  <Route path="/finance/notes" element={<Require permission="finance:read"><FinanceNotes /></Require>} />
                   <Route path="/finance/reports" element={<Require permission="finance:read"><FinanceReports /></Require>} />
                   <Route path="/finance/ledgers" element={<Require permission="finance:read"><Ledgers /></Require>} />
                   <Route path="/finance/journals" element={<Require permission="finance:read"><Journals /></Require>} />

@@ -1,10 +1,11 @@
 // Clears the finance JOURNALS for a fresh start before real go-live (e.g. after testing on live).
 // Removes: journal entries and lines, their attachments links, entry numbering, finance files,
 // and what posted them: expenses, studio claims, payroll weeks, payments to staff, the receipt inbox and
-// postings waiting for a retry, month-end stock valuations. Customer payments are CRM records and stay (the
+// postings waiting for a retry, month-end stock valuations, provision movements, month close records,
+// fixed assets bought after go-live (assets owned before go-live stay, back in use). Customer payments are CRM records and stay (the
 // backfill posts them again); imported bank statements stay, unmatched; cost cards, fabric lots and prices stay.
 // Keeps: exchange rates, chart of accounts, periods (reopened), finance settings, staff and salaries, suppliers, recurring
-// bill set-up, sticker-note words, and everything outside finance:
+// bill set-up, recurring journals, provisions (without movements), loss rates, sticker-note words, and everything outside finance:
 // orders, customers, products, inventory, resellers, payments and users are never touched.
 // Usage: node scripts/finance-reset.js            (shows what would be removed)
 //        node scripts/finance-reset.js --confirm  (removes it)
@@ -18,7 +19,7 @@ const c = await pool.connect()
 try {
   const count = async (t) => (await c.query(`SELECT count(*)::int AS n FROM ${t}`)).rows[0].n
   const tables = ['fin_entries', 'fin_lines', 'fin_entry_files', 'fin_files', 'fin_sequences',
-    'fin_expenses', 'fin_claims', 'fin_payroll_runs', 'fin_staff_payments', 'fin_intake_items', 'fin_post_exceptions', 'fin_stock_valuations']
+    'fin_expenses', 'fin_claims', 'fin_payroll_runs', 'fin_staff_payments', 'fin_intake_items', 'fin_post_exceptions', 'fin_stock_valuations', 'fin_assets', 'fin_provision_moves', 'fin_close_checklists']
   console.log(`Database: ${new URL(url).pathname.slice(1)}`)
   for (const t of tables) console.log(`  ${t.padEnd(18)} ${await count(t)} rows`)
   if (!process.argv.includes('--confirm')) { console.log('\nNothing removed. Run again with --confirm to clear these finance tables.'); process.exit(0) }
@@ -31,7 +32,10 @@ try {
   // Tables nothing else points at are emptied with TRUNCATE
   await c.query(`TRUNCATE fin_stock_valuations, fin_intake_items, fin_staff_payment_files, fin_staff_payment_parts, fin_staff_payments, fin_payroll_files, fin_payroll_hours,
     fin_payroll_income, fin_payroll_lines, fin_payroll_runs, fin_claim_files, fin_claim_lines, fin_claims, fin_expense_files,
-    fin_entry_files, fin_lines, fin_file_blobs, fin_sequences, fin_post_exceptions RESTART IDENTITY`)
+    fin_entry_files, fin_lines, fin_file_blobs, fin_sequences, fin_post_exceptions, fin_provision_moves, fin_close_checklists RESTART IDENTITY`)
+  // Fixed assets: those owned before go-live are set-up and stay (back in use, no postings); the rest came from expenses
+  await c.query(`DELETE FROM fin_assets WHERE source <> 'opening'`)
+  await c.query(`UPDATE fin_assets SET entry_id = NULL, expense_id = NULL, status = 'In use', disposed_on = NULL, disposal_proceeds = NULL, disposal_entry_id = NULL, disposal_note = NULL`)
   // Journals, expenses and files are pointed at by kept tables (bank lines, fabric purchases, statements),
   // so they are deleted row by row; the "posted entries are permanent" triggers are paused for this one reset
   await c.query('ALTER TABLE fin_entries DISABLE TRIGGER USER')

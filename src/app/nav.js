@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ClipboardList, Kanban, PlusCircle, Users, Store, FileText, Images, Contact, Shirt,
-  Truck, ReceiptText, Settings, Building2, Boxes, HelpCircle, BookOpen, Settings2, BarChart3, Library, Receipt, ShoppingBasket, HandCoins, UserCog, Inbox, Banknote, Target, Cpu, Workflow, Palette, Database, Map, Landmark, Calculator,
+  Truck, ReceiptText, Settings, Building2, Boxes, HelpCircle, BookOpen, Settings2, BarChart3, Library, Receipt, ShoppingBasket, HandCoins, UserCog, Inbox, Banknote, Target, Cpu, Workflow, Palette, Database, Map, Landmark, Calculator, CalendarCheck,
 } from 'lucide-react'
 
 // Screens switched on as each phase ships
@@ -55,6 +55,7 @@ export function buildNav({ can, user, resellers = [] }) {
 
   if (FEATURES.finance && can('finance:read')) {
     sections.push({ title: 'Finance', items: [
+      { to: '/finance', label: 'Overview', icon: LayoutDashboard, end: true },
       { to: '/finance/inbox', label: 'Inbox', icon: Inbox },
       { to: '/finance/sales', label: 'Sales & receipts', icon: Banknote },
       { to: '/finance/bank', label: 'Bank reconciliation', icon: Landmark },
@@ -63,7 +64,9 @@ export function buildNav({ can, user, resellers = [] }) {
       { to: '/finance/payroll', label: 'Payroll', icon: HandCoins },
       { to: '/finance/people', label: 'Staff & suppliers', icon: UserCog },
       { to: '/finance/costing', label: 'Costing & pricing', icon: Calculator },
+      { to: '/finance/close', label: 'Month-end close', icon: CalendarCheck },
       { to: '/finance/reports', label: 'Reports', icon: BarChart3 },
+      { to: '/finance/notes', label: 'Notes pack', icon: FileText },
       { to: '/finance/ledgers', label: 'Ledgers', icon: Library },
       { to: '/finance/journals', label: 'Journals', icon: BookOpen },
       { to: '/finance/settings', label: 'Finance settings', icon: Settings2 },

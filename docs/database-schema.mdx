@@ -378,6 +378,22 @@ PK (`rate_date`, `currency`) · `rate_to_pkr`. The rate for a date is the latest
 | `fin_intake_items` | file_id (unique), status (New, Ready, Needs attention, Posted, Parked, Rejected, Duplicate), extracted jsonb (names + last 4 digits only), kind, proposal jsonb, confidence, issues text[], bank_ref (unique among open items), txn_date, amount, duplicate_of, read_by (vision, hand), read_error, read_at, result_type, result_id, entry_id, note, reviewed_by, reviewed_at |
 | `fin_post_exceptions` | PK (source_type, source_id), label, error, attempts, first_at, last_at: postings waiting for a retry |
 
+### 3.9 Finance: close (migration 022, 023)
+
+| Table | Key columns |
+| --- | --- |
+| `fin_stock_valuations` | month (unique), as_of, totals jsonb, missing jsonb, pieces, entry_id: the stock value posted for each month end |
+| `fin_assets` | code (FA-0001), name, category (machinery, furniture, computers), acquired_on, available_on, cost, residual, life_months, source (purchase, expense, opening), opening_depreciation, expense_id (unique), entry_id (move from an expense), status (In use, Disposed), disposed_on, disposal_proceeds, disposal_entry_id |
+| `fin_lines.asset_id` | The fixed asset a journal line belongs to (depreciation, capitalisation, disposal) |
+| `fin_provisions` | name, kind (provision, contingency), expense_account_id, disclosure, status (Open, Settled) |
+| `fin_provision_moves` | provision_id, kind (recognise, use, release), moved_on, amount, paid_from, entry_id, status (Posted, Void) |
+| `fin_recurring_journals` | name, memo, lines jsonb, auto_reverse (accrual: reversed on the 1st), starts_month, ends_month, is_active |
+| `fin_close_checklists` | period_id (PK), ticks jsonb (items confirmed by hand), results jsonb (the checklist when closed), override_reason, closed_by, closed_at |
+| `fin_settings.ecl_rates` | Loss rate % per receivables age bucket (b30, b60, b90, b90p) |
+| `fin_expenses.not_an_asset` | A large expense reviewed and kept as an expense |
+
+Month-end jobs post with a source key so each can be run again: `depreciation`/month/monthly, `fx_reval`/month/closing and /reverse, `ecl`/month/closing, `stock_valuation`/month/closing, `recurring_journal`/month/id (and id:reverse), `year_close`/FY/closing (a CL entry in the adjustment period).
+
 ## 4. Enumerations
 
 | Field | Values |
@@ -446,6 +462,8 @@ PK (`rate_date`, `currency`) · `rate_to_pkr`. The rate for a date is the latest
 | 019 | fin_bank_rec | Bank statements, lines, counterparty rules |
 | 020 | fin_costing | Pricing policies, fabric lots, cost cards, price history |
 | 021 | country | Country on customers and on order delivery addresses |
+| 022 | fin_stock_valuation | 5050 Change in inventories, month-end stock valuations, fabric purchase paid as an expense |
+| 023 | fin_close | Fixed assets (lines carry `asset_id`), provisions, recurring journals, close records, loss rates; accounts 2700, 4910, 4920, 6980, 6991 |
 
 ## 8. Working with the database
 
