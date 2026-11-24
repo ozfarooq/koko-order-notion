@@ -192,13 +192,18 @@ test('reseller: sales at the sale-date rate, a closed month moves to the next op
   assert.equal(ea.lines.find((l) => l.accountId === ACC.ar_resellers).debit, '27800.00')        // 347.50 × 80
   const eb = await ledger.getEntry(await activeFor('reseller_item', b, 'sold'))
   assert.equal(eb.date, '2093-09-01', 'August is closed: posted into September'); assert.match(eb.memo, /sold August 2093/)
-  // Collage pays for piece a at 79 (received less in rupees): exchange loss
+  // Collage pays for piece a: 27,452.50 rupees for 347.50 AED is 79. The owner's rule: the rate is what was
+  // received, so the sale is restated at 79 and the payment clears it exactly (no exchange difference)
   const [pay] = await sql`INSERT INTO reseller_payments (reseller_id, paid_on, amount, currency, amount_pkr, period, reference) VALUES (${r.id}, '2093-09-10', 347.50, 'AED', 27452.50, '2093-07-01', 'TEST') RETURNING id`
   await sql`UPDATE consignment_items SET status = 'Paid', paid_on = '2093-09-10', payment_id = ${pay.id} WHERE id = ${a}`
   await sales.syncReseller(r.id, owner)
+  const ea2 = await ledger.getEntry(await activeFor('reseller_item', a, 'sold'))
+  assert.equal(ea2.lines.find((l) => l.accountId === ACC.sales_reseller).credit, '41475.00')    // 525 × 79
+  assert.equal(ea2.lines.find((l) => l.accountId === ACC.ar_resellers).debit, '27452.50')
+  assert.equal((await ledger.getEntry(ea.id)).status, 'Reversed', 'the sale at 80 is replaced')
   const ep = await ledger.getEntry(await activeFor('reseller_payment', pay.id, 'received'))
-  assert.equal(ep.lines.find((l) => l.accountId === ACC.ar_resellers).credit, '27800.00')
-  assert.equal(ep.lines.find((l) => l.accountId === ACC.fx_loss).debit, '347.50')
+  assert.equal(ep.lines.find((l) => l.accountId === ACC.ar_resellers).credit, '27452.50')
+  assert.ok(!ep.lines.some((l) => l.accountId === ACC.fx_loss || l.accountId === ACC.fx_gain), 'no exchange difference')
   // piece b comes back: its sale is reversed
   await sql`UPDATE consignment_items SET status = 'Returned', returned_on = '2093-09-20', sold_on = NULL WHERE id = ${b}`
   await sales.syncReseller(r.id, owner)
@@ -225,4 +230,17 @@ test('a missing exchange rate holds the reseller in the exceptions queue until t
   await sales.setRate({ date: '2093-07-01', currency: CUR, rate: '350' })
   await sales.afterRatesChange(owner)
   assert.ok(!(await sales.listExceptions()).some((x) => x.sourceType === 'reseller' && x.sourceId === String(r.id)))
+})
+
+test('with no rate entered, an unpaid sale uses the latest rate actually received from that reseller', async () => {
+  const CUR = `Y${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`
+  const [r] = await sql`INSERT INTO resellers (name, currency, commission_pct) VALUES (${`TEST Reseller ${CUR} ${RUN}`}, ${CUR}, 0) RETURNING id`
+  const [c] = await sql`INSERT INTO consignments (reseller_id, handover_date, commission_pct) VALUES (${r.id}, '2093-07-05', 0) RETURNING id`
+  const [paidPiece] = await sql`INSERT INTO consignment_items (consignment_id, product_id, size, price, status, sold_on) VALUES (${c.id}, ${product.id}, 'L', 100, 'Paid', '2093-07-10') RETURNING id`
+  const [open] = await sql`INSERT INTO consignment_items (consignment_id, product_id, size, price, status, sold_on) VALUES (${c.id}, ${product.id}, 'M', 200, 'Sold', '2093-07-25') RETURNING id`
+  const [pay] = await sql`INSERT INTO reseller_payments (reseller_id, paid_on, amount, currency, amount_pkr, period, reference) VALUES (${r.id}, '2093-07-20', 100, ${CUR}, 7600, '2093-07-01', 'TEST') RETURNING id`
+  await sql`UPDATE consignment_items SET payment_id = ${pay.id}, paid_on = '2093-07-20' WHERE id = ${paidPiece.id}`
+  await sales.syncReseller(r.id, owner)
+  const eo = await ledger.getEntry(await activeFor('reseller_item', open.id, 'sold'))
+  assert.equal(eo.lines.find((l) => l.accountId === ACC.sales_reseller).credit, '15200.00', '200 at the 76 received')
 })

@@ -1,0 +1,30 @@
+	Payment Details / Sales Tax Invoice	Printed at 2093-07-21 11:05:00
+by Test Studio
+Payment / Invoice ID	9900001
+Client	Test Studio
+NTN	0000000-0
+Client Bank	Test Bank Limited
+Account Title	TEST STUDIO
+Reference Number
+Total Collection Amount (PKR)	20,000
+Total WHT Amount (PKR)	400.00
+Total SST Amount (PKR)	400.00
+Total Payable (PKR)	17,969.00
+S. No.	Tracking No.	Type	Order ID	Vendor	Origin	Consignee	Destination	Service Type	Weight (kg)	Item Description	Collection Amount (PKR)	Weight Charges (PKR)	Faf Charges (PKR)	Finova Charges (PKR)	Cash Handling Charges (PKR)	OSA Charges (PKR)	Adjustments (PKR)	Fintech Charges (PKR)	Total Charges (PKR)	GST	WHT	COD SST	SMS Charges	Net Retained Amount (PKR)	Net Disbursement Amount (PKR)
+1	11110000000001	Arrival	{ORDER_A}		Lahore	Test Person One
+0300-0000001	Karachi	Regular	1.20	{ORDER_A} - Test Outfit -
+Small	0	300.00	60.00	0	0	0.00	0	0.00	435.00	69.60	0.00	0.00	0	504.60	-504.60
+2	11110000000002	Arrival	{ORDER_B}		Lahore	Test Person Two
+0300-0000002	Multan	Regular	0.80	{ORDER_B} - Test Outfit Two MEDIUM	0	200.00	40.00	0	0	0.00	0	0.00	290.00	46.40	0.00	0.00	0	336.40	-336.40
+3	11110000000001	Delivered	{ORDER_A}		Lahore	Test Person One
+0300-0000001	Karachi	Regular	1.20	{ORDER_A} - Test Outfit -
+Small	15,000	0	0	0.00	150.00	0.00	0	0.00	150.00	24.00	300.00	300.00	0	774.00	14,226.00
+4	11110000000002	Delivered	{ORDER_B}		Lahore	Test Person Two
+0300-0000002	Multan	Regular	0.80	{ORDER_B} - Test Outfit Two MEDIUM	5,000	0	0	0.00	100.00	0.00	0	0.00	100.00	16.00	100.00	100.00	0	316.00	4,684.00
+							Total	20,000	500.00	100.00	0.00	250.00	0.00	0.00	0.00	975.00	156.00	400.00	400.00	0.00	1,931.00	18,069.00
+Charges Summary (PKR)
+Total Weight Charges	500.00
+Total Cash Handling Charges	250.00
+IBFT Charges	100.00
+Total SMS Charges	0.00
+Overall Charges	2,031.00

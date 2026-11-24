@@ -256,3 +256,29 @@ export const getTaxCalendar = (fy) => api(`/finance/tax/calendar?${query({ fy })
 export const generateTaxCalendar = (fy) => post('/finance/tax/calendar/generate', { fy })
 export const updateTaxCalendar = (id, b) => patch(`/finance/tax/calendar/${id}`, b)
 export const WHT_CODES = { W153G: 'Goods, s153(1)(a)', W153S: 'Services, s153(1)(b)', W155: 'Rent, s155' }
+
+// ── Trax settlements ──
+export const getTraxSettlements = () => api('/finance/trax')
+export const getTraxSettlement = (id) => api(`/finance/trax/${id}`)
+export const previewTrax = (b) => post('/finance/trax/preview', b)
+export const importTrax = (b) => post('/finance/trax', b)
+export const voidTrax = (id, reason) => post(`/finance/trax/${id}/void`, { reason })
+// A saved invoice page (.html), a spreadsheet or text, turned into tab-separated text for the reader
+export async function readTraxFile(file) {
+  const name = file.name.toLowerCase()
+  if (/\.(xlsx|xls|csv)$/.test(name)) {
+    const XLSX = await import('xlsx')
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' })
+    return wb.SheetNames.map((n) => XLSX.utils.sheet_to_csv(wb.Sheets[n], { FS: '\t', blankrows: false })).join('\n')
+  }
+  const raw = await file.text()
+  if (/\.html?$/.test(name) || /<table/i.test(raw)) {
+    const doc = new DOMParser().parseFromString(raw, 'text/html')
+    const lines = []
+    const printed = doc.body.textContent.match(/Printed at\s*\d{4}-\d{2}-\d{2}[\d: ]*/)
+    if (printed) lines.push(printed[0])
+    for (const tr of doc.querySelectorAll('tr')) lines.push([...tr.querySelectorAll('th,td')].map((c) => c.textContent.replace(/\s+/g, ' ').trim()).join('\t'))
+    return lines.join('\n')
+  }
+  return raw
+}

@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Banknote, RefreshCw, AlertTriangle, CheckCircle2, FileText, Trash2, HandCoins } from 'lucide-react'
-import { getReceivables, getSyncExceptions, syncBatch, retrySync, keepAdvance, getFxRates, setFxRate, deleteFxRate } from '../../data/finance'
+import { Banknote, RefreshCw, AlertTriangle, CheckCircle2, FileText, Trash2, HandCoins, Plus, Upload, Truck, Ban } from 'lucide-react'
+import { getReceivables, getSyncExceptions, syncBatch, retrySync, keepAdvance, getFxRates, setFxRate, deleteFxRate, getTraxSettlements, previewTrax, importTrax, voidTrax, readTraxFile } from '../../data/finance'
 import { PageHeader, Segmented, SkeletonRows, EmptyState, StatCard, Field, fmtDate } from '../../ui/kit'
 import { fmtRs, safePaisa, todayPk, askReason } from './shared'
 import { Num } from './reportKit'
 import { Statement } from './People'
 import { useAuth } from '../../auth/AuthContext'
 
-const TABS = [{ value: 'status', label: 'Posting status' }, { value: 'receivables', label: 'Receivables' }, { value: 'rates', label: 'Exchange rates' }]
+const TABS = [{ value: 'status', label: 'Posting status' }, { value: 'receivables', label: 'Receivables' }, { value: 'trax', label: 'Trax settlements' }, { value: 'rates', label: 'Exchange rates' }]
 
 // Sales, customer payments and reseller statements post themselves; this is where to see that they did,
 // fix what is waiting, and see who owes what
@@ -21,7 +21,7 @@ export default function Sales() {
     <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6 lg:p-8">
       <PageHeader eyebrow="Finance" title="Sales & receipts" icon={Banknote} subtitle="Orders, customer payments and reseller statements post to the books on their own. Check here that nothing is waiting." />
       <Segmented options={TABS} value={tab} onChange={(v) => setParams({ tab: v })} />
-      {tab === 'receivables' ? <Receivables onStatement={setStatement} /> : tab === 'rates' ? <Rates /> : <Status onStatement={setStatement} />}
+      {tab === 'receivables' ? <Receivables onStatement={setStatement} /> : tab === 'rates' ? <Rates /> : tab === 'trax' ? <TraxSettlements /> : <Status onStatement={setStatement} />}
       {statement && <Statement {...statement} onClose={() => setStatement(null)} />}
     </div>
   )
@@ -242,6 +242,107 @@ function Rates() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Trax settlements ───────────────────────────────────────────────────
+// Paste the Trax "Payment Details / Sales Tax Invoice" page (select all, copy) or upload it; check; import
+function TraxSettlements() {
+  const [list, setList] = useState(null)
+  const [f, setF] = useState(null)              // { text, date, invoiceNo, ibft, payable }
+  const [pv, setPv] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const load = useCallback(() => getTraxSettlements().then(setList).catch((e) => toast.error(e.message)), [])
+  useEffect(() => { load() }, [load])
+  const preview = async (next = f) => {
+    setBusy(true)
+    try {
+      const r = await previewTrax(next); setPv(r)
+      setF((x) => ({ ...x, invoiceNo: x.invoiceNo || r.invoiceNo || '', date: x.date || r.date, ibft: x.ibft || (safePaisa(r.totals.ibft) ? r.totals.ibft : ''), payable: x.payable || r.totals.payable }))
+    } catch (err) { toast.error(err.message); setPv(null) } finally { setBusy(false) }
+  }
+  const pick = async (file) => { try { const text = await readTraxFile(file); const next = { text, date: '', invoiceNo: '', ibft: '', payable: '' }; setF(next); preview(next) } catch (err) { toast.error(err.message) } }
+  const doImport = async () => {
+    setBusy(true)
+    try { const s = await importTrax(f); toast.success(`Trax invoice ${s.invoiceNo} imported · ${s.entryNo}`); setF(null); setPv(null); load() }
+    catch (err) { toast.error(err.message) } finally { setBusy(false) }
+  }
+  const undo = async (s) => {
+    const r = window.prompt(`Undo Trax invoice ${s.invoiceNo}? The entry is reversed; COD payments already set on orders stay.\n\nReason (kept on the record):`)
+    if (!r || !r.trim()) return
+    try { setList(await voidTrax(s.id, r.trim())) } catch (err) { toast.error(err.message) }
+  }
+  const sum = (...v) => String(v.reduce((s, x) => s + safePaisa(x || 0), 0) / 100)
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="flex-1 text-sm text-muted">Open the payment's invoice on the Trax portal, select all and copy it, then paste here (or upload the saved page or a spreadsheet). The page is read here; nothing is sent anywhere.</p>
+        {!f && <button className="btn-primary" onClick={() => setF({ text: '', date: '', invoiceNo: '', ibft: '', payable: '' })}><Plus size={15} />Import a settlement</button>}
+      </div>
+      {f && (
+        <div className="card space-y-3 p-4">
+          <textarea className="input min-h-[120px] font-mono text-xs" value={f.text} onChange={(e) => setF({ ...f, text: e.target.value })} placeholder="Paste the Trax invoice page here" />
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="btn-secondary cursor-pointer"><Upload size={15} />Upload file<input type="file" accept=".html,.htm,.xlsx,.xls,.csv,.txt" className="sr-only" onChange={(e) => e.target.files[0] && pick(e.target.files[0])} /></label>
+            <Field label="Invoice no."><input className="input w-32" value={f.invoiceNo} onChange={(e) => setF({ ...f, invoiceNo: e.target.value })} /></Field>
+            <Field label="Reached the bank on"><input type="date" className="input" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
+            <Field label="IBFT charge"><input className="input w-24" inputMode="decimal" value={f.ibft} onChange={(e) => setF({ ...f, ibft: e.target.value })} /></Field>
+            <Field label="Total payable"><input className="input w-32" inputMode="decimal" value={f.payable} onChange={(e) => setF({ ...f, payable: e.target.value })} /></Field>
+            <div className="flex-1" />
+            <button className="btn-secondary" onClick={() => { setF(null); setPv(null) }}>Cancel</button>
+            <button className="btn-secondary" onClick={() => preview()} disabled={busy || !f.text.trim()}>Check</button>
+            <button className="btn-primary" onClick={doImport} disabled={busy || !pv || pv.problems.length > 0}>Import</button>
+          </div>
+          {pv && <>
+            {pv.problems.length > 0 && <div className="rounded-xl bg-rose-50 p-3 text-xs text-rose-800 dark:bg-rose-950/40 dark:text-rose-300">{pv.problems.map((p) => <p key={p}>{p}</p>)}</div>}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <StatCard label="Cash collected" value={safePaisa(pv.totals.collection) / 100} prefix="Rs " />
+              <StatCard label="Charges + GST" value={safePaisa(sum(pv.totals.charges, pv.totals.gst, pv.totals.other)) / 100} prefix="Rs " />
+              <StatCard label="WHT + COD sales tax" value={safePaisa(sum(pv.totals.wht, pv.totals.sst)) / 100} prefix="Rs " />
+              <StatCard label="IBFT" value={safePaisa(pv.totals.ibft) / 100} prefix="Rs " sub={safePaisa(pv.totals.rounding) ? `rounding ${fmtRs(pv.totals.rounding)}` : ''} />
+              <StatCard label="Paid to the bank" value={safePaisa(pv.totals.payable) / 100} prefix="Rs " />
+            </div>
+            <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-sm"><thead className="text-left text-[11px] uppercase tracking-wider text-muted"><tr>
+              <th className="px-3 py-2">Shipment</th><th className="px-2 py-2">Order</th><th className="px-2 py-2 text-right">Collected</th><th className="px-2 py-2 text-right">Charges</th><th className="px-2 py-2 text-right">Deducted</th><th className="px-2 py-2 text-right">Paid out</th><th className="px-3 py-2">On the order</th>
+            </tr></thead><tbody className="divide-y divide-line">{pv.rows.map((r) => (
+              <tr key={`${r.trackingNo}-${r.kind}`}>
+                <td className="px-3 py-1.5"><p className="text-ink">{r.kind}</p><p className="font-mono text-[11px] text-muted">{r.trackingNo}</p></td>
+                <td className="px-2 py-1.5">{r.orderId ? <Link className="text-accent" to={`/orders/${r.orderId}`}>{r.orderNumber}</Link> : <span className="text-muted">{r.orderNumber || '—'}</span>}<p className="text-[11px] text-muted">{r.customer}</p></td>
+                <td className="px-2 py-1.5 text-right"><Num v={r.collection} /></td>
+                <td className="px-2 py-1.5 text-right"><Num v={sum(r.totalCharges, r.gst, r.sms)} /></td>
+                <td className="px-2 py-1.5 text-right"><Num v={sum(r.wht, r.codSst)} /></td>
+                <td className="px-2 py-1.5 text-right"><Num v={r.netDisbursement} strong /></td>
+                <td className="px-3 py-1.5 text-xs text-muted">{r.note}</td>
+              </tr>))}</tbody></table></div>
+            <p className="text-xs text-muted">Importing posts one entry: the payout to Bank Alfalah, charges and GST to courier charges (per order), WHT and COD sales tax to courier deductions (tax credits once tax is on), IBFT to bank charges, and clears the cash Trax collected from Trax COD clearing. The bank statement line then matches this entry.</p>
+          </>}
+        </div>
+      )}
+      {!list ? <SkeletonRows rows={4} /> : <>
+        {list.awaiting.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="section-title">Cash with Trax, not settled yet · {fmtRs(list.awaitingTotal, { decimals: false })}</h2>
+            <div className="card divide-y divide-line text-sm">{list.awaiting.map((x) => (
+              <div key={x.orderId || x.orderNumber} className="flex items-center gap-3 px-4 py-2">
+                {x.orderId ? <Link className="w-28 text-accent" to={`/orders/${x.orderId}`}>{x.orderNumber}</Link> : <span className="w-28 text-muted">{x.orderNumber}</span>}
+                <span className="flex-1 text-ink-soft">{x.customer}</span><span className="text-xs text-muted">since {fmtDate(x.since)}</span><Num v={x.amount} strong />
+              </div>))}</div>
+          </section>
+        )}
+        {list.settlements.length === 0 ? <EmptyState icon={Truck} title="No Trax settlements yet" hint="Import each payment's invoice as it arrives." /> : (
+          <section className="space-y-2">
+            <h2 className="section-title">Settlements</h2>
+            <div className="card divide-y divide-line text-sm">{list.settlements.map((s) => (
+              <div key={s.id} className={`flex flex-wrap items-center gap-3 px-4 py-2 ${s.status === 'Void' ? 'opacity-50 line-through' : ''}`}>
+                <span className="w-24 text-xs text-muted">{fmtDate(s.date)}</span><span className="flex-1 text-ink">Invoice {s.invoiceNo} · {s.shipments} shipments · collected {fmtRs(s.collection, { decimals: false })}</span>
+                {s.entryNo && <Link to={`/finance/journals/${s.entryId}`} className="font-mono text-xs text-accent">{s.entryNo}</Link>}
+                <span className="tabular-nums font-semibold text-ink">{fmtRs(s.payable)}</span>
+                {s.status === 'Posted' && <button className="text-faint hover:text-rose-600" onClick={() => undo(s)} aria-label="Undo"><Ban size={13} /></button>}
+              </div>))}</div>
+          </section>
+        )}
+      </>}
     </div>
   )
 }
