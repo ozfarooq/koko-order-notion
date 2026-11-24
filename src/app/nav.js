@@ -13,11 +13,15 @@ export function buildNav({ can, user, resellers = [] }) {
   const sections = []
   const isReseller = user?.role === 'reseller'
 
+  // Dashboard stands on its own at the top; the sections below fold open and shut
+  if (!isReseller && can('orders:read') && FEATURES.dashboard) {
+    sections.push({ title: '', root: true, items: [{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] })
+  }
+
   if (!isReseller && can('orders:read')) {
     sections.push({
       title: 'Retail',
       items: [
-        { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, when: FEATURES.dashboard },
         { to: '/orders', label: 'Orders', icon: ClipboardList, end: true },
         { to: '/kanban', label: 'Status Board', icon: Kanban },
         { to: '/orders/new', label: 'New Order', icon: PlusCircle, when: can('orders:write') },
@@ -74,9 +78,13 @@ export function buildNav({ can, user, resellers = [] }) {
     ] })
   }
 
-  if (!isReseller && can('orders:read')) sections.push({ title: 'Help', items: [{ to: '/help', label: 'Help', icon: HelpCircle }] })
-
-  // Product documents (docs/*.mdx): owners only
+  if (can('users:manage')) {
+    sections.push({ title: 'Admin', items: [
+      { to: '/users', label: 'Users', icon: Users },
+      { to: '/resellers/new', label: 'Add reseller', icon: Building2, when: can('resellers:manage') },
+    ].filter((i) => i.when !== false) })
+  }
+  // Product documents (docs/*.mdx, owners only) and Help come last
   if (can('docs:read')) {
     sections.push({ title: 'Product docs', items: [
       { to: '/docs/product-requirements', label: 'Product requirements', icon: Target },
@@ -88,12 +96,7 @@ export function buildNav({ can, user, resellers = [] }) {
     ] })
   }
 
-  if (can('users:manage')) {
-    sections.push({ title: 'Admin', items: [
-      { to: '/users', label: 'Users', icon: Users },
-      { to: '/resellers/new', label: 'Add reseller', icon: Building2, when: can('resellers:manage') },
-    ].filter((i) => i.when !== false) })
-  }
+  if (!isReseller && can('orders:read')) sections.push({ title: '', root: true, items: [{ to: '/help', label: 'Help', icon: HelpCircle }] })
   return sections
 }
 

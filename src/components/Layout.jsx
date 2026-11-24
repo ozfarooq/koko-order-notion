@@ -83,18 +83,75 @@ function ResellerGroup({ group, collapsed, defaultOpen }) {
   )
 }
 
-function NavSections({ sections, collapsed, pathname }) {
-  return sections.map((s) => (
-    <div key={s.title} className="space-y-0.5">
-      {!collapsed ? (
-        <p className="px-3 pb-1 pt-4 font-label text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8F8894]">{s.title}</p>
-      ) : <div className="mx-3 my-3 h-px bg-white/10" />}
-      {(s.items || []).map((i) => <SideLink key={i.to} item={i} collapsed={collapsed} />)}
-      {(s.groups || []).map((g) => (
-        <ResellerGroup key={g.id} group={g} collapsed={collapsed} defaultOpen={pathname.startsWith(g.base) || s.groups.length === 1} />
-      ))}
+const OPEN_KEY = 'koko-nav-open'
+const readOpen = () => { try { return JSON.parse(localStorage.getItem(OPEN_KEY) || 'null') } catch { return null } }
+const inSection = (s, pathname) => [...(s.items || []), ...(s.groups || []).flatMap((g) => g.items)]
+  .some((i) => (i.end ? pathname === i.to : pathname === i.to || pathname.startsWith(`${i.to}/`)))
+
+// Sections fold open and shut (remembered); the one holding the current page opens by itself.
+// A filter (the search box above the menu) shows only matching items, with their sections open.
+function NavSections({ sections, collapsed, pathname, filter = '' }) {
+  const [open, setOpen] = useState(() => readOpen() || {})
+  useEffect(() => {
+    const here = sections.find((s) => !s.root && inSection(s, pathname))
+    if (here && !open[here.title]) setOpen((o) => ({ ...o, [here.title]: true }))
+  }, [pathname, sections]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { try { localStorage.setItem(OPEN_KEY, JSON.stringify(open)) } catch { /* ignore */ } }, [open])
+  const q = filter.trim().toLowerCase()
+  const match = (label) => !q || label.toLowerCase().includes(q)
+  const shown = sections.map((s) => ({
+    ...s,
+    items: (s.items || []).filter((i) => match(i.label) || match(s.title)),
+    groups: (s.groups || []).map((g) => ({ ...g, items: g.items.filter((i) => match(i.label) || match(g.label) || match(s.title)) })).filter((g) => g.items.length),
+  })).filter((s) => s.items.length || s.groups.length)
+  if (q && !shown.length) return <p className="px-3 py-4 text-xs text-[#8F8894]">Nothing in the menu matches. Press Enter to search orders and customers.</p>
+
+  return shown.map((s) => {
+    const key = s.title || s.items.map((i) => i.to).join()
+    if (s.root) return <div key={key} className="pt-2">{s.items.map((i) => <SideLink key={i.to} item={i} collapsed={collapsed} />)}</div>
+    const isOpen = collapsed || !!q || !!open[s.title]
+    const body = <>
+      {s.items.map((i) => <SideLink key={i.to} item={i} collapsed={collapsed} />)}
+      {s.groups.map((g) => <ResellerGroup key={g.id} group={g} collapsed={collapsed} defaultOpen={!!q || pathname.startsWith(g.base) || s.groups.length === 1} />)}
+    </>
+    return (
+      <div key={key} className="space-y-0.5">
+        {collapsed ? <div className="mx-3 my-3 h-px bg-white/10" /> : (
+          <button onClick={() => setOpen((o) => ({ ...o, [s.title]: !o[s.title] }))} aria-expanded={isOpen}
+            className="group flex w-full items-center gap-2 rounded-md px-3 pb-1 pt-4 text-left font-label text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8F8894] transition hover:text-[#F4EFF2]">
+            <span className="flex-1">{s.title}</span>
+            <ChevronDown size={13} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          </button>
+        )}
+        {collapsed ? body : (
+          <AnimatePresence initial={false}>
+            {isOpen && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22, ease }} className="space-y-0.5 overflow-hidden">
+                {body}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
+      </div>
+    )
+  })
+}
+
+// The search box above the menu: filters the menu; Enter opens the first match (or the full search)
+function MenuSearch({ value, onChange, onEnter, onFull, collapsed }) {
+  if (collapsed) return (
+    <button onClick={onFull} title="Search (Ctrl K)" className="mt-3 flex w-full items-center justify-center rounded-lg py-2 text-[#F4EFF2]/55 transition hover:bg-white/5 hover:text-[#F4EFF2]"><Search size={17} /></button>
+  )
+  return (
+    <div className="relative mt-3">
+      <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8F8894]" />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Find in menu…" aria-label="Find in menu"
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter() } if (e.key === 'Escape') onChange('') }}
+        className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-14 text-sm text-[#F4EFF2] placeholder:text-[#8F8894] focus:border-white/25 focus:outline-none" />
+      {value ? <button onClick={() => onChange('')} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[#8F8894] hover:text-white" aria-label="Clear"><X size={13} /></button>
+        : <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-white/15 px-1 text-[10px] text-[#8F8894]">Ctrl K</kbd>}
     </div>
-  ))
+  )
 }
 
 export default function Layout() {
@@ -107,6 +164,7 @@ export default function Layout() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
+  const [menuFilter, setMenuFilter] = useState('')
 
   useEffect(() => {
     if (!can('fc:read')) return
@@ -116,11 +174,19 @@ export default function Layout() {
     return () => window.removeEventListener(RESELLERS_CHANGED, load)
   }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { try { localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0') } catch { /* ignore */ } }, [collapsed])
-  useEffect(() => { setMoreOpen(false) }, [pathname])
+  useEffect(() => { setMoreOpen(false); setMenuFilter('') }, [pathname])
 
   const sections = useMemo(() => buildNav({ can, user, resellers }), [user, resellers]) // eslint-disable-line react-hooks/exhaustive-deps
   const destinations = useMemo(() => flattenNav(sections), [sections])
   const isReseller = user?.role === 'reseller'
+  // Enter in the menu search: the first matching screen, or the full search when nothing in the menu matches
+  const menuEnter = () => {
+    const q = menuFilter.trim().toLowerCase()
+    if (!q) return
+    const hit = destinations.find((d) => d.label.toLowerCase().includes(q))
+    if (hit) navigate(hit.to)
+    else { setPaletteOpen(true); setMenuFilter('') }
+  }
 
   // Phone bottom tabs: the most-used destinations for this role
   const tabs = isReseller
@@ -161,8 +227,9 @@ export default function Layout() {
         <div className={`relative flex h-16 flex-shrink-0 items-center border-b border-line bg-white dark:bg-surface ${collapsed ? 'justify-center px-2' : 'px-4'}`}>
           <Logo collapsed={collapsed} />
         </div>
+        <div className="relative px-3"><MenuSearch value={menuFilter} onChange={setMenuFilter} onEnter={menuEnter} onFull={() => setPaletteOpen(true)} collapsed={collapsed} /></div>
         <nav className="relative flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-3 pb-4">
-          <NavSections sections={sections} collapsed={collapsed} pathname={pathname} />
+          <NavSections sections={sections} collapsed={collapsed} pathname={pathname} filter={menuFilter} />
         </nav>
         <div className="relative border-t border-white/10 px-3 py-3">
           <UserBlock compact={collapsed} />
@@ -247,7 +314,8 @@ export default function Layout() {
                 <Logo />
                 <button className="rounded-lg p-2 text-[#8F8894]" onClick={() => setMoreOpen(false)}><X size={18} /></button>
               </div>
-              <NavSections sections={sections} pathname={pathname} />
+              <MenuSearch value={menuFilter} onChange={setMenuFilter} onEnter={menuEnter} onFull={() => setPaletteOpen(true)} />
+              <NavSections sections={sections} pathname={pathname} filter={menuFilter} />
               <div className="mt-4 border-t border-white/10 pt-3"><UserBlock /></div>
             </motion.div>
           </motion.div>

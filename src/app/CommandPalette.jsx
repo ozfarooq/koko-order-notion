@@ -29,7 +29,8 @@ export default function CommandPalette({ open, setOpen, destinations }) {
 
   useEffect(() => { if (!open) setQuery('') }, [open])
 
-  const go = (to) => { setOpen(false); navigate(to) }
+  // Close first, then move: changing page in the same render left the closing animation stuck (palette stayed up)
+  const go = (to) => { setOpen(false); requestAnimationFrame(() => navigate(to)) }
   const itemCls = 'flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-ink-soft aria-selected:bg-plum-50 aria-selected:text-ink dark:aria-selected:bg-plum-900/40'
   const group = '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-faint'
 
@@ -47,7 +48,7 @@ export default function CommandPalette({ open, setOpen, destinations }) {
             transition={{ duration: 0.22, ease }}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <Command shouldFilter={false} label="Search" loop>
+            <Command shouldFilter={false} label="Search" loop onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); setOpen(false) } }}>
               <div className="flex items-center gap-3 border-b border-line px-4">
                 <Search size={18} className="text-faint" />
                 <Command.Input
