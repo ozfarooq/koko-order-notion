@@ -33,7 +33,7 @@ try {
   // Tables nothing else points at are emptied with TRUNCATE
   await c.query(`TRUNCATE fin_stock_valuations, fin_intake_items, fin_staff_payment_files, fin_staff_payment_parts, fin_staff_payments, fin_payroll_files, fin_payroll_hours,
     fin_payroll_income, fin_payroll_lines, fin_payroll_runs, fin_claim_files, fin_claim_lines, fin_claims, fin_expense_files,
-    fin_entry_files, fin_lines, fin_file_blobs, fin_sequences, fin_post_exceptions, fin_provision_moves, fin_close_checklists, fin_tax_suffered, fin_tax_payments RESTART IDENTITY`)
+    fin_entry_files, fin_lines, fin_sequences, fin_post_exceptions, fin_provision_moves, fin_close_checklists, fin_tax_suffered, fin_tax_payments RESTART IDENTITY`)
   await c.query(`UPDATE fin_tax_calendar SET status = 'Due', done_on = NULL, reference = NULL`)
   // Fixed assets: those owned before go-live are set-up and stay (back in use, no postings); the rest came from expenses
   await c.query(`DELETE FROM fin_assets WHERE source <> 'opening'`)
@@ -43,7 +43,9 @@ try {
   await c.query('ALTER TABLE fin_entries DISABLE TRIGGER USER')
   await c.query('DELETE FROM fin_expenses')
   await c.query('DELETE FROM fin_entries')
-  await c.query('DELETE FROM fin_files')
+  // Receipts on order payments are CRM records and stay; every other finance file goes
+  await c.query('DELETE FROM fin_file_blobs WHERE file_id NOT IN (SELECT file_id FROM customer_payment_files)')
+  await c.query('DELETE FROM fin_files WHERE id NOT IN (SELECT file_id FROM customer_payment_files)')
   await c.query('ALTER TABLE fin_entries ENABLE TRIGGER USER')
   for (const t of ['fin_entries', 'fin_expenses', 'fin_files']) await c.query(`SELECT setval(pg_get_serial_sequence('${t}', 'id'), 1, false)`)
   await c.query('UPDATE fin_recurring SET last_generated_month = NULL')

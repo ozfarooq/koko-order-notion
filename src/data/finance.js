@@ -1,5 +1,6 @@
 // Finance API client (owner only). Amounts travel as strings like '1234.50'.
 import { api } from './storage'
+import { readUpload } from '../utils/fileUpload'
 
 const query = (f) => new URLSearchParams(Object.entries(f).filter(([, v]) => v !== '' && v != null)).toString()
 const body = (b) => ({ body: JSON.stringify(b) })
@@ -29,15 +30,8 @@ export const getFinanceFile = (id) => api(`/finance/files/${id}`)
 export const getOpening = () => api('/finance/opening')
 export const postOpening = (b) => api('/finance/opening', { method: 'POST', ...body(b) })
 
-// Reads a chosen file as { name, mime, data: base64 }
-export function readFile(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = () => resolve({ name: file.name, mime: file.type || 'application/octet-stream', data: String(r.result).split(',')[1] })
-    r.onerror = reject
-    r.readAsDataURL(file)
-  })
-}
+// Reads a chosen file as { name, mime, data: base64 } (large photos shrunk first)
+export const readFile = (file) => readUpload(file)
 
 export async function openFinanceFile(id) {
   const tab = window.open('', '_blank')

@@ -1,3 +1,4 @@
+import { readUpload, openFileData } from '../utils/fileUpload'
 // Reads/writes through the local Express server (dev) or Vercel functions (prod).
 // Database credentials never touch the browser — all API calls go server-side.
 
@@ -97,6 +98,13 @@ export const getOrderPayments   = (id)     => api(`/orders/${id}/payments`)
 export const addOrderPayment    = (id, p)  => api(`/orders/${id}/payments`, { method: 'POST', body: JSON.stringify(p) })
 export const updateOrderPayment = (pid, p) => api(`/payments/${pid}`, { method: 'PATCH', body: JSON.stringify(p) })
 export const deleteOrderPayment = (pid)    => api(`/payments/${pid}`, { method: 'DELETE' })
+// Receipts on a payment (screenshots, bank slips)
+export const uploadPaymentFile = async (pid, file) => api(`/payments/${pid}/files`, { method: 'POST', body: JSON.stringify(await readUpload(file)) })
+export const removePaymentFile = (pid, fid) => api(`/payments/${pid}/files/${fid}`, { method: 'DELETE' })
+export async function openPaymentFile(pid, fid) {
+  const tab = window.open('', '_blank')
+  openFileData(await api(`/payments/${pid}/files/${fid}`), tab)
+}
 export const PAYMENT_METHODS = { bank: 'Bank Alfalah', cash: 'Cash', trax_cod: 'Trax COD', director_omer: 'Paid to Omer', director_usman: 'Paid to Usman' }
 export const addOrder     = (order)    => api('/orders',      { method: 'POST',  body: JSON.stringify(order) })
 export const updateOrder  = (id, upd)  => api(`/orders/${id}`,{ method: 'PATCH', body: JSON.stringify(upd) })
