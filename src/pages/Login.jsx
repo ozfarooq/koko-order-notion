@@ -67,13 +67,13 @@ export default function Login() {
             <motion.div variants={rise}>
               <label className="label" htmlFor="username">Username</label>
               <input id="username" className="input h-12 rounded-xl" type="text" autoFocus autoComplete="username" autoCapitalize="none"
-                value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. omer" />
+                value={username} onChange={(e) => setUsername(e.target.value)} />
             </motion.div>
             <motion.div variants={rise}>
               <label className="label" htmlFor="password">Password</label>
               <div className="relative">
                 <input id="password" className="input h-12 rounded-xl pr-11" type={show ? 'text' : 'password'} autoComplete="current-password"
-                  value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+                  value={password} onChange={(e) => setPassword(e.target.value)} />
                 <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-faint transition hover:text-ink" aria-label={show ? 'Hide password' : 'Show password'}>
                   {show ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
