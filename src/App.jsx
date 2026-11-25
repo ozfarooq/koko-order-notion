@@ -8,6 +8,7 @@ import { FEATURES } from './app/nav'
 import { getResellers } from './data/storage'
 import { MotionProvider } from './ui/motion'
 import { useTheme } from './ui/theme'
+import { DialogHost } from './ui/dialog'
 
 // Each page loads on demand, so the first visit only downloads what it needs
 const Dashboard       = lazy(() => import('./pages/Dashboard'))
@@ -109,6 +110,7 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <ThemedToaster />
+          <DialogHost />
           <Suspense fallback={<Spinner full />}>
             <Routes>
               <Route path="/login" element={<Login />} />

@@ -10,6 +10,7 @@ import {
 import { PageHeader, Modal, Field, Segmented, SkeletonRows, EmptyState, StatCard, fmtDate } from '../../ui/kit'
 import { FinBadge, fmtRs, safePaisa, todayPk, AccountSelect, askReason } from './shared'
 import { Num } from './reportKit'
+import { confirmDialog } from '../../ui/dialog'
 
 const TABS = [{ value: 'checklist', label: 'Month-end checklist' }, { value: 'assets', label: 'Fixed assets' }, { value: 'provisions', label: 'Provisions' },
   { value: 'journals', label: 'Recurring journals' }, { value: 'year', label: 'Year end' }]
@@ -203,8 +204,8 @@ function Assets() {
   const load = useCallback(() => { getAssets().then(setD).catch((e) => toast.error(e.message)); getAssetSuggestions().then(setSug).catch(() => {}) }, [])
   useEffect(() => { load() }, [load])
   const dismiss = async (id) => { try { setSug(await dismissAssetSuggestion(id)) } catch (err) { toast.error(err.message) } }
-  const remove = async (a) => { const r = askReason(`Remove ${a.code} ${a.name} from the register?`); if (!r) return; try { await removeAsset(a.id, r); toast.success('Removed'); load() } catch (err) { toast.error(err.message) } }
-  const undo = async (a) => { const r = askReason(`Undo the disposal of ${a.code}?`); if (!r) return; try { await undoDisposal(a.id, r); load() } catch (err) { toast.error(err.message) } }
+  const remove = async (a) => { const r = await askReason(`Remove ${a.code} ${a.name} from the register?`); if (!r) return; try { await removeAsset(a.id, r); toast.success('Removed'); load() } catch (err) { toast.error(err.message) } }
+  const undo = async (a) => { const r = await askReason(`Undo the disposal of ${a.code}?`); if (!r) return; try { await undoDisposal(a.id, r); load() } catch (err) { toast.error(err.message) } }
   if (!d) return <SkeletonRows rows={6} />
   const inUse = d.assets.filter((a) => a.status === 'In use'), gone = d.assets.filter((a) => a.status === 'Disposed')
   return (
@@ -351,7 +352,7 @@ function Provisions() {
   useEffect(() => { load(); getAccounts().then(setAccounts).catch(() => {}) }, [load])
   const save = async () => { try { setList(await saveProvision(edit.id, edit)); setEdit(null) } catch (err) { toast.error(err.message) } }
   const book = async () => { try { setList(await addProvisionMove(move.provision.id, move)); setMove(null); toast.success('Booked') } catch (err) { toast.error(err.message) } }
-  const voidMove = async (m) => { const r = askReason('Undo this movement?'); if (!r) return; try { setList(await voidProvisionMove(m.id, r)) } catch (err) { toast.error(err.message) } }
+  const voidMove = async (m) => { const r = await askReason('Undo this movement?'); if (!r) return; try { setList(await voidProvisionMove(m.id, r)) } catch (err) { toast.error(err.message) } }
   if (!list) return <SkeletonRows rows={4} />
   return (
     <div className="space-y-4">
@@ -484,11 +485,11 @@ function YearEnd() {
   const load = useCallback(() => { if (fy) { setY(null); getYear(fy).then(setY).catch((e) => toast.error(e.message)) } }, [fy])
   useEffect(() => { load() }, [load])
   const doClose = async () => {
-    if (!window.confirm(`Close FY ${fy}? Income and cost accounts are zeroed into retained earnings with a closing entry on ${fmtDate(y.to)}, in the adjustment period.`)) return
+    if (!await confirmDialog(`Close FY ${fy}? Income and cost accounts are zeroed into retained earnings with a closing entry on ${fmtDate(y.to)}, in the adjustment period.`)) return
     setBusy(true)
     try { setY(await closeYear(fy)); toast.success(`FY ${fy} closed`) } catch (err) { toast.error(err.message) } finally { setBusy(false) }
   }
-  const reopen = async () => { const r = askReason(`Reopen FY ${fy}? The closing entry is reversed.`); if (!r) return; try { setY(await reopenYear(fy, r)) } catch (err) { toast.error(err.message) } }
+  const reopen = async () => { const r = await askReason(`Reopen FY ${fy}? The closing entry is reversed.`); if (!r) return; try { setY(await reopenYear(fy, r)) } catch (err) { toast.error(err.message) } }
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">

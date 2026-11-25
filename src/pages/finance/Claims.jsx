@@ -113,12 +113,12 @@ function ClaimView({ id, onClose, onEdit, onChanged }) {
     <Modal open onClose={onClose} title={c ? `${c.staffName} · ${fmtRs(c.total)}` : 'Claim'} subtitle={c ? `Week ending ${fmtDate(c.weekEnding)}` : ''} size="lg"
       footer={c && <>
         {c.status === 'Submitted' && <>
-          <button className="btn-secondary text-rose-700" disabled={busy} onClick={() => { const r = askReason('Reject this claim?'); if (r) act(() => rejectClaim(id, r), 'Rejected') }}><X size={15} />Reject</button>
+          <button className="btn-secondary text-rose-700" disabled={busy} onClick={async () => { const r = await askReason('Reject this claim?'); if (r) act(() => rejectClaim(id, r), 'Rejected') }}><X size={15} />Reject</button>
           <button className="btn-secondary" disabled={busy} onClick={() => onEdit(c)}><Pencil size={15} />Edit</button>
           <button className="btn-primary" disabled={busy} onClick={() => act(() => approveClaim(id), 'Approved and booked')}><Check size={15} />Approve</button>
         </>}
         {c.status === 'Approved' && <>
-          <button className="btn-secondary" disabled={busy} onClick={() => { const r = askReason('Undo the approval? The booking is reversed.'); if (r) act(() => unapproveClaim(id, r), 'Approval undone') }}><Undo2 size={15} />Undo approval</button>
+          <button className="btn-secondary" disabled={busy} onClick={async () => { const r = await askReason('Undo the approval? The booking is reversed.'); if (r) act(() => unapproveClaim(id, r), 'Approval undone') }}><Undo2 size={15} />Undo approval</button>
           <Link className="btn-primary" to={`/finance/payroll?tab=payments&pay=${c.staffId}`}><Wallet size={15} />Pay {c.staffName}</Link>
         </>}
       </>}>

@@ -11,6 +11,7 @@ import { PageHeader, Modal, Field, Segmented, SkeletonRows, EmptyState, StatCard
 import { FinBadge, fmtRs, formatRs, safePaisa, todayPk } from './shared'
 import { PeriodPicker, presetRange, Num, ReportSheet } from './reportKit'
 import { downloadElementPdf } from '../../utils/statementPdf'
+import { confirmDialog } from '../../ui/dialog'
 
 const TABS = [{ value: 'designs', label: 'Designs' }, { value: 'lots', label: 'Fabric lots' }, { value: 'stock', label: 'Stock value' }, { value: 'variance', label: 'Standard vs actual' },
   { value: 'profit', label: 'Profit' }, { value: 'policy', label: 'Pricing policy' }]
@@ -390,7 +391,7 @@ function Policies({ collections }) {
   const [editing, setEditing] = useState(null)
   useEffect(() => { getPricingPolicies().then(setRows).catch((e) => toast.error(e.message)) }, [])
   const save = async () => { try { setRows(await savePricingPolicy(editing)); setEditing(null); toast.success('Saved') } catch (err) { toast.error(err.message) } }
-  const remove = async (p) => { if (!window.confirm(`Use the default policy for ${p.collectionName}?`)) return; try { setRows(await deletePricingPolicy(p.collectionId)) } catch (err) { toast.error(err.message) } }
+  const remove = async (p) => { if (!await confirmDialog(`Use the default policy for ${p.collectionName}?`)) return; try { setRows(await deletePricingPolicy(p.collectionId)) } catch (err) { toast.error(err.message) } }
   if (!rows) return <SkeletonRows rows={3} />
   const used = new Set(rows.map((r) => r.collectionId))
   return (

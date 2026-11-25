@@ -13,6 +13,7 @@ import { listParent, listItem } from '../ui/motion'
 import { useAuth } from '../auth/AuthContext'
 import { FEATURES } from '../app/nav'
 import OrderPayments from './orders/OrderPayments'
+import { promptDialog } from '../ui/dialog'
 
 const waLink = (phone) => {
   const d = (phone || '').replace(/\D/g, '')
@@ -69,9 +70,9 @@ export default function OrderDetail() {
   const [restocking, setRestocking] = useState(false)
   // Trax tracking number (matches courier settlements to orders)
   const editTracking = async () => {
-    const v = window.prompt('Trax tracking number', order.trackingNumber || '')
+    const v = await promptDialog({ title: 'Trax tracking number', message: 'The number on the Trax airway bill for this parcel. It is shown on the order and links it to Trax settlements.', label: 'Tracking number', defaultValue: order.trackingNumber || '', placeholder: 'e.g. 22320263606690' })
     if (v === null) return
-    try { setOrder(await updateOrder(id, { trackingNumber: v.trim() })); toast.success('Saved') } catch (err) { toast.error(err.message) }
+    try { setOrder(await updateOrder(id, { trackingNumber: v })); toast.success('Saved') } catch (err) { toast.error(err.message) }
   }
 
   const changeStatus = async (status) => {

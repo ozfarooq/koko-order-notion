@@ -9,6 +9,7 @@ import {
 import { PageHeader, Modal, Field, Segmented, SkeletonRows, EmptyState, ErrorBanner, fmtDate } from '../../ui/kit'
 import { FinBadge, fmtRs, formatRs, safePaisa, todayPk, FilePick, askReason } from './shared'
 import { saturdayOf } from './Claims'
+import { confirmDialog } from '../../ui/dialog'
 
 const TABS = [{ value: 'weeks', label: 'Weekly payroll' }, { value: 'payments', label: 'Payments to staff' }]
 const PAY_FROM = Object.fromEntries(Object.entries(PAID_FROM).filter(([k]) => k !== 'unpaid'))
@@ -97,8 +98,8 @@ export function PayrollWeek() {
   const run_ = async (fn, msg) => { setBusy(true); try { take(await fn()); if (msg) toast.success(msg) } catch (err) { toast.error(err.message) } finally { setBusy(false) } }
   const save = () => run_(() => savePayrollRun(id, payload()), 'Saved')
   const post = () => run_(async () => { await savePayrollRun(id, payload()); return postPayrollRun(id) }, 'Posted to the books')
-  const unpost = () => { const r = askReason('Undo this week? Its postings are reversed and it becomes a draft again.'); if (r) run_(() => unpostPayrollRun(id, r), 'Week undone') }
-  const remove = async () => { if (!window.confirm('Delete this draft week?')) return; try { await deletePayrollRun(id); navigate('/finance/payroll') } catch (err) { toast.error(err.message) } }
+  const unpost = async () => { const r = await askReason('Undo this week? Its postings are reversed and it becomes a draft again.'); if (r) run_(() => unpostPayrollRun(id, r), 'Week undone') }
+  const remove = async () => { if (!await confirmDialog('Delete this draft week?')) return; try { await deletePayrollRun(id); navigate('/finance/payroll') } catch (err) { toast.error(err.message) } }
 
   if (!run) return <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8"><SkeletonRows rows={6} /></div>
   const inputCls = 'input py-1 text-sm tabular-nums disabled:bg-transparent disabled:ring-0'
@@ -206,7 +207,7 @@ function Payments({ payStaff }) {
   const load = () => { getStaffPayments().then(setRows).catch((e) => toast.error(e.message)); getStaff().then(setStaff).catch(() => {}) }
   useEffect(() => { load() }, [])
   useEffect(() => { if (payStaff) setPaying(payStaff) }, [payStaff])
-  const doVoid = async (p) => { const r = askReason(`Void the payment of ${fmtRs(p.amount)} to ${p.staffName}?`); if (!r) return; try { await voidStaffPayment(p.id, r); toast.success('Voided'); load() } catch (err) { toast.error(err.message) } }
+  const doVoid = async (p) => { const r = await askReason(`Void the payment of ${fmtRs(p.amount)} to ${p.staffName}?`); if (!r) return; try { await voidStaffPayment(p.id, r); toast.success('Voided'); load() } catch (err) { toast.error(err.message) } }
   const owing = staff.filter((s) => safePaisa(s.owedWages) > 0 || safePaisa(s.owedClaims) > 0)
   return (
     <>

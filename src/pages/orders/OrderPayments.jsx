@@ -5,6 +5,7 @@ import { Plus, AlertTriangle, Trash2 } from 'lucide-react'
 import { getOrderPayments, addOrderPayment, updateOrderPayment, deleteOrderPayment, PAYMENT_METHODS } from '../../data/storage'
 import { Modal, Field, money, fmtDate } from '../../ui/kit'
 import { useAuth } from '../../auth/AuthContext'
+import { confirmDialog } from '../../ui/dialog'
 
 const todayPk = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' })
 
@@ -63,7 +64,7 @@ function PaymentModal({ order, payment, onClose, onSaved }) {
     } catch (err) { toast.error(err.message) } finally { setBusy(false) }
   }
   const remove = async () => {
-    if (!window.confirm('Remove this payment? The order\'s advance goes down by its amount.')) return
+    if (!await confirmDialog('Remove this payment? The order\'s advance goes down by its amount.')) return
     setBusy(true)
     try { await deleteOrderPayment(payment.id); toast.success('Removed'); onSaved() } catch (err) { toast.error(err.message) } finally { setBusy(false) }
   }

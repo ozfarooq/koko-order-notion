@@ -15,6 +15,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { PageHeader, StatCard, Modal, Field, Segmented, EmptyState, SkeletonRows, SkeletonCards, ErrorBanner, fmtDate } from '../../ui/kit'
 import { ease, listParent, listItem } from '../../ui/motion'
 import ProductPicker from '../orders/ProductPicker'
+import { confirmDialog } from '../../ui/dialog'
 
 const SHORT = { 'X-Small': 'XS', Small: 'S', Medium: 'M', Large: 'L', 'X-Large': 'XL', Custom: 'Custom' }
 const STATUSES = STOCK_STATUS_OPTIONS.map((s) => s.value)
@@ -355,7 +356,7 @@ function PieceModal({ piece, onClose, onSaved, canWrite, canSell }) {
     piece.status === 'At Shoot' && { label: 'Back at studio', icon: Undo2, run: () => quick('At Studio', 'Back from the shoot', 'back at the studio') },
   ].filter(Boolean)
   const remove = async () => {
-    if (!window.confirm(`Delete this ${piece.product} (${piece.size})? Only for pieces added by mistake.`)) return
+    if (!await confirmDialog(`Delete this ${piece.product} (${piece.size})? Only for pieces added by mistake.`)) return
     try { await deleteStockPiece(piece.id); toast.success('Piece deleted'); onSaved(); onClose() } catch (err) { toast.error(err.message) }
   }
 

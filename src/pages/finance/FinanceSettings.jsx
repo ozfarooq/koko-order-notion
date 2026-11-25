@@ -8,6 +8,7 @@ import {
 } from '../../data/finance'
 import { PageHeader, Segmented, Modal, Field, SkeletonRows, ErrorBanner, fmtDate } from '../../ui/kit'
 import { FinBadge, balanceOf, formatRs, safePaisa, fmtRs } from './shared'
+import { confirmDialog } from '../../ui/dialog'
 
 // ── Chart of accounts ──────────────────────────────────────────────────
 function AccountsTab() {
@@ -107,7 +108,7 @@ function PeriodsTab() {
     catch (err) { toast.error(err.message) }
   }
   const addYear = async () => {
-    if (!window.confirm('Add the next fiscal year (July to June, plus its adjustment period)?')) return
+    if (!await confirmDialog('Add the next fiscal year (July to June, plus its adjustment period)?')) return
     try { const r = await addFiscalYear(); toast.success(`FY ${r.fiscalYear} added`); load() } catch (err) { toast.error(err.message) }
   }
   if (!periods) return <SkeletonRows rows={8} />
@@ -209,7 +210,7 @@ function OpeningTab() {
     } catch (err) { toast.error(err.message) }
   }
   const post = async () => {
-    if (!window.confirm(`Post opening balances of ${formatRs(totals.d)} dated ${fmtDate(data.goLiveDate)}? Posted entries can't be edited, only reversed.`)) return
+    if (!await confirmDialog(`Post opening balances of ${formatRs(totals.d)} dated ${fmtDate(data.goLiveDate)}? Posted entries can't be edited, only reversed.`)) return
     setSaving(true)
     try {
       let fileId = null
@@ -313,11 +314,11 @@ function TaxTab() {
   const set = (p) => setS((x) => ({ ...x, ...p }))
   const saveProfile = async () => { try { setS(await updateTaxProfile(s)); toast.success('Tax profile saved') } catch (err) { toast.error(err.message) } }
   const turn = async (on) => {
-    if (on && !window.confirm(`Switch tax on from ${fmtDate(from)}? From that date sales carry sales tax${s.salesTaxRegistered ? '' : ' (once registered)'}, bills can carry input tax and withholding, and the tax accounts open. Nothing before it changes.`)) return
+    if (on && !await confirmDialog(`Switch tax on from ${fmtDate(from)}? From that date sales carry sales tax${s.salesTaxRegistered ? '' : ' (once registered)'}, bills can carry input tax and withholding, and the tax accounts open. Nothing before it changes.`)) return
     try { setS(await switchTax(on, from)); toast.success(on ? 'Tax switched on' : 'Tax switched off') } catch (err) { toast.error(err.message) }
   }
   const saveRate = async () => { try { setRates(await addTaxRate(newRate)); setNewRate(null); toast.success('Rate added') } catch (err) { toast.error(err.message) } }
-  const delRate = async (r) => { if (!window.confirm(`Delete the ${r.label} rate from ${fmtDate(r.effectiveFrom)}?`)) return; try { setRates(await deleteTaxRate(r.id)) } catch (err) { toast.error(err.message) } }
+  const delRate = async (r) => { if (!await confirmDialog(`Delete the ${r.label} rate from ${fmtDate(r.effectiveFrom)}?`)) return; try { setRates(await deleteTaxRate(r.id)) } catch (err) { toast.error(err.message) } }
   if (!s) return <SkeletonRows rows={6} />
   const keys = [...new Map(rates.map((r) => [r.key, r.label])).entries()]
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' })

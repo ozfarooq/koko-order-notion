@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { Plus, Wallet, Banknote, Undo2, Pencil, Paperclip, FileText, X, AlertTriangle } from 'lucide-react'
 import { recordPayment, deletePayment, updatePayment, addPaymentFile, getPaymentFile, deletePaymentFile, pieceMoney } from '../../data/storage'
 import { Modal, Field, StatCard, EmptyState, fmtDate } from '../../ui/kit'
+import { confirmDialog } from '../../ui/dialog'
 
 const f2 = (n) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const today = () => new Date().toISOString().slice(0, 10)
@@ -92,7 +93,7 @@ function PaymentFields({ form, set, currency, expected }) {
 
 function FileChips({ resellerId, payment, canWrite, onChanged }) {
   const remove = async (f) => {
-    if (!window.confirm(`Remove ${f.name}?`)) return
+    if (!await confirmDialog(`Remove ${f.name}?`)) return
     try { await deletePaymentFile(resellerId, payment.id, f.id); onChanged() } catch (err) { toast.error(err.message) }
   }
   return payment.files.map((f) => (
@@ -158,7 +159,7 @@ export default function Payments({ reseller, pieces, payments, canWrite, onSaved
     } catch (err) { toast.error(err.message) } finally { setSaving(false) }
   }
   const remove = async (p) => {
-    if (!window.confirm(`Remove the ${fmtDate(p.paidOn)} payment? Its ${p.pieces} piece(s) go back to "Sold".`)) return
+    if (!await confirmDialog(`Remove the ${fmtDate(p.paidOn)} payment? Its ${p.pieces} piece(s) go back to "Sold".`)) return
     try { await deletePayment(reseller.id, p.id); toast.success('Payment removed'); onSaved() } catch (err) { toast.error(err.message) }
   }
 

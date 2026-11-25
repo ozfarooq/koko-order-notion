@@ -8,6 +8,7 @@ import { fmtRs, safePaisa, todayPk, askReason } from './shared'
 import { Num } from './reportKit'
 import { Statement } from './People'
 import { useAuth } from '../../auth/AuthContext'
+import { confirmDialog, promptDialog } from '../../ui/dialog'
 
 const TABS = [{ value: 'status', label: 'Posting status' }, { value: 'receivables', label: 'Receivables' }, { value: 'trax', label: 'Trax settlements' }, { value: 'rates', label: 'Exchange rates' }]
 
@@ -58,7 +59,7 @@ function Status({ onStatement }) {
     try { await retrySync(x.sourceType, x.sourceId); toast.success('Posted') } catch (err) { toast.error(err.message) } finally { setBusy(''); load() }
   }
   const keep = async (o) => {
-    const r = askReason(`Keep ${o.orderNumber}'s advance of ${fmtRs(o.advance)} instead of refunding it? It becomes other income.`)
+    const r = await askReason(`Keep ${o.orderNumber}'s advance of ${fmtRs(o.advance)} instead of refunding it? It becomes other income.`)
     if (!r) return
     try { await keepAdvance(o.id, r); toast.success('Advance kept'); load() } catch (err) { toast.error(err.message) }
   }
@@ -221,7 +222,7 @@ function Rates() {
   const load = () => getFxRates().then(setD).catch((e) => toast.error(e.message))
   useEffect(() => { load() }, [])
   const save = async () => { try { setD(await setFxRate(b)); setB({ ...b, rate: '' }); toast.success('Saved') } catch (err) { toast.error(err.message) } }
-  const remove = async (r) => { if (!window.confirm(`Delete the ${r.currency} rate of ${fmtDate(r.date)}?`)) return; try { setD(await deleteFxRate(r)) } catch (err) { toast.error(err.message) } }
+  const remove = async (r) => { if (!await confirmDialog(`Delete the ${r.currency} rate of ${fmtDate(r.date)}?`)) return; try { setD(await deleteFxRate(r)) } catch (err) { toast.error(err.message) } }
   return (
     <div className="space-y-4">
       <div className="card flex flex-wrap items-end gap-3 p-4">
@@ -269,9 +270,9 @@ function TraxSettlements() {
     catch (err) { toast.error(err.message) } finally { setBusy(false) }
   }
   const undo = async (s) => {
-    const r = window.prompt(`Undo Trax invoice ${s.invoiceNo}? The entry is reversed; COD payments already set on orders stay.\n\nReason (kept on the record):`)
-    if (!r || !r.trim()) return
-    try { setList(await voidTrax(s.id, r.trim())) } catch (err) { toast.error(err.message) }
+    const r = await promptDialog({ title: `Undo Trax invoice ${s.invoiceNo}?`, message: 'The entry is reversed. Trax COD payments already set on orders stay as they are.', label: 'Reason (kept on the record)', required: true, confirmLabel: 'Undo import', danger: true })
+    if (!r) return
+    try { setList(await voidTrax(s.id, r)) } catch (err) { toast.error(err.message) }
   }
   const sum = (...v) => String(v.reduce((s, x) => s + safePaisa(x || 0), 0) / 100)
   return (

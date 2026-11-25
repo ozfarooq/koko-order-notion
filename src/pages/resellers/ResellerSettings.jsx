@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Settings, Building2, Save, Barcode, Wand2, Pencil } from 'lucide-react'
 import { getResellers, refreshResellers, addReseller, updateReseller, getResellerCodes, setResellerCode, nextResellerCode } from '../../data/storage'
 import { PageHeader, Field, SkeletonRows, ErrorBanner } from '../../ui/kit'
+import { confirmDialog } from '../../ui/dialog'
 
 const EMPTY = { name: '', address: '', city: '', country: '', currency: 'AED', commissionPct: 30, codePrefix: '', nextCode: 1 }
 const cleanPrefix = (v) => String(v || '').trim().toUpperCase().replace(/-+$/, '')
@@ -23,8 +24,8 @@ function DesignCodes({ resellerId, prefix, version }) {
     try { const r = await fn(); toast.success(done(r)); load() } catch (err) { toast.error(err.message) } finally { setBusy(null) }
   }
   const save = (d) => run(d.productId, () => setResellerCode(resellerId, d.productId, draft[d.productId]), (r) => (r.code ? `${d.product}: ${r.code}` : `${d.product}: code cleared`))
-  const next = (d) => {
-    if (!window.confirm(`Give ${d.product} the next number, ${data.nextCode}? Only do this for a design new to the reseller, not one waiting for its code to be confirmed.`)) return
+  const next = async (d) => {
+    if (!await confirmDialog(`Give ${d.product} the next number, ${data.nextCode}? Only do this for a design new to the reseller, not one waiting for its code to be confirmed.`)) return
     run(d.productId, () => nextResellerCode(resellerId, d.productId), (r) => `${d.product}: ${r.code}`)
   }
 

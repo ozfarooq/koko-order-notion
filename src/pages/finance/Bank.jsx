@@ -11,6 +11,7 @@ import { PageHeader, Modal, Field, Segmented, SkeletonRows, EmptyState, StatCard
 import { FinBadge, fmtRs, safePaisa, CategorySelect, AccountSelect, askReason } from './shared'
 import { Num } from './reportKit'
 import { useAuth } from '../../auth/AuthContext'
+import { confirmDialog } from '../../ui/dialog'
 
 const CHANNEL = { ibft: 'IBFT', raast: 'Raast', transfer: 'Transfer', charge: 'Charge', other: '' }
 const ACTIONS = { bank_charge: 'Bank charge', director: 'Funds from / to a director', staff: 'Staff payment', expense: 'Expense / supplier', customer: 'Customer payment', other: 'Another account' }
@@ -152,8 +153,8 @@ export function BankStatement() {
   const locked = st.status === 'Reconciled'
   const current = open && st.lines.find((l) => l.id === open)
 
-  const reconcile = () => {
-    if (safePaisa(r.difference) !== 0) { const note = askReason(`There is an unexplained difference of ${fmtRs(r.difference)} (often months not imported yet, or opening balances). Reconcile anyway?`); if (note) act(() => reconcileStatement(st.id, { reconciled: true, note }), 'Reconciled') }
+  const reconcile = async () => {
+    if (safePaisa(r.difference) !== 0) { const note = await askReason(`There is an unexplained difference of ${fmtRs(r.difference)} (often months not imported yet, or opening balances). Reconcile anyway?`); if (note) act(() => reconcileStatement(st.id, { reconciled: true, note }), 'Reconciled') }
     else act(() => reconcileStatement(st.id, { reconciled: true }), 'Reconciled')
   }
   return (
@@ -163,7 +164,7 @@ export function BankStatement() {
           {!locked && <button className="btn-secondary" disabled={busy} onClick={() => act(() => autoMatchStatement(st.id), (x) => `${x.autoMatched} more matched`)}><RefreshCw size={15} />Match again</button>}
           {!locked ? <button className="btn-primary" disabled={busy || r.counts.unmatched > 0} onClick={reconcile} title={r.counts.unmatched ? 'Deal with every line first' : ''}><Lock size={15} />Mark reconciled</button>
             : user?.role === 'owner' && <button className="btn-secondary" disabled={busy} onClick={() => act(() => reconcileStatement(st.id, { reconciled: false }), 'Reopened')}><Unlock size={15} />Reopen</button>}
-          {!locked && <button className="btn-icon border border-line hover:text-rose-600" title="Delete this import" onClick={async () => { if (window.confirm('Delete this imported statement? Anything already booked from it stays in the books.')) { try { await deleteBankStatement(st.id); navigate('/finance/bank') } catch (err) { toast.error(err.message) } } }}><Trash2 size={15} /></button>}
+          {!locked && <button className="btn-icon border border-line hover:text-rose-600" title="Delete this import" onClick={async () => { if (await confirmDialog('Delete this imported statement? Anything already booked from it stays in the books.')) { try { await deleteBankStatement(st.id); navigate('/finance/bank') } catch (err) { toast.error(err.message) } } }}><Trash2 size={15} /></button>}
         </div>} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -240,7 +241,7 @@ function LineModal({ l, refData, locked, busy, onClose, run }) {
   return (
     <Modal open onClose={onClose} size="lg" title={`${dir === 'in' ? 'Money in' : 'Money out'} · ${fmtRs(Math.abs(amt) / 100)}`} subtitle={`${fmtDate(l.date)} · ${l.party || 'No name on the statement'}`}
       footer={l.status === 'Unmatched' && !locked ? <>
-        <button className="btn-secondary mr-auto" disabled={busy} onClick={() => { const r = askReason('Ignore this line? Nothing is booked for it.'); if (r) run(() => ignoreBankLine(l.id, r), 'Ignored') }}>Ignore</button>
+        <button className="btn-secondary mr-auto" disabled={busy} onClick={async () => { const r = await askReason('Ignore this line? Nothing is booked for it.'); if (r) run(() => ignoreBankLine(l.id, r), 'Ignored') }}>Ignore</button>
         <button className="btn-secondary" onClick={onClose}>Cancel</button>
         <button className="btn-primary" disabled={busy} onClick={() => run(() => bookBankLine(l.id, b), 'Booked')}>Book it</button></>
         : !locked && l.status !== 'Unmatched' ? <button className="btn-secondary" disabled={busy} onClick={() => run(() => (l.status === 'Ignored' ? unmatchBankLine(l.id) : unmatchBankLine(l.id)), 'Back to do')}>{l.status === 'Ignored' ? 'Un-ignore' : 'Unmatch'}</button> : null}>

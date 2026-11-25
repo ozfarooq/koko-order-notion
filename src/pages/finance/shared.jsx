@@ -2,6 +2,7 @@
 import { toPaisa, formatRs } from '../../../lib/finance/money.js'
 import { Paperclip } from 'lucide-react'
 import { TYPE_LABELS } from '../../data/finance'
+import { promptDialog } from '../../ui/dialog'
 
 export { toPaisa, formatRs }
 export const fmtRs = (v, opts) => formatRs(toPaisa(v ?? 0), opts)
@@ -82,4 +83,4 @@ export function FilePick({ files, onChange, label = 'Attach the receipt (photo o
 }
 
 // Asks for a reason (void, undo, reject); resolves null if cancelled
-export const askReason = (what) => { const r = window.prompt(`${what}\n\nReason (kept on the record):`); return r && r.trim() ? r.trim() : null }
+export const askReason = (what) => promptDialog({ title: what, label: 'Reason (kept on the record)', required: true, confirmLabel: 'Continue' })

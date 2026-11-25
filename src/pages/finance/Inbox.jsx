@@ -139,7 +139,7 @@ function Review({ id, refData, vision, onClose, onChanged }) {
     <Modal open onClose={onClose} size="xl" title={item ? (item.kind ? INTAKE_KINDS[item.kind] : 'Not read yet') : 'Inbox item'}
       subtitle={item ? `${item.fileName}${item.readBy ? ` · ${item.readBy === 'hand' ? 'typed in' : 'read automatically'}` : ''}` : ''}
       footer={item && open && <>
-        <button className="btn-secondary text-rose-700" disabled={busy} onClick={() => { const r = askReason('Reject this file? Nothing is posted.'); if (r) act(() => rejectIntakeItem(id, r), 'Rejected', true) }}><Ban size={15} />Reject</button>
+        <button className="btn-secondary text-rose-700" disabled={busy} onClick={async () => { const r = await askReason('Reject this file? Nothing is posted.'); if (r) act(() => rejectIntakeItem(id, r), 'Rejected', true) }}><Ban size={15} />Reject</button>
         {item.status !== 'Parked' && <button className="btn-secondary" disabled={busy} onClick={() => act(() => parkIntakeItem(id, ''), 'Parked', true)}><PauseCircle size={15} />Park</button>}
         {(item.status === 'Parked' || item.status === 'Duplicate') && <button className="btn-secondary" disabled={busy} onClick={() => act(() => reopenIntakeItem(id), 'Back in the queue')}><RotateCcw size={15} />Reopen</button>}
         {kind && !typing && <button className="btn-secondary" disabled={busy} onClick={() => act(() => saveIntakeItem(id, { kind, proposal: p }), 'Saved')}>Save</button>}

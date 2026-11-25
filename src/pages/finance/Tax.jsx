@@ -10,6 +10,7 @@ import { getResellers } from '../../data/storage'
 import { PageHeader, Modal, Field, Segmented, SkeletonRows, EmptyState, StatCard, fmtDate } from '../../ui/kit'
 import { FinBadge, fmtRs, safePaisa, todayPk, askReason } from './shared'
 import { Num, fyStartOf } from './reportKit'
+import { confirmDialog } from '../../ui/dialog'
 
 const TABS = [{ value: 'sales', label: 'Sales tax' }, { value: 'wht', label: 'Withholding' }, { value: 'suffered', label: 'Deducted from Koko' },
   { value: 'income', label: 'Income tax' }, { value: 'calendar', label: 'Calendar' }, { value: 'payments', label: 'Payments' }]
@@ -157,7 +158,7 @@ function Suffered({ settings }) {
   const load = useCallback(() => getTaxSuffered().then(setList).catch((e) => toast.error(e.message)), [])
   useEffect(() => { load(); getResellers().then(setResellers).catch(() => {}) }, [load])
   const save = async () => { try { setList(await addTaxSuffered(add)); setAdd(null); toast.success('Booked') } catch (err) { toast.error(err.message) } }
-  const undo = async (t) => { const r = askReason('Undo this deduction?'); if (!r) return; try { setList(await voidTaxSuffered(t.id, r)) } catch (err) { toast.error(err.message) } }
+  const undo = async (t) => { const r = await askReason('Undo this deduction?'); if (!r) return; try { setList(await voidTaxSuffered(t.id, r)) } catch (err) { toast.error(err.message) } }
   if (!list) return <SkeletonRows rows={4} />
   const total = list.filter((t) => t.status === 'Posted').reduce((s, t) => s + safePaisa(t.amount), 0)
   return (
@@ -206,7 +207,7 @@ function IncomeTax() {
   const load = useCallback(() => { setT(null); getIncomeTax(fy).then((x) => { setT(x); setAdj({ addBacks: x.addBacks.other, deductions: x.deductions.other, note: x.notes }) }).catch((e) => toast.error(e.message)) }, [fy])
   useEffect(() => { load() }, [load])
   const saveAdj = async () => { try { setT(await saveTaxAdjustments(fy, adj)); toast.success('Saved') } catch (err) { toast.error(err.message) } }
-  const book = async () => { if (!window.confirm(`Book FY ${fy}'s current and deferred tax in the adjustment period?`)) return; try { setT(await bookIncomeTax(fy)); toast.success('Tax booked') } catch (err) { toast.error(err.message) } }
+  const book = async () => { if (!await confirmDialog(`Book FY ${fy}'s current and deferred tax in the adjustment period?`)) return; try { setT(await bookIncomeTax(fy)); toast.success('Tax booked') } catch (err) { toast.error(err.message) } }
   const R = ({ label, v, strong, sub }) => <div className="flex items-baseline gap-3 px-4 py-1.5 text-sm"><span className={`flex-1 ${strong ? 'font-semibold text-ink' : 'text-ink-soft'}`}>{label}{sub && <span className="ml-2 text-[11px] text-faint">{sub}</span>}</span><Num v={v} strong={strong} /></div>
   return (
     <div className="space-y-4">
@@ -302,7 +303,7 @@ function Payments() {
   const [pay, setPay] = useState(null)
   const load = useCallback(() => getTaxPayments().then(setList).catch((e) => toast.error(e.message)), [])
   useEffect(() => { load() }, [load])
-  const undo = async (p) => { const r = askReason('Undo this payment?'); if (!r) return; try { setList(await voidTaxPayment(p.id, r)) } catch (err) { toast.error(err.message) } }
+  const undo = async (p) => { const r = await askReason('Undo this payment?'); if (!r) return; try { setList(await voidTaxPayment(p.id, r)) } catch (err) { toast.error(err.message) } }
   if (!list) return <SkeletonRows rows={4} />
   return (
     <div className="space-y-4">

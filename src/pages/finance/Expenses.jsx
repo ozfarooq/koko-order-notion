@@ -198,8 +198,8 @@ function ExpenseView({ id, onClose, onEdit, onChanged }) {
   const load = useCallback(() => getExpense(id).then(setX).catch((e) => toast.error(e.message)), [id])
   useEffect(() => { load() }, [load])
   const act = async (fn, msg) => { setBusy(true); try { await fn(); toast.success(msg); await load(); onChanged() } catch (err) { toast.error(err.message) } finally { setBusy(false) } }
-  const doVoid = () => { const r = askReason('Void this expense? Its posting is reversed.'); if (r) act(() => voidExpense(id, r), 'Voided') }
-  const doUnpay = () => { const r = askReason('Undo the payment of this bill?'); if (r) act(() => unpayBill(id, r), 'Payment undone') }
+  const doVoid = async () => { const r = await askReason('Void this expense? Its posting is reversed.'); if (r) act(() => voidExpense(id, r), 'Voided') }
+  const doUnpay = async () => { const r = await askReason('Undo the payment of this bill?'); if (r) act(() => unpayBill(id, r), 'Payment undone') }
   const addFiles = async (list) => act(async () => addExpenseFiles(id, await uploadFiles(list, 'expenses')), 'Receipt added')
 
   return (

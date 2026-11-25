@@ -5,6 +5,7 @@ import { BookOpen, Undo2, Pencil, Send, Trash2, Paperclip, FileText, ArrowLeft }
 import { getEntry, getPeriods, reverseEntry, postDraft, deleteDraft, attachEntryFile, readFile, openFinanceFile, ENTRY_LABELS } from '../../data/finance'
 import { PageHeader, Modal, Field, SkeletonRows, ErrorBanner, fmtDate } from '../../ui/kit'
 import { FinBadge, fmtRs, todayPk, periodFor, toPaisa, formatRs } from './shared'
+import { confirmDialog, promptDialog } from '../../ui/dialog'
 
 export default function EntryView() {
   const { id } = useParams()
@@ -29,11 +30,11 @@ export default function EntryView() {
   const post = async () => {
     const p = periodFor(periods, e.date)
     let reason
-    if (p?.status === 'Closed') { reason = window.prompt(`${p.name} is closed. Reason for posting into it:`); if (!reason) return }
+    if (p?.status === 'Closed') { reason = await promptDialog({ title: `${p.name} is closed`, message: 'Only you can post into a closed month, and the reason is kept with the entry.', label: 'Reason for posting into it', required: true, confirmLabel: 'Post' }); if (!reason) return }
     if (await act(() => postDraft(e.id, reason), (x) => `${x.entryNo} posted`)) load()
   }
   const remove = async () => {
-    if (!window.confirm('Delete this draft?')) return
+    if (!await confirmDialog('Delete this draft?')) return
     if (await act(() => deleteDraft(e.id).then(() => true), () => 'Draft deleted')) navigate('/finance/journals')
   }
   const attach = async (list) => {
