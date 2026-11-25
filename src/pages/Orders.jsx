@@ -176,8 +176,9 @@ export default function Orders() {
     setBusy('xlsx')
     try {
       const { generateCourierExcel } = await import('../utils/generateCourierExcel')
-      generateCourierExcel(selected())
-      toast.success('Courier booking sheet downloaded')
+      const r = generateCourierExcel(selected())
+      if (r.booked) toast.success(`Trax booking sheet downloaded: ${r.booked} order${r.booked === 1 ? '' : 's'}`)
+      if (r.skipped.length) toast.warning(`Left out (abroad or no delivery address/city): ${r.skipped.map((o) => o.orderNumber).join(', ')}`)
     } catch (err) { toast.error(`Couldn't create the sheet: ${err.message}`) }
     finally { setBusy(null) }
   }
@@ -279,7 +280,7 @@ export default function Orders() {
             <span className="flex-1 text-sm font-semibold text-white">{selectedIds.size} selected</span>
             <button className="btn-gold px-3 py-1.5 text-xs" onClick={handlePrintSummary} disabled={!!busy}><FileDown size={14} />{busy === 'pdf' ? 'Creating…' : 'Summary PDF'}</button>
             <button className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20" onClick={handleCourierExcel} disabled={!!busy}>
-              <Sheet size={14} />{busy === 'xlsx' ? 'Exporting…' : 'Courier sheet'}
+              <Sheet size={14} />{busy === 'xlsx' ? 'Exporting…' : 'Trax sheet'}
             </button>
             <button className="rounded-lg p-1.5 text-white/50 hover:text-white" onClick={() => setSelectedIds(new Set())} aria-label="Clear selection"><X size={16} /></button>
           </motion.div>

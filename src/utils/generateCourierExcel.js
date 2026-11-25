@@ -20,7 +20,12 @@ function parseProduct(productStr, fallbackSize) {
   return { name: firstLine, size: (fallbackSize || '').toUpperCase() }
 }
 
-export function generateCourierExcel(orders) {
+// Trax bulk booking sheet: one row per order, in the column order of Trax's upload template.
+// Orders shipped abroad or with no address are left out (returned as skipped).
+export function generateCourierExcel(all) {
+  const skipped = all.filter((o) => (o.country && !/^pakistan$/i.test(o.country)) || !o.address || !o.city)
+  const orders = all.filter((o) => !skipped.includes(o))
+  if (!orders.length) return { booked: 0, skipped }
   const headers = [
     'Pickup Address ID',
     'Show Information on Air Waybill',
@@ -89,9 +94,9 @@ export function generateCourierExcel(orders) {
       '',                          // Special Instructions
       1,                           // Estimated Weight (kg)
       1,                           // Mode of Shipment ID
-      1,                           // Same Day Timing ID
-      collectionAmount,            // Collection Amount
-      1,                           // Mode of Payment ID
+      '',                          // Same Day Timing ID (same-day service only)
+      collectionAmount,            // Collection Amount (cash Trax collects on delivery)
+      collectionAmount > 0 ? 1 : 4, // Mode of Payment ID: 1 cash on delivery, 4 nothing to collect (as on Koko's Trax uploads)
       4,                           // Charges Mode ID
       order.quantity || 1,         // Pieces
       '',                          // Shipper Reference Number 1
@@ -120,5 +125,6 @@ export function generateCourierExcel(orders) {
   XLSX.utils.book_append_sheet(wb, ws, 'Courier Booking')
 
   const date = new Date().toISOString().split('T')[0]
-  XLSX.writeFile(wb, `courier-booking-${date}.xlsx`)
+  XLSX.writeFile(wb, `trax-booking-${date}.xlsx`)
+  return { booked: orders.length, skipped }
 }
