@@ -183,10 +183,10 @@ test('a shop receipt becomes a cash expense; sticker words pick the category; a 
   await ex.voidExpense(x.id, { reason: 'TEST tidy' }, owner)
 })
 
-test('typed in by hand when there is no reader; money coming in waits for F3', async () => {
+test('typed in by hand when there is no reader; money coming in with no order to match waits for one', async () => {
   const item = await inboxFile({ doc_type: 'other', confidence: 0 })
   const typed = await intake.saveItem(item.id, { extracted: { doc_type: 'bank_transfer', reference: `T${RUN}C`, date: '2094-08-06', amount: 9500, from_name: 'Ayesha Khan', to_name: 'Koko Atelier' } })
   assert.equal(typed.readBy, 'hand'); assert.equal(typed.kind, 'customer_receipt'); assert.equal(typed.status, 'Needs attention')
-  await fails(intake.approveItem(item.id, {}, owner), /F3/)
+  await fails(intake.approveItem(item.id, {}, owner), /Choose the order/)
   assert.equal((await intake.setItemStatus(item.id, 'Parked', {}, owner)).status, 'Parked')
 })

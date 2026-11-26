@@ -102,7 +102,8 @@ export const PAID_FROM = { bank: 'Bank Alfalah', cash: 'Studio petty cash', dire
 // ── F2b: receipt and screenshot inbox ──
 export const getIntake = (group) => api(`/finance/intake?${query({ group })}`)
 export const getIntakeItem = (id) => api(`/finance/intake/${id}`)
-export const addToIntake = (fileIds) => post('/finance/intake', { fileIds })
+export const addToIntake = (files) => post('/finance/intake', { files })      // file ids, or { fileId, sourceHash, sourcePath }
+export const knownIntakeHashes = (hashes) => post('/finance/intake/known', { hashes })
 export const readIntakeItem = (id) => post(`/finance/intake/${id}/read`)
 export const saveIntakeItem = (id, b) => patch(`/finance/intake/${id}`, b)
 export const approveIntakeItem = (id, b) => post(`/finance/intake/${id}/approve`, b)
@@ -112,7 +113,7 @@ export const reopenIntakeItem = (id) => post(`/finance/intake/${id}/reopen`)
 export const approveReadyIntake = () => post('/finance/intake/approve-ready')
 export const getIntakeLabels = () => api('/finance/intake-labels')
 export const saveIntakeLabel = (id, b) => (id ? patch(`/finance/intake-labels/${id}`, b) : post('/finance/intake-labels', b))
-export const INTAKE_KINDS = { staff_payment: 'Staff payment', expense: 'Expense / supplier', owner_funding: 'Funds added by a director', customer_receipt: 'Customer payment (F3)', reseller_payment: 'Reseller payment (F3)', other: 'Not sure yet' }
+export const INTAKE_KINDS = { staff_payment: 'Staff payment', expense: 'Expense / supplier', owner_funding: 'Funds added by a director', customer_receipt: 'Customer payment on an order', reseller_payment: 'Reseller payment (record on the reseller page)', other: 'Not sure yet' }
 
 // ── F3: sales, receipts, resellers ──
 export const getReceivables = () => api('/finance/receivables')

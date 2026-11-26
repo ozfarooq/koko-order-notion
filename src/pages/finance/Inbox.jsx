@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Inbox as InboxIcon, Upload, ScanText, CheckCheck, Send, Ban, PauseCircle, RotateCcw, Keyboard, Plus, Trash2, AlertTriangle, Tags, ChevronDown, ChevronRight } from 'lucide-react'
+import { Inbox as InboxIcon, Upload, ScanText, CheckCheck, Send, Ban, PauseCircle, RotateCcw, Keyboard, Plus, Trash2, AlertTriangle, Tags, ChevronDown, ChevronRight, FolderOpen, RefreshCw, X, Paperclip } from 'lucide-react'
 import {
-  getIntake, getIntakeItem, addToIntake, readIntakeItem, saveIntakeItem, approveIntakeItem, rejectIntakeItem, parkIntakeItem, reopenIntakeItem, approveReadyIntake,
+  getIntake, getIntakeItem, addToIntake, knownIntakeHashes, readIntakeItem, saveIntakeItem, approveIntakeItem, rejectIntakeItem, parkIntakeItem, reopenIntakeItem, approveReadyIntake,
   getIntakeLabels, saveIntakeLabel, getAccounts, getStaff, getSuppliers, getStaffOwed, getFinanceFile, uploadFiles, INTAKE_KINDS, PAID_FROM,
 } from '../../data/finance'
 import { PageHeader, Modal, Field, Segmented, SkeletonRows, EmptyState, ErrorBanner, fmtDate } from '../../ui/kit'
 import { FinBadge, fmtRs, formatRs, safePaisa, CategorySelect, askReason } from './shared'
+import { canKeepFolder, savedFolder, pickFolder, forgetFolder, allowFolder, filesIn, filesFromInput, sortOut, sha256 } from '../../utils/folderScan'
 
 const GROUPS = [['review', 'To review'], ['posted', 'Posted'], ['parked', 'Parked'], ['closed', 'Rejected & duplicates']]
 const PAY_FROM = Object.fromEntries(Object.entries(PAID_FROM).filter(([k]) => k !== 'unpaid'))
 const LABEL_KINDS = { salary: 'Salary', claim: 'Studio claim (market spend)', advance: 'Advance', expense: 'Expense', owner_funding: 'Funds added', ignore: 'Ignore (a total)' }
-const who = (i) => i.proposal?.staffName || i.proposal?.supplierName || (i.proposal?.director ? `Director: ${i.proposal.director === 'omer' ? 'Omer' : 'Usman'}` : '') || i.extracted?.toName || i.extracted?.shop || ''
+const who = (i) => (i.proposal?.orderNumber ? `${i.proposal.orderNumber}${i.proposal.customer ? ` · ${i.proposal.customer}` : ''}` : '')
+  || i.proposal?.staffName || i.proposal?.supplierName || (i.proposal?.director ? `Director: ${i.proposal.director === 'omer' ? 'Omer' : 'Usman'}` : '') || i.extracted?.fromName && i.kind === 'customer_receipt' && i.extracted.fromName || i.extracted?.toName || i.extracted?.shop || ''
+const WORKERS = 3
 
 // Receipts and bank screenshots in, draft postings out: read, check, approve, filed away
 export default function Inbox() {
@@ -47,6 +50,52 @@ export default function Inbox() {
       if (data?.visionConfigured) await readAll(fresh.filter((i) => i.status === 'New')); else load()
     } catch (err) { toast.error(err.message) } finally { setBusy('') }
   }
+  // ── A folder of receipts: only files not seen before are sent, then each is read ──
+  const [folder, setFolder] = useState(null)        // the remembered folder (Chrome / Edge)
+  const [scan, setScan] = useState(null)            // { stage, done, total, added, skipped, failed, note }
+  useEffect(() => { if (canKeepFolder()) savedFolder().then(setFolder) }, [])
+  const scanEntries = async (entries) => {
+    const { readable, phonePhotos, other } = sortOut(entries)
+    const notes = [phonePhotos && `${phonePhotos} iPhone HEIC photo${phonePhotos === 1 ? '' : 's'} skipped (save them as JPEG)`, other && `${other} other file${other === 1 ? '' : 's'} ignored`].filter(Boolean)
+    const st = { stage: 'Checking', done: 0, total: readable.length, added: 0, skipped: 0, failed: 0, note: notes.join(' · ') }
+    const show = () => setScan({ ...st })
+    show()
+    try {
+      for (const x of readable) { x.hash = await sha256(x.file); st.done++; if (st.done % 10 === 0) show() }
+      const known = new Set()
+      for (let i = 0; i < readable.length; i += 1000) for (const h of (await knownIntakeHashes(readable.slice(i, i + 1000).map((x) => x.hash))).known) known.add(h)
+      const todo = readable.filter((x) => !known.has(x.hash))
+      st.skipped = readable.length - todo.length
+      Object.assign(st, { stage: data?.visionConfigured ? 'Adding and reading' : 'Adding', done: 0, total: todo.length }); show()
+      let next = 0
+      const worker = async () => {
+        while (next < todo.length) {
+          const x = todo[next++]
+          try {
+            const [fileId] = await uploadFiles([x.file], 'Inbox')
+            const { items } = await addToIntake([{ fileId, sourceHash: x.hash, sourcePath: x.path }])
+            const it = items.find((i) => !i.alreadyIn)
+            if (it) { st.added++; if (data?.visionConfigured) await readIntakeItem(it.id).catch(() => {}) } else st.skipped++
+          } catch { st.failed++ }
+          st.done++; show()
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(WORKERS, todo.length) }, worker))
+      st.stage = 'Done'; show()
+      toast.success(`${st.added} new file${st.added === 1 ? '' : 's'} added${st.skipped ? `, ${st.skipped} already in` : ''}${st.failed ? `, ${st.failed} failed` : ''}`)
+      setGroup('review'); load()
+    } catch (err) { toast.error(err.message); setScan(null) }
+  }
+  const chooseFolder = async () => {
+    try { const h = await pickFolder(); setFolder(h); await scanEntries(await filesIn(h)) }
+    catch (err) { if (err.name !== 'AbortError') toast.error(err.message) }
+  }
+  const rescan = async () => {
+    try { if (!(await allowFolder(folder))) return toast.error('The browser needs permission to read the folder'); await scanEntries(await filesIn(folder)) }
+    catch (err) { toast.error(err.message) }
+  }
+  const scanning = scan && scan.stage !== 'Done'
+
   const approveSure = async () => {
     setBusy('Approving…')
     try {
@@ -66,18 +115,37 @@ export default function Inbox() {
           Automatic reading is off until the Claude API key (ANTHROPIC_API_KEY) is added to the server. Until then, open each file and type the details in.</p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <label className={`btn-primary cursor-pointer ${busy ? 'pointer-events-none opacity-60' : ''}`}>
-          <Upload size={16} />Add receipts & screenshots
+        {canKeepFolder()
+          ? <button className="btn-primary" disabled={!!busy || scanning} onClick={chooseFolder}><FolderOpen size={16} />{folder ? 'Choose another folder' : 'Add a folder'}</button>
+          : <label className={`btn-primary cursor-pointer ${busy || scanning ? 'pointer-events-none opacity-60' : ''}`}>
+              <FolderOpen size={16} />Add a folder
+              <input type="file" webkitdirectory="" directory="" multiple className="sr-only" onChange={(e) => { const l = filesFromInput(e.target.files); e.target.value = ''; scanEntries(l) }} />
+            </label>}
+        {folder && <button className="btn-secondary" disabled={!!busy || scanning} onClick={rescan} title="Adds only the files not seen before"><RefreshCw size={15} />Scan "{folder.name}" again</button>}
+        <label className={`btn-secondary cursor-pointer ${busy || scanning ? 'pointer-events-none opacity-60' : ''}`}>
+          <Upload size={15} />Add files
           <input type="file" multiple accept="image/*,application/pdf" className="sr-only" onChange={(e) => { add([...e.target.files]); e.target.value = '' }} />
         </label>
         {data?.visionConfigured && group === 'review' && newOnes.length > 0 && <button className="btn-secondary" disabled={!!busy} onClick={() => readAll(newOnes)}><ScanText size={15} />Read {newOnes.length} new</button>}
         {c.bulk > 0 && <button className="btn-secondary" disabled={!!busy} onClick={approveSure} title="Ready items read with 85% confidence or more"><CheckCheck size={15} />Approve {c.bulk} sure one{c.bulk === 1 ? '' : 's'}</button>}
         {busy && <span className="text-sm text-muted">{busy}</span>}
       </div>
+      {scan && (
+        <div className="card space-y-2 p-4 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-medium text-ink">{scan.stage === 'Done' ? 'Folder done' : `${scan.stage}…`} <span className="font-normal text-muted">{scan.done} of {scan.total}</span></p>
+            {!scanning && <div className="flex items-center gap-1">
+              {folder && <button className="btn-ghost text-xs" onClick={async () => { await forgetFolder(); setFolder(null); setScan(null) }}>Forget the folder</button>}
+              <button className="btn-icon" onClick={() => setScan(null)} aria-label="Close"><X size={14} /></button></div>}
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-subtle"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${scan.total ? (scan.done / scan.total) * 100 : 100}%` }} /></div>
+          <p className="text-xs text-muted">{scan.added} added · {scan.skipped} already in{scan.failed ? ` · ${scan.failed} failed` : ''}{scan.note ? ` · ${scan.note}` : ''}</p>
+        </div>
+      )}
       <div className="overflow-x-auto"><Segmented options={GROUPS.map(([v, l]) => ({ value: v, label: `${l}${c[v] ? ` (${c[v]})` : ''}` }))} value={group} onChange={setGroup} /></div>
       <ErrorBanner onRetry={load}>{error}</ErrorBanner>
       {!data ? <SkeletonRows rows={6} /> : data.items.length === 0 ? (
-        <EmptyState icon={InboxIcon} title={group === 'review' ? 'Nothing to review' : 'Nothing here'} hint="Add the year's receipts and bank screenshots; they are read and turned into entries for you to check." />
+        <EmptyState icon={InboxIcon} title={group === 'review' ? 'Nothing to review' : 'Nothing here'} hint="Add the folder of receipts and bank screenshots; each is read and turned into an entry for you to check. Scanning the folder again adds only new files." />
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
@@ -90,7 +158,7 @@ export default function Inbox() {
                 <tr key={i.id} className="cursor-pointer hover:bg-subtle/60" onClick={() => setOpen(i.id)}>
                   <td className="whitespace-nowrap px-4 py-2.5 text-ink-soft">{i.date ? fmtDate(i.date) : <span className="text-faint">—</span>}</td>
                   <td className="max-w-[340px] px-3 py-2.5"><p className="truncate text-ink">{i.kind ? INTAKE_KINDS[i.kind] : <span className="text-muted">Not read yet</span>}{who(i) && <span className="text-muted"> · {who(i)}</span>}</p>
-                    <p className="truncate text-xs text-muted">{i.issues.length ? <span className="text-amber-700 dark:text-amber-300">{i.issues[0]}{i.issues.length > 1 ? ` (+${i.issues.length - 1})` : ''}</span> : i.fileName}</p></td>
+                    <p className="truncate text-xs text-muted">{i.issues.length ? <span className="text-amber-700 dark:text-amber-300">{i.issues[0]}{i.issues.length > 1 ? ` (+${i.issues.length - 1})` : ''}</span> : i.sourcePath || i.fileName}</p></td>
                   <td className="px-3 py-2.5 font-mono text-xs text-muted">{i.bankRef || i.proposal?.reference || ''}</td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums text-ink">{i.amount ? fmtRs(i.amount) : ''}</td>
                   <td className="whitespace-nowrap px-4 py-2.5"><FinBadge status={i.status} />{i.confidence != null && i.status === 'Ready' && <span className="ml-1.5 text-[11px] text-muted">{Math.round(i.confidence * 100)}%</span>}
@@ -133,11 +201,11 @@ function Review({ id, refData, vision, onClose, onChanged }) {
     catch (err) { toast.error(err.message); getIntakeItem(id).then(take).catch(() => {}) } finally { setBusy(false) }
   }
   const open = item && ['New', 'Ready', 'Needs attention', 'Parked', 'Duplicate'].includes(item.status)
-  const canPost = ['owner_funding', 'staff_payment', 'expense'].includes(kind)
+  const canPost = ['owner_funding', 'staff_payment', 'expense', 'customer_receipt'].includes(kind)
 
   return (
     <Modal open onClose={onClose} size="xl" title={item ? (item.kind ? INTAKE_KINDS[item.kind] : 'Not read yet') : 'Inbox item'}
-      subtitle={item ? `${item.fileName}${item.readBy ? ` · ${item.readBy === 'hand' ? 'typed in' : 'read automatically'}` : ''}` : ''}
+      subtitle={item ? `${item.sourcePath || item.fileName}${item.readBy ? ` · ${item.readBy === 'hand' ? 'typed in' : 'read automatically'}` : ''}` : ''}
       footer={item && open && <>
         <button className="btn-secondary text-rose-700" disabled={busy} onClick={async () => { const r = await askReason('Reject this file? Nothing is posted.'); if (r) act(() => rejectIntakeItem(id, r), 'Rejected', true) }}><Ban size={15} />Reject</button>
         {item.status !== 'Parked' && <button className="btn-secondary" disabled={busy} onClick={() => act(() => parkIntakeItem(id, ''), 'Parked', true)}><PauseCircle size={15} />Park</button>}
@@ -175,7 +243,8 @@ function Review({ id, refData, vision, onClose, onChanged }) {
                   {kind === 'owner_funding' && <Funding p={p} set={setP} />}
                   {kind === 'expense' && <ExpenseFields p={p} set={setP} refData={refData} />}
                   {kind === 'staff_payment' && <StaffPaymentFields p={p} set={setP} refData={refData} />}
-                  {['customer_receipt', 'reseller_payment'].includes(kind) && <p className="text-muted">Money coming in is posted from phase F3 (orders and reseller statements). Park it for now; it stays here with its reading.</p>}
+                  {kind === 'customer_receipt' && <CustomerPaymentFields p={p} set={setP} onLookUp={(np) => act(() => saveIntakeItem(id, { kind, proposal: np }))} />}
+                  {kind === 'reseller_payment' && <p className="text-muted">A reseller payment is recorded on Resellers › Fashion Collage › Payments, against the statement it pays, with this file attached there. Then reject this one here as done.</p>}
                 </fieldset>
                 {item.extracted && <Extracted e={item.extracted} />}
               </>}
@@ -204,6 +273,32 @@ function Funding({ p, set }) {
   )
 }
 
+// Money in onto an order: the order from the note, or one chosen from those with this balance
+function CustomerPaymentFields({ p, set, onLookUp }) {
+  const [no, setNo] = useState(p.orderNumber || '')
+  useEffect(() => { setNo(p.orderNumber || '') }, [p.orderNumber])
+  const look = (orderNumber) => onLookUp({ ...p, orderNumber, orderId: '' })
+  return (
+    <>
+      <Common p={p} set={set}>
+        <Field label="Order">
+          <div className="flex gap-1.5"><input className="input font-mono" value={no} placeholder="SO-000228" onChange={(e) => setNo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && look(no)} />
+            {no !== (p.orderNumber || '') && <button type="button" className="btn-secondary px-2.5 text-xs" onClick={() => look(no)}>Find</button>}</div>
+        </Field>
+        <Field label="Paid in by"><select className="input" value={p.via || ''} onChange={(e) => set({ ...p, via: e.target.value })}>
+          <option value="">The customer</option><option value="omer">Omer, for the customer</option><option value="usman">Usman, for the customer</option></select></Field>
+      </Common>
+      {p.orderId && <p className="rounded-xl bg-subtle px-3 py-2 text-ink">{p.orderNumber} · {p.customer} <span className="text-muted">· balance due {fmtRs(p.balance || 0)}</span></p>}
+      {p.attachInfo && <p className="flex gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"><Paperclip size={13} className="mt-0.5 shrink-0" />{p.attachInfo}</p>}
+      {!p.orderId && p.candidates?.length > 0 && (
+        <div className="space-y-1"><p className="text-xs text-muted">Orders with this balance</p>
+          {p.candidates.map((c) => <button key={c.orderNumber} type="button" className="flex w-full justify-between rounded-lg border border-line px-3 py-1.5 text-left hover:bg-subtle" onClick={() => look(c.orderNumber)}>
+            <span><span className="font-mono text-xs">{c.orderNumber}</span> · {c.customer}</span><span className="text-muted">{fmtRs(c.balance)}</span></button>)}
+        </div>)}
+    </>
+  )
+}
+
 function ExpenseFields({ p, set, refData }) {
   return (
     <>
@@ -217,6 +312,7 @@ function ExpenseFields({ p, set, refData }) {
       {!p.supplierId && <Field label="New supplier name" hint="Added when you approve; leave empty for none"><input className="input" value={p.supplierName || ''} onChange={(e) => set({ ...p, supplierName: e.target.value })} /></Field>}
       <Field label="Category"><CategorySelect accounts={refData.accounts} value={p.accountId} onChange={(v) => set({ ...p, accountId: v })} /></Field>
       <Field label="What was it for?"><input className="input" value={p.description || ''} onChange={(e) => set({ ...p, description: e.target.value })} /></Field>
+      {p.collectionId && <p className="text-xs text-muted">Costed to collection {p.collectionName} (C{p.collectionId}) <button type="button" className="ml-1 text-accent underline" onClick={() => set({ ...p, collectionId: null, collectionNo: null, collectionName: '' })}>remove</button></p>}
     </>
   )
 }
@@ -239,12 +335,12 @@ function StaffPaymentFields({ p, set, refData }) {
         {parts.map((x, i) => (
           <div key={i} className="space-y-2 rounded-xl border border-line p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <select className="input w-36 py-1.5" value={x.kind} onChange={(e) => setPart(i, { kind: e.target.value, claimId: null, payrollLineId: null, lines: e.target.value === 'claim' ? [{ accountId: '', description: '', amount: x.amount }] : undefined })}>
+              <select className="input w-36 py-1.5" value={x.kind} onChange={(e) => setPart(i, { kind: e.target.value, claimId: null, payrollLineId: null, direct: e.target.value === 'salary' && !!x.weekEnding, lines: e.target.value === 'claim' ? [{ accountId: '', description: '', amount: x.amount }] : undefined })}>
                 <option value="salary">Salary</option><option value="claim">Studio claim</option><option value="advance">Advance</option></select>
               <input inputMode="decimal" className="input w-32 py-1.5 text-right" value={x.amount} onChange={(e) => setPart(i, { amount: e.target.value })} />
               {x.kind === 'salary' && (
-                <select className="input min-w-[180px] flex-1 py-1.5" value={x.payrollLineId || ''} onChange={(e) => setPart(i, { payrollLineId: e.target.value ? Number(e.target.value) : null })}>
-                  <option value="">Not linked to a payroll week</option>
+                <select className="input min-w-[180px] flex-1 py-1.5" value={x.payrollLineId || ''} onChange={(e) => setPart(i, { payrollLineId: e.target.value ? Number(e.target.value) : null, direct: !e.target.value && !!x.weekEnding })}>
+                  <option value="">{x.direct ? `Week ending ${fmtDate(x.weekEnding)}, booked from this payment` : 'Not linked to a payroll week'}</option>
                   {x.payrollLineId && !owed?.weeks.some((w) => w.payrollLineId === x.payrollLineId) && <option value={x.payrollLineId}>Week ending {fmtDate(x.weekEnding)}</option>}
                   {owed?.weeks.map((w) => <option key={w.payrollLineId} value={w.payrollLineId}>Week ending {fmtDate(w.weekEnding)} · due {fmtRs(w.due, { decimals: false })}</option>)}
                 </select>)}
@@ -255,7 +351,9 @@ function StaffPaymentFields({ p, set, refData }) {
                 </select>)}
               <button type="button" className="btn-icon" onClick={() => set({ ...p, parts: parts.filter((_, j) => j !== i) })} aria-label="Remove"><Trash2 size={13} /></button>
             </div>
-            {x.kind === 'salary' && !x.payrollLineId && <p className="text-[11px] text-amber-700 dark:text-amber-300">Post the payroll week first if you can, so the payment settles it.</p>}
+            {x.kind === 'salary' && !x.payrollLineId && (x.direct
+              ? <p className="text-[11px] text-muted">No payroll posted for this week: the wage for the week ending {fmtDate(x.weekEnding)}{x.daysOff ? ` (${x.daysOff} day${x.daysOff === 1 ? '' : 's'} off)` : ''} is booked from this payment{x.expected ? `; expected ${fmtRs(x.expected, { decimals: false })}` : ''}.</p>
+              : <p className="text-[11px] text-amber-700 dark:text-amber-300">Post the payroll week first if you can, so the payment settles it.</p>)}
             {x.kind === 'claim' && !x.claimId && (
               <div className="space-y-1.5 pl-2">
                 {(x.lines || []).map((l, k) => (
@@ -266,7 +364,7 @@ function StaffPaymentFields({ p, set, refData }) {
                     <button type="button" className="btn-icon" disabled={x.lines.length <= 1} onClick={() => setPart(i, { lines: x.lines.filter((_, m) => m !== k) })} aria-label="Remove"><Trash2 size={12} /></button>
                   </div>
                 ))}
-                <button type="button" className="btn-ghost text-xs" onClick={() => setPart(i, { lines: [...(x.lines || []), { accountId: '', description: '', amount: '' }] })}><Plus size={12} />Split the market spend</button>
+                <button type="button" className="btn-ghost text-xs" onClick={() => setPart(i, { lines: [...(x.lines || []), { accountId: '', description: '', amount: '' }] })}><Plus size={12} />Split the spend</button>
               </div>
             )}
           </div>
@@ -280,7 +378,7 @@ function StaffPaymentFields({ p, set, refData }) {
 // What the reader saw (for checking against the picture)
 function Extracted({ e }) {
   const [show, setShow] = useState(false)
-  const rows = [['From', [e.fromName, e.fromLast4 && `…${e.fromLast4}`].filter(Boolean).join(' ')], ['To', [e.toName, e.toLast4 && `…${e.toLast4}`].filter(Boolean).join(' ')],
+  const rows = [['From', [e.fromName, e.fromLast4 && `…${e.fromLast4}`].filter(Boolean).join(' ')], ['To', [e.toName, e.toLast4 && `…${e.toLast4}`].filter(Boolean).join(' ')], ['Fee', e.fee ? `Rs ${e.fee}` : ''],
     ['Shop', e.shop], ['Purpose', e.purpose], ['Source', e.source], ['Time', e.time]].filter(([, v]) => v)
   return (
     <div className="rounded-xl border border-line">
