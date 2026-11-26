@@ -5,7 +5,7 @@ import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { useAuth, homeFor } from '../auth/AuthContext'
 import { getLookbook } from '../data/storage'
 import { LOOKBOOK } from '../data/lookbook'
-import { Runway } from './login/Showcase'
+import { GalleryCanvas } from './login/GalleryCanvas'
 import { ease } from '../ui/motion'
 
 // Opening sequence: logo, then the welcome, then each field, then the button
@@ -54,7 +54,7 @@ export default function Login() {
           <span className="rounded border border-line-strong px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-muted">CRM</span>
         </motion.div>
 
-        <motion.div variants={rise} className="mt-6 h-64 overflow-hidden rounded-2xl sm:h-80 lg:hidden"><Runway items={pieces} compact /></motion.div>
+        <motion.div variants={rise} className="mt-6 h-64 overflow-hidden rounded-2xl sm:h-80 lg:hidden"><GalleryCanvas items={pieces} compact /></motion.div>
 
         <div className="flex flex-1 items-center py-10">
           <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-5">
@@ -100,11 +100,11 @@ export default function Login() {
         <motion.p variants={rise} className="text-xs text-faint">Koko Atelier CRM © {new Date().getFullYear()}</motion.p>
       </motion.div>
 
-      {/* Lookbook side (desktop) */}
+      {/* Lookbook canvas (desktop) */}
       <div className="hidden p-4 pl-0 lg:block">
         <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, ease }}
           className="relative h-full overflow-hidden rounded-[28px] bg-sidebar shadow-lift">
-          <Runway items={pieces} />
+          <GalleryCanvas items={pieces} />
         </motion.div>
       </div>
     </div>

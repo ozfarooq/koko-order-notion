@@ -100,17 +100,11 @@
 }
 
 /* ── Login showcase motion ── */
-/* Story-style progress bar on the sign-in slideshow (duration set inline) */
-@keyframes runway-fill { from { width: 0 } to { width: 100% } }
-.runway-fill { animation: runway-fill linear forwards; }
 /* A soft highlight sweeps across a button on hover */
 .btn-shine { position: relative; overflow: hidden; isolation: isolate; }
 .btn-shine::after { content: ''; position: absolute; inset: 0; z-index: -1; transform: translateX(-120%);
   background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%); transition: transform 0.8s ease; }
 .btn-shine:hover::after { transform: translateX(120%); }
-@media (prefers-reduced-motion: reduce) {
-  .runway-fill { animation: none !important; width: 100%; }
-}
 
 /* Scrollbars */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
