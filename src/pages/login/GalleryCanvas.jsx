@@ -160,7 +160,7 @@ export function GalleryCanvas({ items: pieces, compact = false }) {
         <div key={it.id} ref={(el) => (el ? els.current.set(it.id, el) : els.current.delete(it.id))}
           className="absolute left-0 top-0 will-change-transform" style={{ width: photoW, height: photoW * 1.3, zIndex: Math.round(it.z * 100), visibility: 'hidden' }}
           onPointerEnter={() => !cam.current.drag && setHover(it.piece)} onPointerLeave={() => setHover((h) => (h === it.piece ? null : h))}>
-          <img src={sized(it.piece.src, 520)} alt="" draggable={false} decoding="async"
+          <img src={sized(it.piece.src, compact ? 360 : 520)} alt="" draggable={false} decoding="async"
             onLoad={(e) => { e.currentTarget.style.opacity = String(0.5 + it.z * 0.5) }}
             className="h-full w-full rounded-xl object-cover object-top opacity-0 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.6)] ring-1 ring-white/10 transition-[opacity,transform,box-shadow] duration-700 hover:!opacity-100 hover:ring-gold-400/70"
             style={{ transitionDelay: `${it.delay}s, 0s, 0s` }} />
