@@ -8,6 +8,26 @@ import { LOOKBOOK } from '../data/lookbook'
 import { GalleryCanvas } from './login/GalleryCanvas'
 import { ease } from '../ui/motion'
 
+const TAGLINE = 'From the first cut to the final fitting, every Koko piece passes through here.'
+
+// Text that comes into focus a letter or a word at a time (blur to sharp, a small rise)
+function Reveal({ as = 'p', text, by = 'word', delay = 0, className = '' }) {
+  const Tag = motion[as]
+  const parts = by === 'letter' ? [...text] : text.split(/(\s+)/)
+  const step = by === 'letter' ? 0.045 : 0.05
+  return (
+    <Tag className={className} aria-label={text} initial="hidden" animate="show"
+      variants={{ hidden: {}, show: { transition: { staggerChildren: step, delayChildren: delay } } }}>
+      {parts.map((t, i) => (/^\s+$/.test(t) ? <span key={i}>{' '}</span> : (
+        <motion.span key={i} aria-hidden className="inline-block"
+          variants={{ hidden: { opacity: 0, y: 8, filter: 'blur(8px)' }, show: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.7, ease } } }}>
+          {t}
+        </motion.span>
+      )))}
+    </Tag>
+  )
+}
+
 // Opening sequence: logo, then the welcome, then each field, then the button
 const seq = { hidden: {}, show: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } } }
 const rise = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease } } }
@@ -45,7 +65,12 @@ export default function Login() {
   return (
     <div className="grid min-h-[100dvh] grid-cols-[minmax(0,1fr)] bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
       {/* Sign-in side */}
-      <motion.div variants={seq} initial="hidden" animate="show" className="flex min-w-0 flex-col px-6 py-8 sm:px-10 lg:px-16 lg:py-10">
+      <motion.div variants={seq} initial="hidden" animate="show" className="relative isolate flex min-w-0 flex-col overflow-hidden px-6 py-8 sm:px-10 lg:px-16 lg:py-10">
+        {/* Two soft glows, wine and champagne, drifting slowly behind the form */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+          <span className="login-glow login-glow-a" />
+          <span className="login-glow login-glow-b" />
+        </div>
         <motion.div variants={rise} className="flex items-center gap-3">
           <img src="/brand/emblem.png" alt="" className="h-12 w-auto dark:hidden" />
           <img src="/brand/emblem-white.png" alt="" className="hidden h-12 w-auto opacity-90 dark:block" />
@@ -58,11 +83,14 @@ export default function Login() {
 
         <div className="flex flex-1 items-center py-10">
           <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-5">
-            <motion.div variants={rise}>
-              <p className="eyebrow text-accent">Sign-in</p>
-              <h1 className="mt-2 text-[2.1rem] leading-tight text-ink">Welcome Back</h1>
-              <p className="mt-2 text-sm text-muted">From the first cut to the final fitting, every Koko piece passes through here.</p>
-            </motion.div>
+            <div>
+              <p className="eyebrow flex items-center gap-2.5 text-accent">
+                <motion.span className="h-px bg-accent" initial={{ width: 0 }} animate={{ width: 22 }} transition={{ duration: 0.7, delay: 0.25, ease }} />
+                <motion.span initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.35, ease }}>Sign-in</motion.span>
+              </p>
+              <Reveal as="h1" text="Welcome Back" by="letter" delay={0.45} className="mt-2 text-[2.1rem] leading-tight text-ink" />
+              <Reveal as="p" text={TAGLINE} by="word" delay={0.95} className="mt-2 text-sm text-muted" />
+            </div>
 
             <motion.div variants={rise}>
               <label className="label" htmlFor="username">Username</label>
