@@ -59,9 +59,9 @@ export default function Login() {
         <div className="flex flex-1 items-center py-10">
           <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-5">
             <motion.div variants={rise}>
-              <p className="eyebrow text-accent">Studio sign-in</p>
-              <h1 className="mt-2 text-[2.1rem] leading-tight text-ink">Welcome back</h1>
-              <p className="mt-2 text-sm text-muted">Orders, customers, stock and resellers for the Koko Atelier studio.</p>
+              <p className="eyebrow text-accent">Sign-in</p>
+              <h1 className="mt-2 text-[2.1rem] leading-tight text-ink">Welcome Back</h1>
+              <p className="mt-2 text-sm text-muted">From the first cut to the final fitting, every Koko piece passes through here.</p>
             </motion.div>
 
             <motion.div variants={rise}>
